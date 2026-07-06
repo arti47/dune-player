@@ -794,6 +794,39 @@ export const DATA = {
     maxFactionTemplates: 1,
   },
 
+  // ---------- T40 · Creation in Play (Core alternative: define a character gradually) ----------
+  // An incomplete character reveals abilities they "always had" as situations demand. Each
+  // remaining choice is a limited-use "define" option ticked off until the character is complete.
+  creationInPlay: {
+    intro: 'You can start play with an incomplete character and reveal the rest during play. Defining an ability isn’t learning it — the character always had it; it just becomes known now. Assigning the highest option each time is tempting, but you’ll be left with your worst options, so plan what your character is good at long-term and let teammates shine at their own things.',
+    // Each option = a limited number of "defines". A starting character keeps the archetype/
+    // faction picks already made; these cover what remains.
+    options: [
+      { id: 'trait',   name: 'Define a trait',   uses: 1, desc: 'Before an action that depends on how others regard you, define your remaining reputation/personality trait; it then counts in resolving that action.' },
+      { id: 'skills',  name: 'Define skills',    uses: 3, desc: 'On a test with an undefined skill, give it a rating of 4, 5, or 6 — each rating used once across your remaining skills — then roll as normal.' },
+      { id: 'focuses', name: 'Define focuses',   uses: 2, desc: 'On a test where no focus applies, define one of your remaining focuses, then roll as normal.' },
+      { id: 'talents', name: 'Define talents',   uses: 2, desc: 'At any time, take a talent you qualify for; if it would help a test you’re about to attempt, you gain its benefit on that test.' },
+      { id: 'drives',  name: 'Define drives',    uses: 4, desc: 'On a test, define an undefined drive and assign its rating by importance (see the table). A 2nd/3rd drive (rating 6+) also needs a drive statement, which grants 1 Determination immediately. You can’t challenge a drive until the character is complete.' },
+      { id: 'ambition', name: 'Define ambition', uses: 1, desc: 'At any time, define your ambition, based on your most important drive; the GM helps make sure it recurs in play.' },
+      { id: 'assets',  name: 'Define assets',    uses: 2, desc: 'At any time (ideally just before an action it helps), define one of your remaining assets by the normal starting-asset rules — be realistic about what you could plausibly have on hand.' },
+    ],
+    // Drive-importance ranking table — corroborates the 8/7/6/5/4 array and the statement-on-6+ rule.
+    driveImportance: [
+      { rank: '1st', rating: 8, meaning: 'The single most important thing for you.' },
+      { rank: '2nd', rating: 7, meaning: 'A high priority for you.' },
+      { rank: '3rd', rating: 6, meaning: 'Certainly something that influences you.' },
+      { rank: '4th', rating: 5, meaning: 'It matters, but you have other priorities.' },
+      { rank: '5th', rating: 4, meaning: 'You care very little about this thing.' },
+    ],
+    notes: [
+      'Creating a drive statement in play immediately grants 1 Determination.',
+      'You cannot challenge a drive statement until the character is complete — that life-changing choice waits until they are fully formed.',
+      'The GM should engineer situations to test each undefined ability, and may suggest useful talents/focuses ("if you had Bold (Communicate), this would be easier").',
+      'The GM sets a time limit (a session, or a starting adventure); anything undefined by then is completed outside play at the session’s end.',
+      'Once every option above is used, the character is complete and may begin earning and spending advancement.',
+    ],
+  },
+
   // ---------- T39 · Creation guidance (book helper text; paraphrased/quoted prompts) ----------
   creationGuidance: {
     // Example drive statements printed in the book, per drive.

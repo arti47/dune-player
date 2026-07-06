@@ -414,6 +414,20 @@ check('Ambition intro + change rule present; change rule cites the <6 threshold'
 check('Every focus example has a description',
   DATA.skills.every((s) => DATA.focusExamples[s.id].every((f) => f.desc && f.desc.length)));
 
+console.log('— Data invariants (ledger T40: creation in play) —');
+const CIP = DATA.creationInPlay;
+check('Creation-in-play has all 7 define options',
+  ['trait', 'skills', 'focuses', 'talents', 'drives', 'ambition', 'assets'].every((id) =>
+    CIP.options.find((o) => o.id === id)));
+check('Define-option use counts: trait 1 · skills 3 · focuses 2 · talents 2 · drives 4 · ambition 1 · assets 2',
+  (() => { const u = Object.fromEntries(CIP.options.map((o) => [o.id, o.uses]));
+    return u.trait === 1 && u.skills === 3 && u.focuses === 2 && u.talents === 2 &&
+      u.drives === 4 && u.ambition === 1 && u.assets === 2; })());
+check('Drive-importance table maps 1st–5th → 8/7/6/5/4 (matches the creation array)',
+  JSON.stringify(CIP.driveImportance.map((d) => d.rating)) === JSON.stringify([...DATA.creation.driveArray]));
+check('Creation-in-play notes cover the Determination grant + no-challenge-until-complete rules',
+  CIP.notes.some((n) => /Determination/i.test(n)) && CIP.notes.some((n) => /challenge/i.test(n)));
+
 console.log('— Creation rules from the Core Ch.3 text (focuses / talents / drive-ranking) —');
 // Focus rule: at least one focus on the primary AND one on the secondary skill.
 check('Focus creation requires ≥1 on primary AND ≥1 on secondary',

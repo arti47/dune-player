@@ -113,6 +113,16 @@ export function renderRules(root) {
     el('ul', {}, ...DATA.creationGuidance.driveRanking.pairs.map(([a, b]) =>
       el('li', { class: 'small' }, `${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}?`))))));
 
+  cards.push(ruleCard('Creating a character in play', el('div', {},
+    el('p', { class: 'small' }, DATA.creationInPlay.intro),
+    el('p', { class: 'small muted' }, 'Each remaining choice is a limited-use “define” option:'),
+    table(['Define', 'Uses', 'How it works'],
+      DATA.creationInPlay.options.map((o) => [o.name, String(o.uses), o.desc])),
+    el('h4', {}, 'Defining a drive'),
+    table(['Importance', 'Rating', 'Meaning'],
+      DATA.creationInPlay.driveImportance.map((d) => [d.rank, String(d.rating), d.meaning])),
+    el('ul', {}, ...DATA.creationInPlay.notes.map((n) => el('li', { class: 'small muted' }, n))))));
+
   cards.push(ruleCard('Skill test basics', el('p', { class: 'small' },
     `Roll ${DATA.dicePool.base}d20 (max ${DATA.dicePool.max}). Each die ≤ Skill + Drive scores 1 success. ` +
     `Meet the Difficulty to succeed; extra successes become Momentum. A natural 1 scores 2 successes; ` +
