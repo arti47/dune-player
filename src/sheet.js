@@ -62,7 +62,10 @@ function characterSummary(c) {
     el('p', { class: 'small' }, (c.focuses || []).map((f) => `${f.name} (${SKILL_NAME[f.skill]})`).join(', ') || '—'),
 
     el('h4', {}, 'Talents'),
-    el('p', { class: 'small' }, (c.talents || []).map((t) => t.name).join(', ') || '—'),
+    el('p', { class: 'small' }, (c.talents || []).map((t) => {
+      const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? DRIVE_NAME[t.drive] : t.category || null;
+      return param ? `${t.name} (${param})` : t.name;
+    }).join(', ') || '—'),
 
     el('h4', {}, 'Traits'),
     (c.traits || []).length

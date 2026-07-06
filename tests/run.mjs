@@ -386,6 +386,38 @@ check('Ambition intro + change rule present; change rule cites the <6 threshold'
 check('Every focus example has a description',
   DATA.skills.every((s) => DATA.focusExamples[s.id].every((f) => f.desc && f.desc.length)));
 
+console.log('— Creation rules from the Core Ch.3 text (focuses / talents / drive-ranking) —');
+// Focus rule: at least one focus on the primary AND one on the secondary skill.
+check('Focus creation requires ≥1 on primary AND ≥1 on secondary',
+  DATA.creation.focuses.minOnPrimarySkill === 1 && DATA.creation.focuses.minOnSecondarySkill === 1);
+// Talent pick metadata: skill/drive/asset-category-bound talents are flagged for the wizard.
+const pickTalents = DATA.talents.filter((t) => t.pick);
+check('Bound talents carry a valid pick (skill/drive/assetCategory)',
+  pickTalents.length >= 8 && pickTalents.every((t) => ['skill', 'drive', 'assetCategory'].includes(t.pick)));
+check('Bold is skill-bound · The Reason I Fight is drive-bound · Specialist is category-bound',
+  DATA.talents.find((t) => t.name === 'Bold').pick === 'skill' &&
+  DATA.talents.find((t) => t.name === 'The Reason I Fight').pick === 'drive' &&
+  DATA.talents.find((t) => t.name === 'Specialist').pick === 'assetCategory');
+// Step notes surfaced in the app.
+check('Creation step notes cover skills/focuses/talents/drives',
+  ['skills', 'focuses', 'talents', 'drives'].every((k) => typeof G.stepNotes[k] === 'string' && G.stepNotes[k].length >= 40));
+check('Focuses note states the secondary-skill requirement; talents note explains repeatable skill picks',
+  /secondary/i.test(G.stepNotes.focuses) && /Bold/.test(G.stepNotes.talents));
+// "One Way to Choose Drives" pairwise method: all 10 unique pairs, each drive in 4 comparisons.
+const dr = G.driveRanking;
+check('Drive-ranking has all 10 unique pairs of the 5 drives',
+  dr.pairs.length === 10 &&
+  new Set(dr.pairs.map((p) => [...p].sort().join('|'))).size === 10 &&
+  dr.pairs.every(([a, b]) => DRIVE_IDS.includes(a) && DRIVE_IDS.includes(b) && a !== b));
+check('Each drive appears in exactly 4 comparisons',
+  DRIVE_IDS.every((d) => dr.pairs.filter((p) => p.includes(d)).length === 4));
+const { rankDrivesFromComparisons } = await import(join(root, 'src/rules.js'));
+// Faith wins all its pairs → ranks first; then duty(3), power(2), truth(1), justice(0).
+const rankWinners = ['faith', 'duty', 'duty', 'duty', 'faith', 'faith', 'faith', 'power', 'truth', 'power'];
+check('rankDrivesFromComparisons orders by wins (head-to-head tie-break)',
+  JSON.stringify(rankDrivesFromComparisons(dr.pairs, rankWinners)) ===
+  JSON.stringify(['faith', 'duty', 'power', 'truth', 'justice']));
+
 console.log('— Derived module invariants —');
 const { targetNumber, normalizeCharacter, clampDetermination } = await import(join(root, 'src/derived.js'));
 const c = normalizeCharacter({ skills: { battle: 6 }, drives: { duty: 8 } });

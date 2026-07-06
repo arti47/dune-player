@@ -662,7 +662,10 @@ export const DATA = {
     skillArray: { primary: 6, secondary: 5, rest: 4, freePoints: 5, cap: 8 },
     driveArray: [8, 7, 6, 5, 4],
     driveStatements: { count: 3, onDrivesRated: [8, 7, 6] },
-    focuses: { count: 4, minOnPrimarySkill: 1 },
+    // Focuses: the archetype supplies 2 (one on the primary skill, one on the secondary);
+    // you may swap them, but you MUST still have at least one focus on your primary skill AND
+    // at least one on your secondary skill. The remaining 2 are free (any skill). (Core, Ch. 3.)
+    focuses: { count: 4, minOnPrimarySkill: 1, minOnSecondarySkill: 1 },
     talents: { count: 3, minArchetypeRelated: 1 },
     assets: { count: 3, minTangible: 1 },
     finishing: { traits: 1, ambitionTiedToHighestDrive: true },
@@ -765,6 +768,27 @@ export const DATA = {
       'How much do you respect the rulers of your House?',
       'What, if anything, would make you betray those around you?',
     ],
+    // "One Way to Choose Drives" sidebar (Core, Ch. 3): compare each drive against every other
+    // (10 pairings for 5 drives); whichever wins most is highest (8), and so on down to 4.
+    // A two-way tie is broken by the direct matchup between those drives.
+    driveRanking: {
+      intro: 'Not sure how to rank your drives? Compare them two at a time. For each pair, pick the drive that matters more to your character. The drive that wins most comparisons is your 8, then 7, 6, 5, and 4. If two drives tie, the pair where you compared them directly breaks the tie.',
+      // Every unordered pair of the five drives, in book order.
+      pairs: [
+        ['duty', 'faith'], ['duty', 'justice'], ['duty', 'power'], ['duty', 'truth'],
+        ['faith', 'justice'], ['faith', 'power'], ['faith', 'truth'],
+        ['justice', 'power'], ['justice', 'truth'],
+        ['power', 'truth'],
+      ],
+    },
+    // Authoritative step-by-step creation notes (paraphrased from Core, Ch. 3) — surfaced in the
+    // rules library and as wizard step intros so the rules travel with the tool.
+    stepNotes: {
+      skills: 'Your five skills (Battle, Communicate, Discipline, Move, Understand) are each rated 4–8. Your archetype sets your primary skill to 6 and your secondary to 5; the other three start at 4. Then distribute 5 more points however you like, but no skill may exceed 8 this way.',
+      focuses: 'A focus is a narrow specialization tied to one skill, though it can apply to any skill where it fits. You have four focuses. Your archetype offers two — one on your primary skill and one on your secondary — which you may replace, but you must keep at least one focus on your primary skill and one on your secondary. The remaining two focuses may go on any skills.',
+      talents: 'Talents are special abilities that make a character stand out. You have three. Your archetype suggests one (with thematic options); at least one of your talents must relate to your archetype. Some talents are tied to a skill or drive chosen when you take them (e.g. Bold (Battle)); the same talent may be taken again for a different skill (Bold (Communicate)). Faction talents (Mentat, Bene Gesserit, etc.) may only be taken by members of that faction.',
+      drives: 'Your five drives (Duty, Faith, Justice, Power, Truth) are each rated 4–8, showing how important each is. Rank them and assign 8, 7, 6, 5, and 4 in order of importance. Then write a drive statement for each of your three highest drives (8, 7, 6) — a short belief that shapes how the character acts.',
+    },
   },
 
   // ---------- T10 · Archetypes (20) ----------

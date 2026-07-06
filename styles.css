@@ -106,7 +106,10 @@ button { font: inherit; }
   min-height: 44px;
 }
 .btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 0.85rem; flex: 0 0 auto; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Inline "×" remove control on a chosen-talent pill. */
+.chip-x { background: none; border: none; color: inherit; cursor: pointer; font-weight: 700; padding: 0 0 0 2px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
 .pill {

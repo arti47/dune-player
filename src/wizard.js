@@ -9,6 +9,7 @@ import { DATA } from '../data.js';
 import { PREGENS } from '../data-pregens.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived.js';
+import { rankDrivesFromComparisons } from './rules.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -196,18 +197,21 @@ function stepSkills(state, body, rerender) {
 
 // ---------- Step 4: Focuses ----------
 function validateFocuses(state) {
-  const { count, minOnPrimarySkill } = DATA.creation.focuses;
+  const { count, minOnPrimarySkill, minOnSecondarySkill } = DATA.creation.focuses;
   const filled = state.focuses.filter((f) => f.skill && f.name.trim());
   if (filled.length !== count) return `Pick exactly ${count} focuses (each needs a skill and a name).`;
-  const primary = archetypeById(state.archetype).primary;
+  const { primary, secondary } = archetypeById(state.archetype);
   if (filled.filter((f) => f.skill === primary).length < minOnPrimarySkill)
     return `At least ${minOnPrimarySkill} focus must be on your primary skill (${SKILL_NAME[primary]}).`;
+  if (filled.filter((f) => f.skill === secondary).length < minOnSecondarySkill)
+    return `At least ${minOnSecondarySkill} focus must be on your secondary skill (${SKILL_NAME[secondary]}).`;
   return null;
 }
 function stepFocuses(state, body, rerender) {
   const a = archetypeById(state.archetype);
-  body.append(el('p', { class: 'small muted' },
-    `Pick 4 focuses, at least one on your primary skill (${SKILL_NAME[a.primary]}). Suggested: ${a.focuses.join(', ')}.`));
+  body.append(el('p', { class: 'small muted' }, DATA.creationGuidance.stepNotes.focuses),
+    el('p', { class: 'small muted' },
+      `Keep at least one focus on your primary skill (${SKILL_NAME[a.primary]}) and one on your secondary (${SKILL_NAME[a.secondary]}). Archetype suggestions: ${a.focuses.join(', ')}.`));
 
   state.focuses.forEach((f, i) => {
     const skillSel = el('select', { 'aria-label': `Focus ${i + 1} skill` },
@@ -238,6 +242,18 @@ function stepFocuses(state, body, rerender) {
 function archetypeTalentNames(state) {
   return archetypeById(state.archetype).talents.map(baseName);
 }
+const talentParam = (key) => (key.match(/\(([^)]*)\)\s*$/) || [])[1]?.trim() || null;
+/** Does a chosen talent key satisfy a faction/archetype option string? An unparameterised
+ *  option (e.g. "The Reason I Fight") matches any binding of that talent; a parameterised
+ *  option (e.g. "Resilience (Battle)") matches only that exact parameter. */
+function talentKeyMatchesOption(key, opt) {
+  if (baseName(key) !== baseName(opt)) return false;
+  const op = talentParam(opt);
+  return !op || op === talentParam(key);
+}
+function talentSatisfies(state, opt) {
+  return [...state.talents].some((k) => talentKeyMatchesOption(k, opt));
+}
 function validateTalents(state) {
   const { count, minArchetypeRelated } = DATA.creation.talents;
   const picked = [...state.talents];
@@ -248,59 +264,115 @@ function validateTalents(state) {
   const f = factionById(state.factionTemplate);
   if (f) {
     const opts = f.mandatoryTalents.options;
-    if (f.mandatoryTalents.mode === 'all' && !opts.every((o) => state.talents.has(o)))
+    if (f.mandatoryTalents.mode === 'all' && !opts.every((o) => talentSatisfies(state, o)))
       return `Your faction requires: ${opts.join(', ')}.`;
-    if (f.mandatoryTalents.mode === 'atLeastOne' && !opts.some((o) => state.talents.has(o)))
+    if (f.mandatoryTalents.mode === 'atLeastOne' && !opts.some((o) => talentSatisfies(state, o)))
       return `Your faction requires at least one of: ${opts.join(', ')}.`;
   }
   return null;
 }
+/** Parameter option labels for a skill/drive/asset-category-bound talent.
+ *  Skill options honour a "rated 6+" requirement (skills are set before this step);
+ *  `suggested` folds in any archetype/faction-supplied param (e.g. "Warfare Assets"). */
+function talentParamOptions(def, state, suggested) {
+  let opts = [];
+  if (def.pick === 'skill') {
+    const need6 = /6\+/.test(def.requirement || '');
+    opts = SKILL_IDS.filter((id) => !need6 || (state.skills?.[id] ?? 0) >= 6).map((id) => SKILL_NAME[id]);
+  } else if (def.pick === 'drive') {
+    opts = DRIVE_IDS.map((id) => DRIVE_NAME[id]);
+  } else if (def.pick === 'assetCategory') {
+    opts = ['Dueling', 'Warfare', 'Espionage', 'Intrigue'];
+  }
+  for (const s of suggested) if (s && !opts.includes(s)) opts.push(s);
+  return opts;
+}
+
 function stepTalents(state, body, rerender) {
   const { count } = DATA.creation.talents;
   const f = factionById(state.factionTemplate);
   const archNames = new Set(archetypeTalentNames(state).map((n) => n.toLowerCase()));
-  const status = el('p', {}, el('span', { class: 'pill' }, `${state.talents.size}/${count} chosen`));
+  const status = el('span', { class: 'pill' }, `${state.talents.size}/${count} chosen`);
+  const updateStatus = () => { status.textContent = `${state.talents.size}/${count} chosen`; };
+  body.append(el('p', { class: 'small muted' }, DATA.creationGuidance.stepNotes.talents));
   body.append(el('p', { class: 'small muted' },
     `Pick ${count} talents, at least one archetype-related${f ? `; your faction mandates ${f.mandatoryTalents.mode === 'all' ? 'all of' : 'one of'}: ${f.mandatoryTalents.options.join(', ')}` : ''}.`),
-    status);
+    el('p', {}, status));
 
   const search = el('input', { type: 'search', placeholder: 'Search talents…', 'aria-label': 'Search talents' });
   body.append(search);
   const list = el('div', { class: 'check-list' });
   body.append(list);
 
-  // Build a display set: faction options + archetype talents first, then the rest.
+  // One row per base talent. Faction options + archetype talents first, then the catalog.
   const factionOpts = f ? f.mandatoryTalents.options : [];
-  const priority = new Set([...factionOpts, ...archetypeById(state.archetype).talents.map(baseName)]);
-  const catalog = DATA.talents.map((t) => t.name);
-  // Some faction/archetype names (e.g. "Foreknowledge") may not be in the catalog — include them anyway.
-  const displayNames = [...new Set([...priority, ...catalog])];
+  const priorityKeys = [...factionOpts, ...archetypeById(state.archetype).talents];
+  const bases = [];
+  const seen = new Set();
+  for (const key of [...priorityKeys, ...DATA.talents.map((t) => t.name)]) {
+    const base = baseName(key);
+    if (seen.has(base)) continue;
+    seen.add(base);
+    // Suggested param(s) from any parameterised priority key for this base (e.g. "Resilience (Battle)").
+    const suggested = priorityKeys.filter((k) => baseName(k) === base && /\(.*\)$/.test(k))
+      .map((k) => k.replace(/^.*\(([^)]*)\)$/, '$1').trim());
+    bases.push({ base, suggested });
+  }
 
   const renderList = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren();
-    for (const name of displayNames) {
-      if (q && !name.toLowerCase().includes(q)) continue;
-      const def = DATA.talents.find((t) => t.name === name || baseName(name) === t.name);
-      const checked = state.talents.has(name);
-      const isArch = archNames.has(baseName(name).toLowerCase());
-      const isFaction = factionOpts.includes(name);
-      const box = el('input', { type: 'checkbox', id: `tal-${name}` });
-      box.checked = checked;
-      box.addEventListener('change', () => {
-        if (box.checked) {
-          if (state.talents.size >= count) { box.checked = false; showToast(`Only ${count} talents.`); return; }
-          state.talents.add(name);
-        } else state.talents.delete(name);
-        status.firstChild.textContent = `${state.talents.size}/${count} chosen`;
-      });
-      list.append(el('label', { class: 'check-item', for: `tal-${name}` },
-        box,
-        el('div', {},
-          el('div', {}, name,
-            isArch ? el('span', { class: 'tag' }, 'archetype') : null,
-            isFaction ? el('span', { class: 'tag' }, 'faction') : null),
-          el('div', { class: 'small muted' }, def ? def.effect : 'Faction/archetype talent (see rules library).'))));
+    for (const { base, suggested } of bases) {
+      if (q && !base.toLowerCase().includes(q)) continue;
+      const def = DATA.talents.find((t) => t.name === base);
+      const isArch = archNames.has(base.toLowerCase());
+      const isFaction = factionOpts.some((o) => baseName(o) === base);
+      const tags = el('div', {}, base,
+        isArch ? el('span', { class: 'tag' }, 'archetype') : null,
+        isFaction ? el('span', { class: 'tag' }, 'faction') : null,
+        def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null);
+      const effect = el('div', { class: 'small muted' }, def ? def.effect : 'Faction/archetype talent (see rules library).');
+
+      if (def && def.pick) {
+        // Bound talent: choose a skill/drive/category, may add more than one (e.g. Bold (Battle) + Bold (Communicate)).
+        const options = talentParamOptions(def, state, suggested);
+        const sel = el('select', { 'aria-label': `${base} — choose ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'}` },
+          el('option', { value: '' }, `— ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'} —`),
+          ...options.map((o) => el('option', { value: o, selected: suggested[0] === o ? '' : null }, o)));
+        const chips = el('div', { class: 'trait-list' });
+        const renderChips = () => {
+          chips.replaceChildren(...[...state.talents].filter((k) => baseName(k) === base).map((k) =>
+            el('span', { class: 'pill' }, k,
+              el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove ${k}`,
+                onclick: () => { state.talents.delete(k); renderChips(); updateStatus(); } }, ' ×'))));
+        };
+        const addBtn = el('button', { type: 'button', class: 'btn secondary small', onclick: () => {
+          if (!sel.value) { showToast(`Choose a ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'} first.`); return; }
+          const key = `${base} (${sel.value})`;
+          if (state.talents.has(key)) { showToast('Already chosen.'); return; }
+          if (state.talents.size >= count) { showToast(`Only ${count} talents.`); return; }
+          state.talents.add(key); renderChips(); updateStatus();
+        } }, 'Add');
+        renderChips();
+        list.append(el('div', { class: 'check-item' },
+          el('div', {},
+            tags, effect,
+            def.requirement ? el('div', { class: 'small muted' }, `Requires: ${def.requirement}.`) : null,
+            el('div', { class: 'focus-row' }, sel, addBtn),
+            chips)));
+      } else {
+        // Unbound talent: single checkbox toggling the base name.
+        const box = el('input', { type: 'checkbox', id: `tal-${base}` });
+        box.checked = state.talents.has(base);
+        box.addEventListener('change', () => {
+          if (box.checked) {
+            if (state.talents.size >= count) { box.checked = false; showToast(`Only ${count} talents.`); return; }
+            state.talents.add(base);
+          } else state.talents.delete(base);
+          updateStatus();
+        });
+        list.append(el('label', { class: 'check-item', for: `tal-${base}` }, box, el('div', {}, tags, effect)));
+      }
     }
   };
   search.addEventListener('input', renderList);
@@ -323,8 +395,34 @@ function stepDrives(state, body, rerender) {
   const array = DATA.creation.driveArray;
   const G = DATA.creationGuidance;
   const rated = DATA.creation.driveStatements.onDrivesRated;
-  body.append(el('p', { class: 'small muted' },
-    `Assign ${array.join(' / ')} across your five drives (each value once). Write a statement for the ${rated.join('/')}-rated drives.`));
+  body.append(el('p', { class: 'small muted' }, G.stepNotes.drives),
+    el('p', { class: 'small muted' },
+      `Assign ${array.join(' / ')} across your five drives (each value once). Write a statement for the ${rated.join('/')}-rated drives.`));
+
+  // "One Way to Choose Drives" — optional pairwise helper that fills the 8/7/6/5/4 order.
+  if (G.driveRanking) {
+    const picks = (state._drivePairPicks ||= {});
+    const helper = el('details', { class: 'tips' }, el('summary', {}, 'Help me rank my drives'));
+    helper.append(el('p', { class: 'small muted' }, G.driveRanking.intro));
+    G.driveRanking.pairs.forEach(([a, b], i) => {
+      const sel = el('select', { 'aria-label': `Comparison ${i + 1}: ${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}` },
+        el('option', { value: '' }, `${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}?`),
+        el('option', { value: a, selected: picks[i] === a ? '' : null }, DRIVE_NAME[a]),
+        el('option', { value: b, selected: picks[i] === b ? '' : null }, DRIVE_NAME[b]));
+      sel.addEventListener('change', () => { picks[i] = sel.value || null; });
+      helper.append(el('div', { class: 'focus-row' }, el('span', { class: 'small muted' }, `${i + 1}.`), sel));
+    });
+    const apply = el('button', { type: 'button', class: 'btn secondary', onclick: () => {
+      const winners = G.driveRanking.pairs.map((_, i) => picks[i]);
+      if (winners.some((w) => !w)) { showToast('Answer all 10 comparisons first.'); return; }
+      const order = rankDrivesFromComparisons(G.driveRanking.pairs, winners);
+      order.forEach((d, idx) => { state.driveAssignment[d] = array[idx]; });
+      showToast('Drives ranked — adjust below if you like.');
+      rerender();
+    } }, 'Apply ranking');
+    helper.append(apply);
+    body.append(helper);
+  }
 
   for (const d of DRIVE_IDS) {
     // Only offer values not already taken by another drive (keep this drive's own value).
@@ -372,7 +470,7 @@ function validateAssets(state) {
   const picked = [...state.assets].map((n) => DATA.assets.find((a) => a.name === n));
   if (picked.length !== count) return `Pick exactly ${count} assets (${picked.length} selected).`;
   if (picked.filter((a) => a.tangible === true).length < minTangible) return `At least ${minTangible} asset must be tangible.`;
-  const cap = permanentAssetCap({ talents: [...state.talents].map((name) => ({ name })) });
+  const cap = permanentAssetCap({ talents: [...state.talents].map((key) => ({ name: baseName(key) })) });
   if (picked.length > cap) return `Permanent-asset cap is ${cap}.`;
   return null;
 }
@@ -481,11 +579,28 @@ function buildCharacter(state) {
   if (f) traits.push({ name: f.trait, negative: false, source: 'faction' });
   if (state.reputationTrait.trim()) traits.push({ name: state.reputationTrait.trim(), negative: false, source: 'finishing' });
 
-  const talents = [...state.talents].map((name) => ({
-    name,
-    source: f && f.mandatoryTalents.options.includes(name) ? 'faction'
-      : archetypeTalentNames(state).map((n) => n.toLowerCase()).includes(baseName(name).toLowerCase()) ? 'archetype' : 'chosen',
-  }));
+  // Talent keys are display strings ("Bold (Battle)", "Voice"). Store the base catalog name
+  // plus the chosen parameter routed by the talent's pick type (§7: skill?/drive?/category?).
+  const SKILL_BY_NAME = Object.fromEntries(DATA.skills.map((s) => [s.name, s.id]));
+  const DRIVE_BY_NAME = Object.fromEntries(DATA.drives.map((d) => [d.name, d.id]));
+  const archLower = archetypeTalentNames(state).map((n) => n.toLowerCase());
+  const talents = [...state.talents].map((key) => {
+    const base = baseName(key);
+    const paramMatch = key.match(/\(([^)]*)\)\s*$/);
+    const param = paramMatch ? paramMatch[1].trim() : null;
+    const def = DATA.talents.find((t) => t.name === base);
+    const entry = {
+      name: base,
+      source: f && f.mandatoryTalents.options.some((o) => talentKeyMatchesOption(key, o)) ? 'faction'
+        : archLower.includes(base.toLowerCase()) ? 'archetype' : 'chosen',
+    };
+    if (param && def) {
+      if (def.pick === 'skill' && SKILL_BY_NAME[param]) entry.skill = SKILL_BY_NAME[param];
+      else if (def.pick === 'drive' && DRIVE_BY_NAME[param]) entry.drive = DRIVE_BY_NAME[param];
+      else if (def.pick === 'assetCategory') entry.category = param;
+    }
+    return entry;
+  });
 
   const assets = [...state.assets].map((n) => {
     const def = DATA.assets.find((x) => x.name === n);

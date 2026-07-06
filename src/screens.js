@@ -96,10 +96,21 @@ export function renderRules(root) {
     ...DATA.skills.map((s) => el('p', { class: 'small' },
       el('strong', {}, s.name + ': '), s.desc)))));
 
+  cards.push(ruleCard('Building a character', el('div', {},
+    el('p', { class: 'small muted' }, 'The wizard walks these steps; here are the rules behind each.'),
+    ...Object.entries(DATA.creationGuidance.stepNotes).map(([step, note]) => el('p', { class: 'small' },
+      el('strong', {}, capitalize(step) + ': '), note)))));
+
   cards.push(ruleCard('Drives', el('div', {},
     el('p', { class: 'small muted' }, 'Five drives, assigned 8/7/6/5/4 at creation. Your target number is Skill + Drive.'),
     ...DATA.drives.map((d) => el('p', { class: 'small' },
       el('strong', {}, d.name + ': '), d.desc)))));
+
+  cards.push(ruleCard('Choosing drives', el('div', {},
+    el('p', { class: 'small' }, DATA.creationGuidance.driveRanking.intro),
+    el('p', { class: 'small muted' }, 'The ten comparisons:'),
+    el('ul', {}, ...DATA.creationGuidance.driveRanking.pairs.map(([a, b]) =>
+      el('li', { class: 'small' }, `${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}?`))))));
 
   cards.push(ruleCard('Skill test basics', el('p', { class: 'small' },
     `Roll ${DATA.dicePool.base}d20 (max ${DATA.dicePool.max}). Each die ≤ Skill + Drive scores 1 success. ` +
