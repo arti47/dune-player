@@ -436,5 +436,29 @@ check('normalizeHouse keeps Great Game numeric fields when present',
     return h.skills.battle === 9 && h.resources === 30 && h.wealth === 52;
   })());
 
+console.log('— Store JSON export/import (Phase 2) —');
+// Minimal localStorage shim so store.js runs headless.
+const _mem = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (_mem.has(k) ? _mem.get(k) : null),
+  setItem: (k, v) => _mem.set(k, String(v)),
+  removeItem: (k) => _mem.delete(k),
+};
+const store = await import(join(root, 'src/store.js'));
+store.saveCharacter({ id: 'x1', identity: { name: 'Alia' }, skills: { battle: 6 }, drives: { duty: 8 },
+  assets: [{ name: 'Crysknife', quality: 1, tangible: true, permanent: true }] });
+store.savePools({ momentum: 4, threat: 2 });
+const bundle = store.exportAll();
+check('exportAll includes app tag + characters + pools',
+  bundle.app === 'imperium-player' && bundle.characters.length === 1 && bundle.pools.momentum === 4);
+check('importAll rejects a foreign file',
+  (() => { try { store.importAll({ foo: 1 }); return false; } catch { return true; } })());
+_mem.clear();
+const r = store.importAll(bundle);
+check('importAll round-trips characters + pools + normalizes',
+  r.characters === 1 && store.listCharacters()[0].identity.name === 'Alia' &&
+  store.listCharacters()[0].skills.communicate === 4 &&   // back-filled by normalizeCharacter
+  store.getPools().momentum === 4);
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

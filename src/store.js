@@ -55,6 +55,32 @@ export function saveHouse(house) { writeJSON(K_HOUSE, house); notify('house'); }
 export function getPools() { return readJSON(K_POOLS, { momentum: 0, threat: 0 }); }
 export function savePools(pools) { writeJSON(K_POOLS, pools); notify('pools'); }
 
+// ---------- JSON export / import (local-mode backup & device transfer) ----------
+export function exportAll() {
+  return {
+    app: 'imperium-player', schema: 1, exportedAt: Date.now(),
+    characters: readJSON(K_CHARS, []),
+    house: readJSON(K_HOUSE, null),
+    pools: getPools(),
+    currentCharacterId: currentCharacterId(),
+  };
+}
+/** Replace local characters + House + pools from an exported bundle. Returns a summary. */
+export function importAll(data) {
+  if (!data || data.app !== 'imperium-player' || !Array.isArray(data.characters)) {
+    throw new Error('Not an Imperium Player backup file.');
+  }
+  const characters = data.characters.map(normalizeCharacter);
+  writeJSON(K_CHARS, characters);
+  writeJSON(K_HOUSE, data.house ? normalizeHouse(data.house) : null);
+  writeJSON(K_POOLS, data.pools && typeof data.pools === 'object' ? data.pools : { momentum: 0, threat: 0 });
+  if (data.currentCharacterId && characters.some((c) => c.id === data.currentCharacterId)) {
+    localStorage.setItem(K_CURRENT, data.currentCharacterId);
+  } else localStorage.removeItem(K_CURRENT);
+  notify('characters'); notify('house'); notify('pools'); notify('current');
+  return { characters: characters.length, house: !!data.house };
+}
+
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------
 export function getRollLog() { return readJSON(K_ROLLLOG, []); }
 export function appendRoll(entry) {

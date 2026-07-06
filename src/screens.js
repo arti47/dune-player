@@ -3,7 +3,8 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { getPools, listCharacters, getHouse } from './store.js';
+import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
+import { confirmModal } from './ui.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { DATA } from '../data.js';
@@ -230,6 +231,46 @@ export function renderRules(root) {
   root.append(el('div', { class: 'card' }, search), ...cards);
 }
 
+// ---------- Data backup (JSON export / import) ----------
+function dataCard() {
+  const doExport = () => {
+    const bundle = exportAll();
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const a = el('a', { href: url, download: `imperium-backup-${stamp}.json` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Backup downloaded');
+  };
+
+  const fileInput = el('input', { type: 'file', accept: 'application/json,.json', style: 'display:none' });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch { showToast('That file is not valid JSON.'); return; }
+    if (!await confirmModal('Importing replaces all local characters, House, and pools. Continue?',
+      { okLabel: 'Import' })) return;
+    try {
+      const r = importAll(data);
+      showToast(`Imported ${r.characters} character${r.characters === 1 ? '' : 's'}${r.house ? ' + House' : ''}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } catch (e) { showToast(e.message || 'Import failed.'); }
+  });
+
+  return el('section', { class: 'card' },
+    el('h3', {}, 'Backup & transfer'),
+    el('p', { class: 'small muted' },
+      'Export all characters, your House, and pools to a JSON file, or import a backup to this device. Import replaces local data.'),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: doExport }, 'Export JSON'),
+      el('button', { class: 'btn secondary', onclick: () => fileInput.click() }, 'Import JSON'),
+      fileInput));
+}
+
 // ---------- Settings / About ----------
 export function renderSettings(root) {
   // Theme picker
@@ -265,6 +306,7 @@ export function renderSettings(root) {
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel)),
     el('section', { class: 'card' }, el('h3', {}, 'Content & surfaces'), ...toggleRows),
+    dataCard(),
     el('section', { class: 'card' },
       el('h3', {}, 'About'),
       el('p', { class: 'small muted' },
