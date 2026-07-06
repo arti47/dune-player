@@ -75,6 +75,23 @@ check('Asset cap 5, created-in-play Quality 0',
   DATA.assetRules.permanentCap === 5 && DATA.assetRules.createdInPlayQuality === 0);
 check('Advancement: max 1/adventure, drives never by points',
   DATA.advancement.maxPerAdventure === 1 && DATA.advancement.drivesNeverAdvanceByPoints === true);
+check('Advancement earn triggers named (Pain/Failure/Peril/Ambition/Impressing the Group)',
+  ['Pain', 'Failure', 'Peril', 'Ambition', 'Impressing the Group']
+    .every((t) => DATA.advancement.earn.some((e) => e.trigger === t)) &&
+  DATA.advancement.earn.every((e) => typeof e.trigger === 'string' && e.trigger.length));
+check('Supporting characters: minor skills 6/5/5/4/4, drive 4–8 typ 5; notable skills 7/6/5/5/4, drives 7&6',
+  (() => {
+    const sc = DATA.supportingCharacters;
+    const m = sc.types.minor, n = sc.types.notable;
+    return JSON.stringify(m.skills) === '[6,5,5,4,4]' &&
+      m.drive.typical === 5 && m.drive.range[0] === 4 && m.drive.range[1] === 8 &&
+      JSON.stringify(n.skills) === '[7,6,5,5,4]' &&
+      JSON.stringify(n.drives.high) === '[7,6]' && n.drives.rest === 5;
+  })());
+check('Supporting characters: 5 uncontrolled actions incl. Sacrifice; notable limit 5/adventure',
+  DATA.supportingCharacters.uncontrolled.actions.length === 5 &&
+  DATA.supportingCharacters.uncontrolled.actions.some((a) => a.name === 'Sacrifice') &&
+  /5/.test(DATA.supportingCharacters.types.notable.limit));
 check('Sandworm riding 4/8/12/16',
   JSON.stringify(DATA.sandwormRiding.map((w) => w.requirement)) === '[4,8,12,16]');
 check('Lifecycle: scene end includes momentum decay',

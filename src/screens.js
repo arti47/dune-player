@@ -159,10 +159,33 @@ export function renderRules(root) {
 
   cards.push(ruleCard('Advancement', el('div', {},
     table(['Advance', 'Cost'], Object.values(DATA.advancement.costs).map((c) => [c.name, c.cost])),
+    el('p', { class: 'small' },
+      el('strong', {}, 'Earn: '),
+      DATA.advancement.earn.map((e) => `${e.trigger} — ${e.desc} (${e.points})`).join(' · ')),
     el('p', { class: 'small muted' },
-      `Max ${DATA.advancement.maxPerAdventure} advance per adventure. Earn: ` +
-      DATA.advancement.earn.map((e) => `${e.desc} (${e.points})`).join(' · ') +
-      '. Drives never advance by points. Retraining: halve a cost (round up) by dropping a skill point (min 4), focus, or talent.'))));
+      `Max ${DATA.advancement.maxPerAdventure} advance, purchased between adventures. ` +
+      DATA.advancement.drivesChangeNote + ' ' + DATA.advancement.retraining))));
+
+  cards.push(ruleCard('Supporting characters', el('div', {},
+    el('p', { class: 'small' }, DATA.supportingCharacters.intro),
+    ...['minor', 'notable'].map((k) => {
+      const t = DATA.supportingCharacters.types[k];
+      const d = t.drive || t.drives;
+      return el('details', { class: 'tips' },
+        el('summary', {}, `${t.label} — ${t.concept}`),
+        el('p', { class: 'small' }, el('strong', {}, 'Cost: '), t.cost),
+        el('p', { class: 'small muted' }, el('strong', {}, 'Limit: '), t.limit),
+        el('p', { class: 'small' }, el('strong', {}, 'Traits: '), t.traits),
+        el('p', { class: 'small' }, el('strong', {}, 'Skills: '), t.skills.join('/') + (t.skillsUpgrade ? ` · ${t.skillsUpgrade}` : '')),
+        el('p', { class: 'small' }, el('strong', {}, 'Drives: '), d.note),
+        el('p', { class: 'small' }, el('strong', {}, 'Focuses: '), t.focuses.note),
+        el('p', { class: 'small' }, el('strong', {}, 'Talents: '), t.talents.note));
+    }),
+    el('p', { class: 'small muted' }, el('strong', {}, 'Uncontrolled characters: '),
+      DATA.supportingCharacters.uncontrolled.note),
+    el('ul', {}, ...DATA.supportingCharacters.uncontrolled.actions.map((a) =>
+      el('li', { class: 'small' }, el('strong', {}, a.name + ': '), a.desc))),
+    el('p', { class: 'small muted' }, DATA.supportingCharacters.uncontrolled.onDefeat))));
 
   cards.push(ruleCard('Archetypes', el('div', {},
     el('p', { class: 'small muted' }, `${DATA.archetypes.length} archetypes. Each sets a primary (6) and secondary (5) skill and suggests 2 focuses + 1 talent. Drive hints are guidance only.`),
