@@ -172,7 +172,7 @@ export const DATA = {
     { name: 'Raise Difficulty',       cost: '2/+1',  desc: '+1 Difficulty to a PC test; declared before dice are bought or rolled.' },
     { name: 'Buy off NPC complication', cost: '2',   desc: 'Ignore a complication an NPC rolled.' },
     { name: 'Create or change trait', cost: '2',     desc: 'Create, alter, or remove a trait.' },
-    { name: 'Rival House enters',     cost: '1',     desc: 'An enemy House or its agents join the scene.' },
+    { name: 'Rival House enters',     cost: '1',     desc: 'Bring an enemy House into the adventure — in person or merely as a rumor — pursuing a plot of its own or exploiting the House’s moment of weakness.' },
     { name: 'NPC Keep the Initiative', cost: '2',    desc: 'An allied NPC acts next (+1 Difficulty; not twice in a row).' },
     { name: 'NPC determination effect', cost: '3',   desc: 'An NPC gains a Determination-style benefit.' },
   ],

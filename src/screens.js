@@ -7,6 +7,7 @@ import { getPools, listCharacters, getHouse } from './store.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { DATA } from '../data.js';
+import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 
 const HOUSE_TYPE_NAME = Object.fromEntries(DATA.houseTypes.map((t) => [t.id, t.name]));
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -206,6 +207,32 @@ export function renderRules(root) {
 
   cards.push(ruleCard('Desert hazards', table(['Hazard', 'Effect'],
     DATA.desertHazards.map((h) => [h.name, h.effect]))));
+
+  // Great Game House-management detail (domains + starting Threat) — shown only when toggled on.
+  if (Settings.greatGame()) {
+    const HM = GREAT_GAME.houseManagement;
+    cards.push(ruleCard('House domains (Great Game)', el('div', {},
+      el('p', { class: 'small' }, HM.domainGuidance.intro),
+      el('p', { class: 'small' }, el('strong', {}, 'Primary: '), HM.domainGuidance.primary),
+      el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), HM.domainGuidance.secondary),
+      el('p', { class: 'small muted' }, 'Each domain has an asset subtype that sets its income: ' +
+        Object.entries(HM.subtypeDefs).map(([k, v]) => `${capitalize(k)} — ${v}`).join(' ')),
+      ...DATA.houseDomains.map((dom) => {
+        const d = HM.domainDetails[dom.id];
+        return el('details', { class: 'tips' },
+          el('summary', {}, dom.name),
+          el('p', { class: 'small' }, d.desc),
+          ...Object.entries(d.examples).map(([st, list]) => el('p', { class: 'small muted' },
+            el('strong', {}, capitalize(st) + ': '), list.join(', '))));
+      }))));
+
+    cards.push(ruleCard('House type & Threat (Great Game)', el('div', {},
+      el('p', { class: 'small' }, HM.startingThreatNote),
+      table(['House type', 'Threat / player', 'Starting domains'],
+        DATA.houseTypes.map((t) => [t.name, String(HM.startingThreatPerPlayer[t.id]),
+          `${HM.domainCounts[t.id].primary}P / ${HM.domainCounts[t.id].secondary}S`])),
+      el('p', { class: 'small muted' }, HM.startingDomainsNote))));
+  }
 
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();

@@ -841,9 +841,13 @@ function hStepType(state, body, rerender) {
 
   for (const t of DATA.houseTypes) {
     const desc = gg
-      ? `Skills ${HM.skillArrays[t.id].join('/')} · ${HM.domainCounts[t.id].primary}P / ${HM.domainCounts[t.id].secondary}S domains`
+      ? `Skills ${HM.skillArrays[t.id].join('/')} · ${HM.domainCounts[t.id].primary}P / ${HM.domainCounts[t.id].secondary}S domains · ${HM.startingThreatPerPlayer[t.id]} Threat/player`
       : 'Narrative House type.';
     body.append(optionCard(state.type === t.id, t.name, desc, () => { selectHouseType(state, t.id); rerender(); }));
+  }
+  if (gg && state.type) {
+    body.append(el('p', { class: 'small muted' },
+      `The GM begins each session with ${HM.startingThreatPerPlayer[state.type]} Threat per player for a ${DATA.houseTypes.find((t) => t.id === state.type).name}.`));
   }
 
   if (gg && state.type) {
@@ -893,6 +897,16 @@ function hStepDomains(state, body, rerender) {
   body.append(el('p', { class: 'small muted' }, gg
     ? `Choose ${counts.primary} primary and ${counts.secondary} secondary domain(s); pick each domain’s asset subtype for income.`
     : 'Choose your House’s domains (mark one primary — it sets your domain trait).'));
+  if (gg) {
+    const dg = HM.domainGuidance;
+    body.append(el('details', { class: 'tips' },
+      el('summary', {}, 'What primary and secondary domains mean'),
+      el('p', { class: 'small' }, dg.intro),
+      el('p', { class: 'small' }, el('strong', {}, 'Primary: '), dg.primary),
+      el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), dg.secondary),
+      el('p', { class: 'small muted' }, ...SUBTYPES.map((st) =>
+        el('span', {}, el('strong', {}, capitalize(st) + ': '), HM.subtypeDefs[st] + ' ')))));
+  }
   body.append(el('p', {},
     el('span', { class: 'pill' }, `Primary ${nPrim}${gg ? '/' + counts.primary : ''}`),
     el('span', { class: 'pill' }, `Secondary ${nSec}${gg ? '/' + counts.secondary : ''}`)));
@@ -916,6 +930,7 @@ function hStepDomains(state, body, rerender) {
       rerender();
     });
     const row = el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, dom.name), tierSel);
+    const detail = gg ? HM.domainDetails[dom.id] : null;
     if (gg && cur?.tier) {
       const sub = el('select', { 'aria-label': `${dom.name} subtype` },
         ...SUBTYPES.map((st) => el('option', { value: st, selected: cur.subtype === st ? '' : null }, capitalize(st))));
@@ -924,6 +939,11 @@ function hStepDomains(state, body, rerender) {
       row.append(sub, el('span', { class: 'small muted' }, `+${inc.resources}R / +${inc.wealth}W`));
     }
     body.append(row);
+    // Under a chosen domain, show its description + example items for the picked subtype.
+    if (gg && cur?.tier && detail) {
+      body.append(el('p', { class: 'small muted domain-detail' },
+        detail.desc + ` E.g. ${capitalize(cur.subtype)}: ${detail.examples[cur.subtype].join(', ')}.`));
+    }
   }
 
   if (gg) {
