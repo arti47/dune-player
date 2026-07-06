@@ -208,31 +208,31 @@ export function renderRules(root) {
   cards.push(ruleCard('Desert hazards', table(['Hazard', 'Effect'],
     DATA.desertHazards.map((h) => [h.name, h.effect]))));
 
-  // Great Game House-management detail (domains + starting Threat) — shown only when toggled on.
-  if (Settings.greatGame()) {
-    const HM = GREAT_GAME.houseManagement;
-    cards.push(ruleCard('House domains (Great Game)', el('div', {},
-      el('p', { class: 'small' }, HM.domainGuidance.intro),
-      el('p', { class: 'small' }, el('strong', {}, 'Primary: '), HM.domainGuidance.primary),
-      el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), HM.domainGuidance.secondary),
-      el('p', { class: 'small muted' }, 'Each domain has an asset subtype that sets its income: ' +
-        Object.entries(HM.subtypeDefs).map(([k, v]) => `${capitalize(k)} — ${v}`).join(' ')),
-      ...DATA.houseDomains.map((dom) => {
-        const d = HM.domainDetails[dom.id];
-        return el('details', { class: 'tips' },
-          el('summary', {}, dom.name),
-          el('p', { class: 'small' }, d.desc),
-          ...Object.entries(d.examples).map(([st, list]) => el('p', { class: 'small muted' },
-            el('strong', {}, capitalize(st) + ': '), list.join(', '))));
-      }))));
+  // House domains + starting Threat are Core narrative content — always shown.
+  cards.push(ruleCard('House domains', el('div', {},
+    el('p', { class: 'small' }, DATA.houseDomainGuidance.intro),
+    el('p', { class: 'small' }, el('strong', {}, 'Primary: '), DATA.houseDomainGuidance.primary),
+    el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), DATA.houseDomainGuidance.secondary),
+    el('p', { class: 'small muted' }, 'Each area of expertise is divided into five sections: ' +
+      Object.entries(DATA.houseSubtypeDefs).map(([k, v]) => `${capitalize(k)} — ${v}`).join(' ')),
+    ...DATA.houseDomains.map((dom) => {
+      const d = DATA.houseDomainDetails[dom.id];
+      return el('details', { class: 'tips' },
+        el('summary', {}, dom.name),
+        el('p', { class: 'small' }, d.desc),
+        ...Object.entries(d.examples).map(([st, list]) => el('p', { class: 'small muted' },
+          el('strong', {}, capitalize(st) + ': '), list.join(', '))));
+    }))));
 
-    cards.push(ruleCard('House type & Threat (Great Game)', el('div', {},
-      el('p', { class: 'small' }, HM.startingThreatNote),
-      table(['House type', 'Threat / player', 'Starting domains'],
-        DATA.houseTypes.map((t) => [t.name, String(HM.startingThreatPerPlayer[t.id]),
-          `${HM.domainCounts[t.id].primary}P / ${HM.domainCounts[t.id].secondary}S`])),
-      el('p', { class: 'small muted' }, HM.startingDomainsNote))));
-  }
+  cards.push(ruleCard('House type & Threat', el('div', {},
+    el('p', { class: 'small' }, DATA.houseStartingThreatNote),
+    table(['House type', 'Threat / player', 'Starting domains'],
+      DATA.houseTypes.map((t) => [t.name, String(DATA.houseStartingThreat[t.id]),
+        `${DATA.houseDomainCounts[t.id].primary}P / ${DATA.houseDomainCounts[t.id].secondary}S`])),
+    el('p', { class: 'small muted' }, DATA.houseStartingDomainsNote),
+    Settings.greatGame()
+      ? el('p', { class: 'small muted' }, `Great Game adds the House skill values (${GREAT_GAME.houseManagement.skillArrays.major.join('/')} for a Major) and the domain income table.`)
+      : null)));
 
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();

@@ -207,11 +207,10 @@ check('House skill arrays: Nascent 6/5/5/4/4 · Minor 7/6/6/5/4 · Major 8/7/6/5
   JSON.stringify(HM.skillArrays.minor) === '[7,6,6,5,4]' &&
   JSON.stringify(HM.skillArrays.major) === '[8,7,6,5,4]' &&
   JSON.stringify(HM.skillArrays.great) === '[9,8,7,6,5]');
-check('Domain counts: Nascent 0/1 · Minor 1/1 · Major 1/2 · Great 2/3',
-  HM.domainCounts.nascent.primary === 0 && HM.domainCounts.nascent.secondary === 1 &&
-  HM.domainCounts.great.primary === 2 && HM.domainCounts.great.secondary === 3);
-check('Skill-array & domain-count keys match the 4 core House type ids',
-  DATA.houseTypes.every((t) => HM.skillArrays[t.id] && HM.domainCounts[t.id]));
+check('Great Game keeps only the economy (no domainCounts / startingThreat / domainDetails here)',
+  HM.domainCounts === undefined && HM.startingThreatPerPlayer === undefined && HM.domainDetails === undefined);
+check('Skill-array keys match the 4 core House type ids',
+  DATA.houseTypes.every((t) => HM.skillArrays[t.id]));
 check('Subtype income: Machinery P 12R/32W, Expertise P 6R/44W, Workers P 8R/40W',
   HM.subtypeIncome.machinery.primary.resources === 12 && HM.subtypeIncome.machinery.primary.wealth === 32 &&
   HM.subtypeIncome.expertise.primary.resources === 6 && HM.subtypeIncome.expertise.primary.wealth === 44 &&
@@ -243,23 +242,31 @@ check('Every asset subtype has primary + secondary income (default subtype alway
     HM.subtypeIncome[st].primary && HM.subtypeIncome[st].secondary &&
     HM.subtypeIncome[st].primary.wealth > 0 && HM.subtypeIncome[st].secondary.wealth > 0));
 
-console.log('— Great Game House domain detail + starting Threat (Houses of the Landsraad) —');
-check('Starting Threat per player: Nascent 0 · Minor 1 · Major 2 · Great 3',
-  HM.startingThreatPerPlayer.nascent === 0 && HM.startingThreatPerPlayer.minor === 1 &&
-  HM.startingThreatPerPlayer.major === 2 && HM.startingThreatPerPlayer.great === 3);
-check('Starting-Threat keys match the 4 core House type ids',
-  DATA.houseTypes.every((t) => HM.startingThreatPerPlayer[t.id] != null));
-check('domainDetails covers all 9 core domains',
-  DATA.houseDomains.every((d) => HM.domainDetails[d.id]) && Object.keys(HM.domainDetails).length === 9);
+console.log('— Core House domain detail + starting Threat (Core Rulebook House chapter) —');
+check('Core starting Threat per player: Nascent 0 · Minor 1 · Major 2 · Great 3',
+  DATA.houseStartingThreat.nascent === 0 && DATA.houseStartingThreat.minor === 1 &&
+  DATA.houseStartingThreat.major === 2 && DATA.houseStartingThreat.great === 3);
+check('Core domain counts: Nascent 0/1 · Minor 1/1 · Major 1/2 · Great 2/3',
+  DATA.houseDomainCounts.nascent.primary === 0 && DATA.houseDomainCounts.nascent.secondary === 1 &&
+  DATA.houseDomainCounts.major.primary === 1 && DATA.houseDomainCounts.major.secondary === 2 &&
+  DATA.houseDomainCounts.great.primary === 2 && DATA.houseDomainCounts.great.secondary === 3);
+check('Starting-Threat & domain-count keys match the 4 core House type ids',
+  DATA.houseTypes.every((t) => DATA.houseStartingThreat[t.id] != null && DATA.houseDomainCounts[t.id]));
+check('Core houseDomainDetails covers all 9 domains',
+  DATA.houseDomains.every((d) => DATA.houseDomainDetails[d.id]) && Object.keys(DATA.houseDomainDetails).length === 9);
 check('Every domain has a description + an example list for all 5 subtypes',
   DATA.houseDomains.every((d) => {
-    const det = HM.domainDetails[d.id];
+    const det = DATA.houseDomainDetails[d.id];
     return det.desc && det.desc.length >= 20 &&
-      Object.keys(HM.subtypeIncome).every((st) => Array.isArray(det.examples[st]) && det.examples[st].length);
+      Object.keys(DATA.houseSubtypeDefs).every((st) => Array.isArray(det.examples[st]) && det.examples[st].length);
   }));
-check('subtypeDefs describe all 5 subtypes; domainGuidance has intro/primary/secondary',
-  Object.keys(HM.subtypeIncome).every((st) => typeof HM.subtypeDefs[st] === 'string' && HM.subtypeDefs[st].length) &&
-  ['intro', 'primary', 'secondary'].every((k) => typeof HM.domainGuidance[k] === 'string' && HM.domainGuidance[k].length));
+check('Core subtypeDefs describe all 5 subtypes; domainGuidance has intro/primary/secondary',
+  Object.keys(DATA.houseSubtypeDefs).length === 5 &&
+  Object.values(DATA.houseSubtypeDefs).every((v) => typeof v === 'string' && v.length) &&
+  ['intro', 'primary', 'secondary'].every((k) => typeof DATA.houseDomainGuidance[k] === 'string' && DATA.houseDomainGuidance[k].length));
+check('Great Game subtypeIncome keys match the 5 core subtype ids',
+  Object.keys(HM.subtypeIncome).every((st) => DATA.houseSubtypeDefs[st]) &&
+  Object.keys(HM.subtypeIncome).length === Object.keys(DATA.houseSubtypeDefs).length);
 check('Core "Rival House enters" Threat spend describes the enemy-House appearance (in person or rumor)',
   (() => { const s = DATA.threatSpends.find((x) => x.name === 'Rival House enters');
     return s && s.cost === '1' && /rumor/i.test(s.desc) && /enemy House/i.test(s.desc); })());

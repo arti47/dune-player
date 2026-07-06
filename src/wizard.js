@@ -702,8 +702,8 @@ function rerenderInto(container, renderFn) {
 // The House is a shared campaign entity (ruling #4): one member builds it; others join it.
 // ========================================================================
 
-const HM = GREAT_GAME.houseManagement;
-const SUBTYPES = Object.keys(HM.subtypeIncome);
+const HM = GREAT_GAME.houseManagement;         // Great Game economy only (skill values + income)
+const SUBTYPES = Object.keys(DATA.houseSubtypeDefs); // Core: the 5 areas-of-expertise sections
 
 function domainGroup(domainId) {
   return HM.categoryModifiers.societal.domains.includes(domainId) ? 'societal' : 'tangible';
@@ -840,14 +840,14 @@ function hStepType(state, body, rerender) {
   body.append(el('label', { class: 'field' }, el('span', {}, 'House name'), nameInput));
 
   for (const t of DATA.houseTypes) {
-    const desc = gg
-      ? `Skills ${HM.skillArrays[t.id].join('/')} · ${HM.domainCounts[t.id].primary}P / ${HM.domainCounts[t.id].secondary}S domains · ${HM.startingThreatPerPlayer[t.id]} Threat/player`
-      : 'Narrative House type.';
+    const c = DATA.houseDomainCounts[t.id];
+    // Domain counts + starting Threat are Core; Great Game prepends the House skill array.
+    const desc = `${gg ? `Skills ${HM.skillArrays[t.id].join('/')} · ` : ''}${c.primary}P / ${c.secondary}S domains · ${DATA.houseStartingThreat[t.id]} Threat/player`;
     body.append(optionCard(state.type === t.id, t.name, desc, () => { selectHouseType(state, t.id); rerender(); }));
   }
-  if (gg && state.type) {
+  if (state.type) {
     body.append(el('p', { class: 'small muted' },
-      `The GM begins each session with ${HM.startingThreatPerPlayer[state.type]} Threat per player for a ${DATA.houseTypes.find((t) => t.id === state.type).name}.`));
+      `The GM begins each session with ${DATA.houseStartingThreat[state.type]} Threat per player for a ${DATA.houseTypes.find((t) => t.id === state.type).name}.`));
   }
 
   if (gg && state.type) {
@@ -877,44 +877,40 @@ function hValidateDomains(state) {
   ensureDomainSubtypes(state);
   const nPrim = state.domains.filter((d) => d.tier === 'primary').length;
   const nSec = state.domains.filter((d) => d.tier === 'secondary').length;
-  if (Settings.greatGame()) {
-    const c = HM.domainCounts[state.type];
-    if (nPrim !== c.primary || nSec !== c.secondary)
-      return `Choose exactly ${c.primary} primary and ${c.secondary} secondary domain(s).`;
-    if (state.domains.some((d) => !d.subtype)) return 'Pick an asset subtype for every domain.';
-  } else if (nPrim + nSec < 1) {
-    return 'Choose at least one domain.';
-  }
+  // Starting domains per type are a Core rule — enforce the counts in every mode.
+  const c = DATA.houseDomainCounts[state.type];
+  if (nPrim !== c.primary || nSec !== c.secondary)
+    return `A ${DATA.houseTypes.find((t) => t.id === state.type).name} starts with ${c.primary} primary and ${c.secondary} secondary domain(s).`;
+  // Great Game additionally needs an asset subtype on each domain for its income.
+  if (Settings.greatGame() && state.domains.some((d) => !d.subtype)) return 'Pick an asset subtype for every domain.';
   return null;
 }
 function hStepDomains(state, body, rerender) {
   const gg = Settings.greatGame();
   ensureDomainSubtypes(state);
-  const counts = gg ? HM.domainCounts[state.type] : null;
+  const counts = DATA.houseDomainCounts[state.type];  // Core: fixed per type.
   const nPrim = state.domains.filter((d) => d.tier === 'primary').length;
   const nSec = state.domains.filter((d) => d.tier === 'secondary').length;
 
-  body.append(el('p', { class: 'small muted' }, gg
-    ? `Choose ${counts.primary} primary and ${counts.secondary} secondary domain(s); pick each domain’s asset subtype for income.`
-    : 'Choose your House’s domains (mark one primary — it sets your domain trait).'));
-  if (gg) {
-    const dg = HM.domainGuidance;
-    body.append(el('details', { class: 'tips' },
-      el('summary', {}, 'What primary and secondary domains mean'),
-      el('p', { class: 'small' }, dg.intro),
-      el('p', { class: 'small' }, el('strong', {}, 'Primary: '), dg.primary),
-      el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), dg.secondary),
-      el('p', { class: 'small muted' }, ...SUBTYPES.map((st) =>
-        el('span', {}, el('strong', {}, capitalize(st) + ': '), HM.subtypeDefs[st] + ' ')))));
-  }
+  body.append(el('p', { class: 'small muted' }, `Choose ${counts.primary} primary and ${counts.secondary} secondary domain(s)` +
+    (gg ? '; pick each domain’s asset subtype for income.' : '.')));
+  // Primary/secondary meaning + the five subtype sections are Core guidance — always shown.
+  const dg = DATA.houseDomainGuidance;
+  body.append(el('details', { class: 'tips' },
+    el('summary', {}, 'What primary and secondary domains mean'),
+    el('p', { class: 'small' }, dg.intro),
+    el('p', { class: 'small' }, el('strong', {}, 'Primary: '), dg.primary),
+    el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), dg.secondary),
+    el('p', { class: 'small muted' }, ...SUBTYPES.map((st) =>
+      el('span', {}, el('strong', {}, capitalize(st) + ': '), DATA.houseSubtypeDefs[st] + ' ')))));
   body.append(el('p', {},
-    el('span', { class: 'pill' }, `Primary ${nPrim}${gg ? '/' + counts.primary : ''}`),
-    el('span', { class: 'pill' }, `Secondary ${nSec}${gg ? '/' + counts.secondary : ''}`)));
+    el('span', { class: 'pill' }, `Primary ${nPrim}/${counts.primary}`),
+    el('span', { class: 'pill' }, `Secondary ${nSec}/${counts.secondary}`)));
 
-  // In Great Game mode, ghost out tier options once the type's cap is reached (a domain that
-  // already holds that tier keeps its option so it can be changed/cleared).
-  const primFull = gg && nPrim >= counts.primary;
-  const secFull = gg && nSec >= counts.secondary;
+  // Ghost out tier options once the type's cap is reached (a domain that already holds that
+  // tier keeps its option so it can be changed/cleared).
+  const primFull = nPrim >= counts.primary;
+  const secFull = nSec >= counts.secondary;
 
   for (const dom of DATA.houseDomains) {
     const cur = state.domains.find((d) => d.id === dom.id);
@@ -930,7 +926,7 @@ function hStepDomains(state, body, rerender) {
       rerender();
     });
     const row = el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, dom.name), tierSel);
-    const detail = gg ? HM.domainDetails[dom.id] : null;
+    const detail = DATA.houseDomainDetails[dom.id];   // Core: description + example lists.
     if (gg && cur?.tier) {
       const sub = el('select', { 'aria-label': `${dom.name} subtype` },
         ...SUBTYPES.map((st) => el('option', { value: st, selected: cur.subtype === st ? '' : null }, capitalize(st))));
@@ -939,10 +935,13 @@ function hStepDomains(state, body, rerender) {
       row.append(sub, el('span', { class: 'small muted' }, `+${inc.resources}R / +${inc.wealth}W`));
     }
     body.append(row);
-    // Under a chosen domain, show its description + example items for the picked subtype.
-    if (gg && cur?.tier && detail) {
-      body.append(el('p', { class: 'small muted domain-detail' },
-        detail.desc + ` E.g. ${capitalize(cur.subtype)}: ${detail.examples[cur.subtype].join(', ')}.`));
+    // Under a chosen domain, show its description + example items. In Great Game the examples
+    // narrow to the picked subtype; in core narrative mode, show all five sections.
+    if (cur?.tier && detail) {
+      const ex = gg
+        ? `E.g. ${capitalize(cur.subtype)}: ${detail.examples[cur.subtype].join(', ')}.`
+        : SUBTYPES.map((st) => `${capitalize(st)}: ${detail.examples[st].join(', ')}`).join(' · ');
+      body.append(el('p', { class: 'small muted domain-detail' }, `${detail.desc} ${ex}`));
     }
   }
 
