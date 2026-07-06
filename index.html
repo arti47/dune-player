@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17130e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4ead8" media="(prefers-color-scheme: light)">
+  <meta name="description" content="Imperium Player — a player companion app for Dune: Adventures in the Imperium (2d20). Personal play aid.">
+  <title>Imperium Player</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">Imperium Player</h1>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle light or dark theme" title="Theme">◐</button>
+  </header>
+
+  <main id="screen" class="screen" tabindex="-1"></main>
+
+  <nav class="bottom-nav" aria-label="Main">
+    <!-- populated by router.js -->
+  </nav>
+
+  <div id="toast-region" aria-live="polite" class="toast-region"></div>
+  <noscript><p class="noscript">Imperium Player needs JavaScript to run.</p></noscript>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

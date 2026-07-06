@@ -1,0 +1,14 @@
+{
+  "name": "Imperium Player",
+  "short_name": "Imperium",
+  "description": "Player companion for Dune: Adventures in the Imperium (2d20) — characters, House, dice, and conflict tracking. Personal play aid.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#17130e",
+  "theme_color": "#c8571b",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

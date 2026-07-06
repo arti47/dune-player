@@ -1,0 +1,34 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "campaigns": {
+      "$campaignId": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        "meta": {
+          ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)"
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (auth.uid === $uid || root.child('campaigns').child($campaignId).child('members').child(auth.uid).child('role').val() === 'gm')"
+          }
+        },
+        "house": {
+          ".write": "auth != null && (root.child('campaigns').child($campaignId).child('members').child(auth.uid).child('role').val() === 'gm' || root.child('campaigns').child($campaignId).child('house').child('roles').child('ruler').val() === auth.uid)"
+        },
+        "momentum": { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).exists()" },
+        "threat":   { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).child('role').val() === 'gm'" },
+        "conflict": { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).exists()" },
+        "tasks":    { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).exists()" },
+        "rollLog":  { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).exists()" },
+        "broadcast": { ".write": "auth != null && root.child('campaigns').child($campaignId).child('members').child(auth.uid).child('role').val() === 'gm'" }
+      }
+    },
+    "characters": {
+      "$characterId": {
+        ".read": "auth != null && (data.child('owner').val() === auth.uid || (data.child('campaignId').exists() && root.child('campaigns').child(data.child('campaignId').val()).child('members').child(auth.uid).exists()))",
+        ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid || (data.child('campaignId').exists() && root.child('campaigns').child(data.child('campaignId').val()).child('members').child(auth.uid).child('role').val() === 'gm'))"
+      }
+    }
+  }
+}

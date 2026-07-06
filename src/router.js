@@ -1,0 +1,55 @@
+// router.js — bottom-nav hash routing + conditional tab gating.
+
+import { qs, el } from './core.js';
+import { Settings } from './settings.js';
+import { renderHome, renderRules, renderSettings } from './screens.js';
+import { renderSheet } from './sheet.js';
+import { renderGM } from './gm.js';
+
+const ROUTES = [
+  { id: 'home',     label: 'Home',     ico: '⌂', render: renderHome },
+  { id: 'sheet',    label: 'Sheet',    ico: '☰', render: renderSheet },
+  { id: 'rules',    label: 'Rules',    ico: '❖', render: renderRules },
+  { id: 'settings', label: 'Settings', ico: '⚙', render: renderSettings },
+  { id: 'gm',       label: 'GM',       ico: '👁', render: renderGM, gated: () => Settings.gmScreen() },
+];
+
+function visibleRoutes() {
+  return ROUTES.filter((r) => !r.gated || r.gated());
+}
+
+export function currentRoute() {
+  const hash = location.hash.replace(/^#\/?/, '') || 'home';
+  return visibleRoutes().find((r) => r.id === hash) || ROUTES[0];
+}
+
+export function navigate(id) {
+  location.hash = `#/${id}`;
+}
+
+export function renderNav() {
+  const nav = qs('.bottom-nav');
+  nav.replaceChildren(
+    ...visibleRoutes().map((r) =>
+      el('a', {
+        href: `#/${r.id}`,
+        'aria-current': currentRoute().id === r.id ? 'page' : null,
+      },
+      el('span', { class: 'nav-ico', 'aria-hidden': 'true' }, r.ico),
+      r.label)
+    )
+  );
+}
+
+export function renderScreen() {
+  const screen = qs('#screen');
+  screen.replaceChildren();
+  currentRoute().render(screen);
+  renderNav();
+  screen.focus({ preventScroll: true });
+}
+
+export function initRouter() {
+  window.addEventListener('hashchange', renderScreen);
+  renderScreen();
+}
