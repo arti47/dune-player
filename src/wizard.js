@@ -41,7 +41,10 @@ function freshState() {
     archetype: null,
     skills: null,                // set when archetype chosen
     focuses: [{ skill: '', name: '' }, { skill: '', name: '' }, { skill: '', name: '' }, { skill: '', name: '' }],
-    talents: new Set(),          // talent names
+    talents: new Set(),          // talent keys (incl. the chosen faction mandatory)
+    mandatoryOption: null,       // faction mandatory: selected option string (radio)
+    mandatoryParam: null,        // …its chosen param, for a bound mandatory talent
+    mandatoryKey: null,          // …the resolved key currently held in `talents`
     driveAssignment: { duty: null, faith: null, justice: null, power: null, truth: null },
     statements: {},              // drive -> text
     assets: new Set(),           // asset names
@@ -111,7 +114,7 @@ function stepConcept(state, body) {
 
   if (DATA.factionIntro) body.append(el('p', { class: 'small muted' }, DATA.factionIntro));
 
-  const choose = (id) => { state.factionTemplate = id; applyTalentSuggestions(state); rerenderInto(body, () => stepConcept(state, body)); };
+  const choose = (id) => { state.factionTemplate = id; clearMandatory(state); rerenderInto(body, () => stepConcept(state, body)); };
 
   const none = optionCard(state.factionTemplate === null, 'No faction template',
     'A mundane background — full freedom over talents.', () => choose(null));
@@ -126,21 +129,17 @@ function stepConcept(state, body) {
   }
 }
 
-/** Rebuild the talent selection from suggestions: faction's fixed ('all'-mode) mandatory
- *  talents + the archetype's suggested talent, within the cap. Called when faction or
- *  archetype changes (user chose "re-apply new suggestions" on change). */
-function applyTalentSuggestions(state) {
-  const a = archetypeById(state.archetype);
-  const f = factionById(state.factionTemplate);
-  const set = new Set();
-  if (f && f.mandatoryTalents.mode === 'all') for (const t of f.mandatoryTalents.options) set.add(t);
-  if (a) for (const t of a.talents) if (set.size < DATA.creation.talents.count) set.add(t);
-  state.talents = set;
+/** Clear the faction mandatory pick (called when the faction changes) — the mandatory is
+ *  chosen fresh from the new faction's list at the Talents step (radio, choose one). */
+function clearMandatory(state) {
+  if (state.mandatoryKey) state.talents.delete(state.mandatoryKey);
+  state.mandatoryOption = null; state.mandatoryParam = null; state.mandatoryKey = null;
 }
 
 /** Pre-fill the archetype's suggestions as editable starting picks (user decisions 2026-07-06):
- *  focuses → the 2 suggested (on primary/secondary skill) + 2 blank; talents → applyTalentSuggestions;
- *  drives → the 2 suggested get 8 and 7 (rest blank). Statements/pair-picks reset. */
+ *  focuses → the 2 suggested (on primary/secondary skill) + 2 blank; drives → the 2 suggested get
+ *  8 and 7 (rest blank). Talents are NOT pre-filled — the archetype's talent is a highlight only,
+ *  and the faction mandatory is chosen by radio. Statements/pair-picks reset. */
 function applyArchetypeSuggestions(state) {
   const a = archetypeById(state.archetype);
   if (!a) return;
@@ -150,7 +149,6 @@ function applyArchetypeSuggestions(state) {
     { skill: '', name: '' },
     { skill: '', name: '' },
   ];
-  applyTalentSuggestions(state);
   const arr = DATA.creation.driveArray;   // [8, 7, 6, 5, 4]
   state.driveAssignment = { duty: null, faith: null, justice: null, power: null, truth: null };
   const sugg = a.driveSuggestions || [];
@@ -163,7 +161,7 @@ function applyArchetypeSuggestions(state) {
 // ---------- Step 2: Archetype ----------
 function stepArchetype(state, body, rerender) {
   body.append(el('p', { class: 'small muted' },
-    'Sets your primary skill (6) and secondary skill (5); grants its name as a trait (fixed) and pre-fills suggested focuses, a talent, and drives (all editable).'));
+    'Sets your primary skill (6) and secondary skill (5); grants its name as a trait, and pre-fills suggested focuses and drives (editable). Its suggested talent is highlighted at the Talents step.'));
 
   const card = (a) => optionCard(state.archetype === a.id, a.name,
     `${a.desc ? a.desc + ' ' : ''}(${SKILL_NAME[a.primary]} / ${SKILL_NAME[a.secondary]}) · Focuses: ${a.focuses.join(', ')} · Talent: ${a.talents.join(', ')}`,
@@ -228,11 +226,8 @@ function stepSkills(state, body, rerender) {
     const inc = el('button', { class: 'step-btn', 'aria-label': `Increase ${SKILL_NAME[s]}`, onclick: () => {
       if (state.skills[s] < cap && skillSpent(state) < freePoints) { state.skills[s]++; rerender(); }
     } }, '+');
-    const arch = archetypeById(state.archetype);
-    const roleTag = s === arch.primary ? el('span', { class: 'tag' }, 'primary · fixed base')
-      : s === arch.secondary ? el('span', { class: 'tag' }, 'secondary · fixed base') : null;
     body.append(el('div', { class: 'stat-row' },
-      el('span', { class: 'stat-name' }, SKILL_NAME[s], roleTag),
+      el('span', { class: 'stat-name' }, SKILL_NAME[s]),
       el('div', { class: 'stepper' }, dec, el('span', { class: 'stat-val' }, String(val)), inc)));
   }
 }
@@ -333,123 +328,144 @@ function talentParamOptions(def, state, suggested) {
   return opts;
 }
 
+/** Resolve a mandatory option string + optional param into its stored talent key
+ *  ("The Reason I Fight" + "Faith" → "The Reason I Fight (Faith)"; unbound → the base). */
+function resolveMandatoryKey(option, param) {
+  const base = baseName(option);
+  const p = talentParam(option) || param || null;
+  return p ? `${base} (${p})` : base;
+}
+function mandatoryNeedsParam(option) {
+  const def = DATA.talents.find((t) => t.name === baseName(option));
+  return !!(def && def.pick && !talentParam(option));
+}
+
 function stepTalents(state, body, rerender) {
   const { count } = DATA.creation.talents;
   const f = factionById(state.factionTemplate);
-  const archNames = new Set(archetypeTalentNames(state).map((n) => n.toLowerCase()));
+  const arch = archetypeById(state.archetype);
   const status = el('span', { class: 'pill' }, `${state.talents.size}/${count} chosen`);
   const updateStatus = () => { status.textContent = `${state.talents.size}/${count} chosen`; };
   body.append(el('p', { class: 'small muted' }, DATA.creationGuidance.stepNotes.talents));
-  body.append(el('p', { class: 'small muted' },
-    `Pick ${count} talents, at least one archetype-related${f ? `; your faction mandates ${f.mandatoryTalents.mode === 'all' ? 'all of' : 'one of'}: ${f.mandatoryTalents.options.join(', ')}` : ''}.`),
+  body.append(el('p', { class: 'small muted' }, `Pick ${count} talents (at least one archetype-related).`),
     el('p', {}, status));
 
-  // Faction mandatory-talent banner (updates on rerender when a 'choose-one' pick changes).
-  const mode = f && f.mandatoryTalents.mode;
-  const mandatorySatisfied = f && (mode === 'all'
-    ? f.mandatoryTalents.options.every((o) => talentSatisfies(state, o))
-    : f.mandatoryTalents.options.some((o) => talentSatisfies(state, o)));
-  if (f) body.append(el('p', { class: 'small' + (mandatorySatisfied ? ' ok-banner' : ' req-banner') },
-    mandatorySatisfied
-      ? `✓ ${f.name} mandatory talent${mode === 'all' ? 's' : ''} selected.`
-      : `Required: ${mode === 'all' ? 'keep' : 'choose at least one of'} ${f.mandatoryTalents.options.join(', ')}.`));
+  const factionOpts = f ? f.mandatoryTalents.options : [];
+  const mandatoryBases = new Set(factionOpts.map((o) => baseName(o)));
 
+  // ---- one pickable talent row (checkbox for unbound; param-picker + chips for bound) ----
+  const pickRow = (base, suggestedParams, extraTag) => {
+    const def = DATA.talents.find((t) => t.name === base);
+    const tags = el('div', {}, base,
+      extraTag ? el('span', { class: 'tag' }, extraTag) : null,
+      def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null);
+    const effect = el('div', { class: 'small muted' }, def ? def.effect : 'See rules library.');
+    if (def && def.pick) {
+      const kind = def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill';
+      const options = talentParamOptions(def, state, suggestedParams);
+      const sel = el('select', { 'aria-label': `${base} — choose ${kind}` },
+        el('option', { value: '' }, `— ${kind} —`),
+        ...options.map((o) => el('option', { value: o, selected: suggestedParams[0] === o ? '' : null }, o)));
+      const chips = el('div', { class: 'trait-list' });
+      const renderChips = () => {
+        chips.replaceChildren(...[...state.talents].filter((k) => baseName(k) === base).map((k) =>
+          el('span', { class: 'pill' }, k,
+            el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove ${k}`,
+              onclick: () => { state.talents.delete(k); renderChips(); updateStatus(); } }, ' ×'))));
+      };
+      const addBtn = el('button', { type: 'button', class: 'btn secondary small', onclick: () => {
+        if (!sel.value) { showToast(`Choose a ${kind} first.`); return; }
+        const key = `${base} (${sel.value})`;
+        if (state.talents.has(key)) { showToast('Already chosen.'); return; }
+        if (state.talents.size >= count) { showToast(`Only ${count} talents.`); return; }
+        state.talents.add(key); renderChips(); updateStatus();
+      } }, 'Add');
+      renderChips();
+      return el('div', { class: 'check-item' }, el('div', {},
+        tags, effect,
+        def.requirement ? el('div', { class: 'small muted' }, `Requires: ${def.requirement}.`) : null,
+        el('div', { class: 'focus-row' }, sel, addBtn), chips));
+    }
+    const box = el('input', { type: 'checkbox', id: `tal-${base}` });
+    box.checked = state.talents.has(base);
+    box.addEventListener('change', () => {
+      if (box.checked) {
+        if (state.talents.size >= count) { box.checked = false; showToast(`Only ${count} talents.`); return; }
+        state.talents.add(base);
+      } else state.talents.delete(base);
+      updateStatus();
+    });
+    return el('label', { class: 'check-item', for: `tal-${base}` }, box, el('div', {}, tags, effect));
+  };
+
+  // ---- Mandatory: choose exactly one from the faction's list (radio) ----
+  if (f) {
+    const selectMandatory = (opt, param) => {
+      if (state.mandatoryKey) state.talents.delete(state.mandatoryKey);
+      state.mandatoryOption = opt;
+      if (mandatoryNeedsParam(opt) && !param) {
+        state.mandatoryParam = null; state.mandatoryKey = null;   // await param choice
+      } else {
+        const key = resolveMandatoryKey(opt, param);
+        if (state.talents.size >= count) {
+          showToast(`Only ${count} talents — remove one first.`);
+          state.mandatoryOption = null; state.mandatoryKey = null;
+        } else {
+          state.mandatoryParam = param || talentParam(opt) || null;
+          state.talents.add(key); state.mandatoryKey = key;
+        }
+      }
+      updateStatus(); rerender();
+    };
+    const satisfied = factionOpts.some((o) => talentSatisfies(state, o));
+    body.append(el('h3', {}, 'Mandatory — choose one'),
+      el('p', { class: 'small' + (satisfied ? ' ok-banner' : ' req-banner') },
+        satisfied ? '✓ Faction mandatory talent selected.' : `Required: choose one of ${factionOpts.join(', ')}.`));
+    const mgroup = el('div', { class: 'check-list' });
+    for (const opt of factionOpts) {
+      const def = DATA.talents.find((t) => t.name === baseName(opt));
+      const checked = state.mandatoryOption === opt;
+      const radio = el('input', { type: 'radio', name: 'mandatory-talent', id: `mand-${opt}` });
+      radio.checked = checked;
+      radio.addEventListener('change', () => selectMandatory(opt));
+      const detail = el('div', {}, el('div', {}, opt, def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null),
+        el('div', { class: 'small muted' }, def ? def.effect : 'See rules library.'));
+      if (checked && mandatoryNeedsParam(opt)) {
+        const kind = def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill';
+        const psel = el('select', { 'aria-label': `${baseName(opt)} — choose ${kind}` },
+          el('option', { value: '' }, `— ${kind} —`),
+          ...talentParamOptions(def, state, []).map((o) => el('option', { value: o, selected: state.mandatoryParam === o ? '' : null }, o)));
+        psel.addEventListener('change', () => selectMandatory(opt, psel.value || null));
+        detail.append(el('div', { class: 'focus-row' }, psel));
+      }
+      mgroup.append(el('label', { class: 'check-item', for: `mand-${opt}` }, radio, detail));
+    }
+    body.append(mgroup);
+  }
+
+  // ---- Suggested for your archetype (highlighted, not pre-selected) ----
+  const archSuggBases = [...new Set(arch.talents.map(baseName))].filter((b) => !mandatoryBases.has(b));
+  if (archSuggBases.length) {
+    body.append(el('h3', {}, 'Suggested for your archetype'));
+    const sgroup = el('div', { class: 'check-list' });
+    for (const base of archSuggBases) {
+      const suggestedParams = arch.talents.filter((k) => baseName(k) === base && /\(.*\)$/.test(k))
+        .map((k) => k.replace(/^.*\(([^)]*)\)$/, '$1').trim());
+      sgroup.append(pickRow(base, suggestedParams, 'suggested'));
+    }
+    body.append(sgroup);
+  }
+
+  // ---- All other talents (searchable) ----
+  body.append(el('h3', {}, 'All talents'));
   const search = el('input', { type: 'search', placeholder: 'Search talents…', 'aria-label': 'Search talents' });
   body.append(search);
   const list = el('div', { class: 'check-list' });
   body.append(list);
-
-  // One row per base talent. Faction options + archetype talents first, then the catalog.
-  const factionOpts = f ? f.mandatoryTalents.options : [];
-  const priorityKeys = [...factionOpts, ...archetypeById(state.archetype).talents];
-  const bases = [];
-  const seen = new Set();
-  for (const key of [...priorityKeys, ...DATA.talents.map((t) => t.name)]) {
-    const base = baseName(key);
-    if (seen.has(base)) continue;
-    seen.add(base);
-    // Suggested param(s) from any parameterised priority key for this base (e.g. "Resilience (Battle)").
-    const suggested = priorityKeys.filter((k) => baseName(k) === base && /\(.*\)$/.test(k))
-      .map((k) => k.replace(/^.*\(([^)]*)\)$/, '$1').trim());
-    bases.push({ base, suggested });
-  }
-
+  const otherBases = DATA.talents.map((t) => t.name).filter((b) => !mandatoryBases.has(b) && !archSuggBases.includes(b));
   const renderList = () => {
     const q = search.value.trim().toLowerCase();
-    list.replaceChildren();
-    for (const { base, suggested } of bases) {
-      if (q && !base.toLowerCase().includes(q)) continue;
-      const def = DATA.talents.find((t) => t.name === base);
-      const isArch = archNames.has(base.toLowerCase());
-      const isFaction = factionOpts.some((o) => baseName(o) === base);
-      // Locking: an 'all'-mode unbound faction talent is fixed; an 'atLeastOne' unbound option
-      // locks once it's the pick that satisfies the requirement (user can unlock to switch).
-      const unboundFactionOpt = factionOpts.find((o) => baseName(o) === base && !talentParam(o));
-      const isAllMandatory = !!unboundFactionOpt && mode === 'all';
-      const isAtLeastOneOpt = !!unboundFactionOpt && mode === 'atLeastOne';
-      const lockedAtLeastOne = isAtLeastOneOpt && mandatorySatisfied && state.talents.has(base);
-      const tags = el('div', {}, base,
-        isArch ? el('span', { class: 'tag' }, 'archetype') : null,
-        isFaction ? el('span', { class: 'tag' }, 'faction') : null,
-        (isAllMandatory || lockedAtLeastOne) ? el('span', { class: 'tag req-tag' }, 'required') : null,
-        def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null);
-      const effect = el('div', { class: 'small muted' }, def ? def.effect : 'Faction/archetype talent (see rules library).');
-
-      if (def && def.pick) {
-        // Bound talent: choose a skill/drive/category, may add more than one (e.g. Bold (Battle) + Bold (Communicate)).
-        const options = talentParamOptions(def, state, suggested);
-        const sel = el('select', { 'aria-label': `${base} — choose ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'}` },
-          el('option', { value: '' }, `— ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'} —`),
-          ...options.map((o) => el('option', { value: o, selected: suggested[0] === o ? '' : null }, o)));
-        const chips = el('div', { class: 'trait-list' });
-        const renderChips = () => {
-          chips.replaceChildren(...[...state.talents].filter((k) => baseName(k) === base).map((k) =>
-            el('span', { class: 'pill' }, k,
-              el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove ${k}`,
-                onclick: () => { state.talents.delete(k); renderChips(); updateStatus(); } }, ' ×'))));
-        };
-        const addBtn = el('button', { type: 'button', class: 'btn secondary small', onclick: () => {
-          if (!sel.value) { showToast(`Choose a ${def.pick === 'drive' ? 'drive' : def.pick === 'assetCategory' ? 'category' : 'skill'} first.`); return; }
-          const key = `${base} (${sel.value})`;
-          if (state.talents.has(key)) { showToast('Already chosen.'); return; }
-          if (state.talents.size >= count) { showToast(`Only ${count} talents.`); return; }
-          state.talents.add(key); renderChips(); updateStatus();
-        } }, 'Add');
-        renderChips();
-        list.append(el('div', { class: 'check-item' },
-          el('div', {},
-            tags, effect,
-            def.requirement ? el('div', { class: 'small muted' }, `Requires: ${def.requirement}.`) : null,
-            el('div', { class: 'focus-row' }, sel, addBtn),
-            chips)));
-      } else if (isAllMandatory) {
-        // Fixed faction talent: always selected, cannot be unselected.
-        state.talents.add(base);
-        const box = el('input', { type: 'checkbox', id: `tal-${base}`, checked: '', disabled: '' });
-        list.append(el('label', { class: 'check-item locked', for: `tal-${base}` }, box, el('div', {}, tags, effect)));
-      } else if (lockedAtLeastOne) {
-        // Chosen 'at least one of' talent: locked, with an Unlock control to switch.
-        const box = el('input', { type: 'checkbox', id: `tal-${base}`, checked: '', disabled: '' });
-        const unlock = el('button', { type: 'button', class: 'link-btn', onclick: () => {
-          state.talents.delete(base); updateStatus(); rerender();
-        } }, 'Unlock to change');
-        list.append(el('div', { class: 'check-item locked' }, box, el('div', {}, tags, effect, el('div', {}, unlock))));
-      } else {
-        // Unbound talent: single checkbox toggling the base name.
-        const box = el('input', { type: 'checkbox', id: `tal-${base}` });
-        box.checked = state.talents.has(base);
-        box.addEventListener('change', () => {
-          if (box.checked) {
-            if (state.talents.size >= count) { box.checked = false; showToast(`Only ${count} talents.`); return; }
-            state.talents.add(base);
-          } else state.talents.delete(base);
-          updateStatus();
-          // Re-render so the mandatory banner + 'choose-one' locking reflect the change.
-          if (isAtLeastOneOpt) rerender();
-        });
-        list.append(el('label', { class: 'check-item', for: `tal-${base}` }, box, el('div', {}, tags, effect)));
-      }
-    }
+    list.replaceChildren(...otherBases.filter((b) => !q || b.toLowerCase().includes(q)).map((b) => pickRow(b, [], null)));
   };
   search.addEventListener('input', renderList);
   renderList();
