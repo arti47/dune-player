@@ -218,6 +218,7 @@ function stepSkills(state, body, rerender) {
     `Archetype set your base skills. Add ${freePoints} free points, cap ${cap}.`),
     el('p', {}, el('span', { class: 'pill' }, `Points remaining: ${remaining}`)));
 
+  const a = archetypeById(state.archetype);
   for (const s of SKILL_IDS) {
     const val = state.skills[s];
     const dec = el('button', { class: 'step-btn', 'aria-label': `Decrease ${SKILL_NAME[s]}`, onclick: () => {
@@ -226,8 +227,10 @@ function stepSkills(state, body, rerender) {
     const inc = el('button', { class: 'step-btn', 'aria-label': `Increase ${SKILL_NAME[s]}`, onclick: () => {
       if (state.skills[s] < cap && skillSpent(state) < freePoints) { state.skills[s]++; rerender(); }
     } }, '+');
+    const roleTag = s === a.primary ? el('span', { class: 'tag' }, 'primary')
+      : s === a.secondary ? el('span', { class: 'tag' }, 'secondary') : null;
     body.append(el('div', { class: 'stat-row' },
-      el('span', { class: 'stat-name' }, SKILL_NAME[s]),
+      el('span', { class: 'stat-name' }, SKILL_NAME[s], roleTag),
       el('div', { class: 'stepper' }, dec, el('span', { class: 'stat-val' }, String(val)), inc)));
   }
 }
@@ -246,19 +249,30 @@ function validateFocuses(state) {
 }
 function stepFocuses(state, body, rerender) {
   const a = archetypeById(state.archetype);
+  // The first two focuses are fixed to the primary/secondary skill (only the focus name is
+  // chosen); the other two are free. This structurally guarantees the ≥1-primary + ≥1-secondary rule.
+  const fixedSkill = [a.primary, a.secondary];
+  state.focuses[0].skill = a.primary;
+  state.focuses[1].skill = a.secondary;
   body.append(el('p', { class: 'small muted' }, DATA.creationGuidance.stepNotes.focuses),
     el('p', { class: 'small muted' },
-      `Keep at least one focus on your primary skill (${SKILL_NAME[a.primary]}) and one on your secondary (${SKILL_NAME[a.secondary]}). Archetype suggestions: ${a.focuses.join(', ')}.`));
+      `Your first two focuses are on your primary (${SKILL_NAME[a.primary]}) and secondary (${SKILL_NAME[a.secondary]}) skills — pick their names. The other two are free. Archetype suggestions: ${a.focuses.join(', ')}.`));
 
   state.focuses.forEach((f, i) => {
-    const skillSel = el('select', { 'aria-label': `Focus ${i + 1} skill` },
-      el('option', { value: '' }, '— skill —'),
-      ...SKILL_IDS.map((s) => el('option', { value: s, selected: f.skill === s ? '' : null }, SKILL_NAME[s])));
-    skillSel.addEventListener('change', () => {
-      f.skill = skillSel.value; f.name = ''; f.custom = false; rerender();
-    });
+    const locked = i < 2;
+    let skillCtl;
+    if (locked) {
+      skillCtl = el('span', { class: 'locked-skill' }, SKILL_NAME[fixedSkill[i]],
+        el('span', { class: 'tag' }, i === 0 ? 'primary' : 'secondary'));
+    } else {
+      const skillSel = el('select', { 'aria-label': `Focus ${i + 1} skill` },
+        el('option', { value: '' }, '— skill —'),
+        ...SKILL_IDS.map((s) => el('option', { value: s, selected: f.skill === s ? '' : null }, SKILL_NAME[s])));
+      skillSel.addEventListener('change', () => { f.skill = skillSel.value; f.name = ''; f.custom = false; rerender(); });
+      skillCtl = skillSel;
+    }
 
-    const row = el('div', { class: 'focus-row' }, skillSel);
+    const row = el('div', { class: 'focus-row' }, skillCtl);
 
     if (f.skill) {
       // Name dropdown = this skill's printed focus examples, plus the current value if it's an
@@ -352,6 +366,11 @@ function stepTalents(state, body, rerender) {
 
   const factionOpts = f ? f.mandatoryTalents.options : [];
   const mandatoryBases = new Set(factionOpts.map((o) => baseName(o)));
+  // Faction-restricted talents only appear for members of that faction (§3.5 step 5).
+  const talentAllowed = (base) => {
+    const def = DATA.talents.find((t) => t.name === base);
+    return !def || !def.faction || def.faction === state.factionTemplate;
+  };
 
   // ---- one pickable talent row (checkbox for unbound; param-picker + chips for bound) ----
   const pickRow = (base, suggestedParams, extraTag) => {
@@ -444,7 +463,7 @@ function stepTalents(state, body, rerender) {
   }
 
   // ---- Suggested for your archetype (highlighted, not pre-selected) ----
-  const archSuggBases = [...new Set(arch.talents.map(baseName))].filter((b) => !mandatoryBases.has(b));
+  const archSuggBases = [...new Set(arch.talents.map(baseName))].filter((b) => !mandatoryBases.has(b) && talentAllowed(b));
   if (archSuggBases.length) {
     body.append(el('h3', {}, 'Suggested for your archetype'));
     const sgroup = el('div', { class: 'check-list' });
@@ -462,7 +481,7 @@ function stepTalents(state, body, rerender) {
   body.append(search);
   const list = el('div', { class: 'check-list' });
   body.append(list);
-  const otherBases = DATA.talents.map((t) => t.name).filter((b) => !mandatoryBases.has(b) && !archSuggBases.includes(b));
+  const otherBases = DATA.talents.map((t) => t.name).filter((b) => !mandatoryBases.has(b) && !archSuggBases.includes(b) && talentAllowed(b));
   const renderList = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren(...otherBases.filter((b) => !q || b.toLowerCase().includes(q)).map((b) => pickRow(b, [], null)));
@@ -594,13 +613,13 @@ function stepAssets(state, body) {
         } else state.assets.delete(a.name);
         status.firstChild.textContent = `${state.assets.size}/${count} chosen`;
       });
-      const tang = a.tangible === true ? 'tangible' : a.tangible === 'either' ? 'either' : 'intangible';
+      const tang = a.tangible === true ? 'tangible' : a.tangible === 'either' ? 'tangible/intangible' : 'intangible';
       list.append(el('label', { class: 'check-item', for: `as-${a.name}` }, box,
         el('div', {},
           el('div', {}, a.name,
             el('span', { class: 'tag' }, a.category),
             el('span', { class: 'tag' }, tang),
-            a.quality ? el('span', { class: 'tag' }, `Q${a.quality}`) : null),
+            a.quality ? el('span', { class: 'tag' }, `Quality ${a.quality}`) : null),
           el('div', { class: 'small muted' }, a.rider))));
     }
   };
