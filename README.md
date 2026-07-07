@@ -18,6 +18,19 @@ Everything runs in **local mode** by default — characters live in your browser
 localStorage, no account or network needed. Install it from your browser's
 "Add to Home Screen" / "Install app" prompt.
 
+## Hosted on GitHub Pages
+
+The app is published straight from this repo (no build step) at:
+
+**https://arti47.github.io/dune-player/**
+
+Deployment is automated by `.github/workflows/pages.yml`, which runs on every push
+to `main`. First-time setup (once per repo): **Settings → Pages → Build and
+deployment → Source → "GitHub Actions"**. The workflow attempts to enable this
+automatically on its first run; if the site 404s, set the source manually and
+re-run the workflow. All paths in the app are relative, so it works correctly from
+the `/dune-player/` sub-path.
+
 ## Cloud sync (optional, Phase 5)
 
 1. Create a Firebase project with **Realtime Database**, **Storage**, and
