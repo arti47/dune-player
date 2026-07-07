@@ -55,6 +55,8 @@ export function openRollDialog(character, onDone = null) {
   let result = null;           // { values:[…], reRolls:number } once rolled
 
   const container = el('div', {});
+  // Native replaceChildren stringifies a null arg into a "null" text node — filter them out.
+  const setUI = (...kids) => container.replaceChildren(...kids.filter((k) => k != null));
   const close = modal(container, { labelledBy: 'roll-title', onClose: () => onDone && onDone() });
   render();
 
@@ -99,7 +101,7 @@ export function openRollDialog(character, onDone = null) {
 
     const afford = cfg.buyWith === 'momentum' ? pools.momentum >= cost : true;
 
-    container.replaceChildren(
+    setUI(
       el('h2', { id: 'roll-title' }, 'Roll a test'),
       el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel),
       el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel),
@@ -152,7 +154,7 @@ export function openRollDialog(character, onDone = null) {
       return chip;
     };
 
-    container.replaceChildren(
+    setUI(
       el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure'),
       el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${cfg.difficulty}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
