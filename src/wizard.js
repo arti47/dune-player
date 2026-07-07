@@ -111,7 +111,7 @@ function stepConcept(state, body) {
 
   if (DATA.factionIntro) body.append(el('p', { class: 'small muted' }, DATA.factionIntro));
 
-  const choose = (id) => { state.factionTemplate = id; syncMandatoryTalents(state); rerenderInto(body, () => stepConcept(state, body)); };
+  const choose = (id) => { state.factionTemplate = id; applyTalentSuggestions(state); rerenderInto(body, () => stepConcept(state, body)); };
 
   const none = optionCard(state.factionTemplate === null, 'No faction template',
     'A mundane background — full freedom over talents.', () => choose(null));
@@ -126,31 +126,70 @@ function stepConcept(state, body) {
   }
 }
 
-/** When faction has mode:'all', force those talents into the selection; keep set within cap otherwise. */
-function syncMandatoryTalents(state) {
-  state.talents = new Set(state.talents);
+/** Rebuild the talent selection from suggestions: faction's fixed ('all'-mode) mandatory
+ *  talents + the archetype's suggested talent, within the cap. Called when faction or
+ *  archetype changes (user chose "re-apply new suggestions" on change). */
+function applyTalentSuggestions(state) {
+  const a = archetypeById(state.archetype);
   const f = factionById(state.factionTemplate);
-  // Drop previously-forced faction talents that no longer apply is left to the user at the Talents step.
-  if (f && f.mandatoryTalents.mode === 'all') {
-    for (const t of f.mandatoryTalents.options) state.talents.add(t);
-  }
+  const set = new Set();
+  if (f && f.mandatoryTalents.mode === 'all') for (const t of f.mandatoryTalents.options) set.add(t);
+  if (a) for (const t of a.talents) if (set.size < DATA.creation.talents.count) set.add(t);
+  state.talents = set;
+}
+
+/** Pre-fill the archetype's suggestions as editable starting picks (user decisions 2026-07-06):
+ *  focuses → the 2 suggested (on primary/secondary skill) + 2 blank; talents → applyTalentSuggestions;
+ *  drives → the 2 suggested get 8 and 7 (rest blank). Statements/pair-picks reset. */
+function applyArchetypeSuggestions(state) {
+  const a = archetypeById(state.archetype);
+  if (!a) return;
+  state.focuses = [
+    { skill: a.primary, name: a.focuses[0] || '' },
+    { skill: a.secondary, name: a.focuses[1] || '' },
+    { skill: '', name: '' },
+    { skill: '', name: '' },
+  ];
+  applyTalentSuggestions(state);
+  const arr = DATA.creation.driveArray;   // [8, 7, 6, 5, 4]
+  state.driveAssignment = { duty: null, faith: null, justice: null, power: null, truth: null };
+  const sugg = a.driveSuggestions || [];
+  if (sugg[0]) state.driveAssignment[sugg[0]] = arr[0];
+  if (sugg[1]) state.driveAssignment[sugg[1]] = arr[1];
+  state.statements = {};
+  state._drivePairPicks = {};
 }
 
 // ---------- Step 2: Archetype ----------
 function stepArchetype(state, body, rerender) {
   body.append(el('p', { class: 'small muted' },
-    'Sets your primary skill (6) and secondary skill (5); grants its name as a trait and suggests focuses and talents.'));
-  const grid = el('div', { class: 'option-grid' });
-  for (const a of DATA.archetypes) {
-    grid.append(optionCard(state.archetype === a.id, a.name,
-      `${a.desc ? a.desc + ' ' : ''}(${SKILL_NAME[a.primary]} / ${SKILL_NAME[a.secondary]}) · Focuses: ${a.focuses.join(', ')} · Talent: ${a.talents.join(', ')}`,
-      () => {
-        state.archetype = a.id;
-        initSkills(state);
-        rerender();
-      }));
+    'Sets your primary skill (6) and secondary skill (5); grants its name as a trait (fixed) and pre-fills suggested focuses, a talent, and drives (all editable).'));
+
+  const card = (a) => optionCard(state.archetype === a.id, a.name,
+    `${a.desc ? a.desc + ' ' : ''}(${SKILL_NAME[a.primary]} / ${SKILL_NAME[a.secondary]}) · Focuses: ${a.focuses.join(', ')} · Talent: ${a.talents.join(', ')}`,
+    () => { state.archetype = a.id; initSkills(state); applyArchetypeSuggestions(state); rerender(); });
+
+  const f = factionById(state.factionTemplate);
+  // When a faction is chosen, surface its suggested archetypes in a group on top (user decision).
+  if (f && Array.isArray(f.suggestedArchetypes) && f.suggestedArchetypes.length) {
+    const suggIds = new Set(f.suggestedArchetypes.map((n) => baseName(n).toLowerCase()));
+    const suggested = DATA.archetypes.filter((a) => suggIds.has(a.name.toLowerCase()));
+    const others = DATA.archetypes.filter((a) => !suggIds.has(a.name.toLowerCase()));
+    body.append(el('h3', {}, `Suggested for ${f.name}`),
+      el('div', { class: 'option-grid' }, ...suggested.map(card)),
+      el('h3', {}, 'Other archetypes'),
+      el('div', { class: 'option-grid' }, ...others.map(card)));
+  } else {
+    body.append(el('div', { class: 'option-grid' }, ...DATA.archetypes.map(card)));
   }
-  body.append(grid);
+
+  // Locked recap of what the archetype fixes (trait + base skills).
+  const a = archetypeById(state.archetype);
+  if (a) {
+    body.append(el('p', { class: 'small' },
+      el('span', { class: 'tag' }, 'fixed'),
+      ` Trait: ${a.name} · Primary ${SKILL_NAME[a.primary]} 6 · Secondary ${SKILL_NAME[a.secondary]} 5`));
+  }
 }
 
 function initSkills(state) {
@@ -189,8 +228,11 @@ function stepSkills(state, body, rerender) {
     const inc = el('button', { class: 'step-btn', 'aria-label': `Increase ${SKILL_NAME[s]}`, onclick: () => {
       if (state.skills[s] < cap && skillSpent(state) < freePoints) { state.skills[s]++; rerender(); }
     } }, '+');
+    const arch = archetypeById(state.archetype);
+    const roleTag = s === arch.primary ? el('span', { class: 'tag' }, 'primary · fixed base')
+      : s === arch.secondary ? el('span', { class: 'tag' }, 'secondary · fixed base') : null;
     body.append(el('div', { class: 'stat-row' },
-      el('span', { class: 'stat-name' }, SKILL_NAME[s]),
+      el('span', { class: 'stat-name' }, SKILL_NAME[s], roleTag),
       el('div', { class: 'stepper' }, dec, el('span', { class: 'stat-val' }, String(val)), inc)));
   }
 }
@@ -224,13 +266,16 @@ function stepFocuses(state, body, rerender) {
     const row = el('div', { class: 'focus-row' }, skillSel);
 
     if (f.skill) {
-      // Name dropdown limited to THIS skill's printed focus examples.
+      // Name dropdown = this skill's printed focus examples, plus the current value if it's an
+      // archetype-suggested focus not in that generic list (suggested focuses are book content).
       const names = (DATA.focusExamples[f.skill] || []).map((e) => e.name);
+      if (f.name && !names.includes(f.name)) names.unshift(f.name);
       const nameSel = el('select', { 'aria-label': `Focus ${i + 1} name` },
         el('option', { value: '' }, '— focus —'),
         ...names.map((n) => el('option', { value: n, selected: f.name === n ? '' : null }, n)));
       nameSel.addEventListener('change', () => { f.name = nameSel.value; });
       row.append(nameSel);
+      if (f.name && a.focuses.includes(f.name)) row.append(el('span', { class: 'tag' }, 'suggested'));
     } else {
       row.append(el('span', { class: 'small muted' }, 'Choose a skill first'));
     }
@@ -299,6 +344,16 @@ function stepTalents(state, body, rerender) {
     `Pick ${count} talents, at least one archetype-related${f ? `; your faction mandates ${f.mandatoryTalents.mode === 'all' ? 'all of' : 'one of'}: ${f.mandatoryTalents.options.join(', ')}` : ''}.`),
     el('p', {}, status));
 
+  // Faction mandatory-talent banner (updates on rerender when a 'choose-one' pick changes).
+  const mode = f && f.mandatoryTalents.mode;
+  const mandatorySatisfied = f && (mode === 'all'
+    ? f.mandatoryTalents.options.every((o) => talentSatisfies(state, o))
+    : f.mandatoryTalents.options.some((o) => talentSatisfies(state, o)));
+  if (f) body.append(el('p', { class: 'small' + (mandatorySatisfied ? ' ok-banner' : ' req-banner') },
+    mandatorySatisfied
+      ? `✓ ${f.name} mandatory talent${mode === 'all' ? 's' : ''} selected.`
+      : `Required: ${mode === 'all' ? 'keep' : 'choose at least one of'} ${f.mandatoryTalents.options.join(', ')}.`));
+
   const search = el('input', { type: 'search', placeholder: 'Search talents…', 'aria-label': 'Search talents' });
   body.append(search);
   const list = el('div', { class: 'check-list' });
@@ -327,9 +382,16 @@ function stepTalents(state, body, rerender) {
       const def = DATA.talents.find((t) => t.name === base);
       const isArch = archNames.has(base.toLowerCase());
       const isFaction = factionOpts.some((o) => baseName(o) === base);
+      // Locking: an 'all'-mode unbound faction talent is fixed; an 'atLeastOne' unbound option
+      // locks once it's the pick that satisfies the requirement (user can unlock to switch).
+      const unboundFactionOpt = factionOpts.find((o) => baseName(o) === base && !talentParam(o));
+      const isAllMandatory = !!unboundFactionOpt && mode === 'all';
+      const isAtLeastOneOpt = !!unboundFactionOpt && mode === 'atLeastOne';
+      const lockedAtLeastOne = isAtLeastOneOpt && mandatorySatisfied && state.talents.has(base);
       const tags = el('div', {}, base,
         isArch ? el('span', { class: 'tag' }, 'archetype') : null,
         isFaction ? el('span', { class: 'tag' }, 'faction') : null,
+        (isAllMandatory || lockedAtLeastOne) ? el('span', { class: 'tag req-tag' }, 'required') : null,
         def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null);
       const effect = el('div', { class: 'small muted' }, def ? def.effect : 'Faction/archetype talent (see rules library).');
 
@@ -360,6 +422,18 @@ function stepTalents(state, body, rerender) {
             def.requirement ? el('div', { class: 'small muted' }, `Requires: ${def.requirement}.`) : null,
             el('div', { class: 'focus-row' }, sel, addBtn),
             chips)));
+      } else if (isAllMandatory) {
+        // Fixed faction talent: always selected, cannot be unselected.
+        state.talents.add(base);
+        const box = el('input', { type: 'checkbox', id: `tal-${base}`, checked: '', disabled: '' });
+        list.append(el('label', { class: 'check-item locked', for: `tal-${base}` }, box, el('div', {}, tags, effect)));
+      } else if (lockedAtLeastOne) {
+        // Chosen 'at least one of' talent: locked, with an Unlock control to switch.
+        const box = el('input', { type: 'checkbox', id: `tal-${base}`, checked: '', disabled: '' });
+        const unlock = el('button', { type: 'button', class: 'link-btn', onclick: () => {
+          state.talents.delete(base); updateStatus(); rerender();
+        } }, 'Unlock to change');
+        list.append(el('div', { class: 'check-item locked' }, box, el('div', {}, tags, effect, el('div', {}, unlock))));
       } else {
         // Unbound talent: single checkbox toggling the base name.
         const box = el('input', { type: 'checkbox', id: `tal-${base}` });
@@ -370,6 +444,8 @@ function stepTalents(state, body, rerender) {
             state.talents.add(base);
           } else state.talents.delete(base);
           updateStatus();
+          // Re-render so the mandatory banner + 'choose-one' locking reflect the change.
+          if (isAtLeastOneOpt) rerender();
         });
         list.append(el('label', { class: 'check-item', for: `tal-${base}` }, box, el('div', {}, tags, effect)));
       }
@@ -424,6 +500,10 @@ function stepDrives(state, body, rerender) {
     body.append(helper);
   }
 
+  const suggestedDrives = (archetypeById(state.archetype).driveSuggestions) || [];
+  if (suggestedDrives.length) body.append(el('p', { class: 'small muted' },
+    `Pre-filled from your archetype (editable): ${suggestedDrives.map((d) => DRIVE_NAME[d]).join(' 8, ')} 7.`));
+
   for (const d of DRIVE_IDS) {
     // Only offer values not already taken by another drive (keep this drive's own value).
     const taken = new Set(DRIVE_IDS.filter((o) => o !== d)
@@ -436,7 +516,8 @@ function stepDrives(state, body, rerender) {
       state.driveAssignment[d] = sel.value ? Number(sel.value) : null;
       rerender(); // taken-value set changed → rebuild every dropdown + the statement fields
     });
-    body.append(el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, DRIVE_NAME[d]), sel));
+    const suggTag = suggestedDrives.includes(d) ? el('span', { class: 'tag' }, 'suggested') : null;
+    body.append(el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, DRIVE_NAME[d], suggTag), sel));
   }
 
   const stmtArea = el('div', { class: 'stmt-area' }, el('h3', {}, 'Drive statements'));

@@ -120,6 +120,10 @@ check('Every archetype has a description + drive suggestions (valid drive ids)',
 check('Every faction suggested-archetype now resolves to a real archetype',
   DATA.factionTemplates.every((f) => f.suggestedArchetypes.every((n) =>
     DATA.archetypes.some((a) => a.name === n))));
+// Wizard suggestion pre-fill needs: 2 focuses (primary/secondary), ≥1 talent, 2 drive suggestions.
+check('Every archetype supplies exactly 2 suggested focuses + a talent + 2 drive suggestions (wizard pre-fill)',
+  DATA.archetypes.every((a) => a.focuses.length === 2 && a.talents.length >= 1 &&
+    a.driveSuggestions.length >= 2));
 check('Every faction template has a description; faction intro present',
   typeof DATA.factionIntro === 'string' && DATA.factionIntro.length &&
   DATA.factionTemplates.every((f) => f.desc && f.desc.length));

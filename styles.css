@@ -110,6 +110,11 @@ button { font: inherit; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Inline "×" remove control on a chosen-talent pill. */
 .chip-x { background: none; border: none; color: inherit; cursor: pointer; font-weight: 700; padding: 0 0 0 2px; }
+/* Wizard: faction mandatory-talent banners + locked (fixed/required) rows. */
+.req-banner { color: var(--danger); font-weight: 600; }
+.ok-banner { color: var(--ok); font-weight: 600; }
+.tag.req-tag { background: var(--danger); color: var(--accent-contrast); border-color: var(--danger); }
+.check-item.locked { opacity: 0.9; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
 .pill {
