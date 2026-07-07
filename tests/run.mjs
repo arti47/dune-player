@@ -563,6 +563,8 @@ console.log('— Talent automation descriptors (roller: difficultyDelta + reroll
   check('Cautious: rerollOne when dice bought with Momentum, pick skill', byName('Cautious')?.auto.when === 'boughtDiceWithMomentum' && byName('Cautious').pick === 'skill');
   check('Prana-Bindu Conditioning: rerollOne on move/discipline', byName('Prana-Bindu Conditioning')?.auto.type === 'rerollOne' && byName('Prana-Bindu Conditioning').auto.skills.includes('move') && byName('Prana-Bindu Conditioning').auto.skills.includes('discipline'));
   check('The Reason I Fight: rerollOne on battle using picked drive', byName('The Reason I Fight')?.auto.type === 'rerollOne' && byName('The Reason I Fight').auto.skill === 'battle' && byName('The Reason I Fight').auto.usesPickedDrive === true && byName('The Reason I Fight').pick === 'drive');
+  check('Other Memory: autoSuccesses count 3, no skill restriction', byName('Other Memory')?.auto.type === 'autoSuccesses' && byName('Other Memory').auto.count === 3 && !byName('Other Memory').auto.skill);
+  check('Cool Under Pressure: determinationAutoSucceed, 0 Momentum, pick skill', byName('Cool Under Pressure')?.auto.type === 'determinationAutoSucceed' && byName('Cool Under Pressure').auto.momentumGenerated === 0 && byName('Cool Under Pressure').pick === 'skill');
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

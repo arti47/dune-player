@@ -5,8 +5,10 @@
 // Talent-embedded automation (§3.9) via the machine-readable `auto` descriptors: Voice
 // (auto-successes for Threat), Mentat Discipline (one die auto-1), difficultyDelta talents
 // (Nimble/Masterful Innuendo/Ransack/Constantly Watching — Difficulty shift, optional Threat
-// cost), and rerollOne talents (Bold/Cautious/Prana-Bindu/The Reason I Fight — a free
-// single-die re-roll, condition-aware).
+// cost), rerollOne talents (Bold/Cautious/Prana-Bindu/The Reason I Fight — a free
+// single-die re-roll, condition-aware), Other Memory (autoSuccesses — +N flat successes),
+// and Cool Under Pressure (determinationAutoSucceed — spend 1 Determination for an automatic
+// success, 0 Momentum, no dice).
 // Deferred to later Phase-3 passes: opposed tests, assists, Architect mode, rules citations.
 
 import { el, rollD20s, clamp } from './core.js';
@@ -59,6 +61,8 @@ export function openRollDialog(character, onDone = null) {
     voice: 0,                  // auto-successes bought with Threat (Voice-style talent)
     mentatAutoOne: false,      // one die auto-counts as 1 (Mentat Discipline-style talent)
     talentDiffs: new Set(),    // idxs of applied difficultyDelta talents (Nimble, Ransack…)
+    otherMemory: false,        // +N flat auto-successes (Other Memory-style autoSuccesses talent)
+    coolAuto: false,           // spend 1 Determination for an automatic success (Cool Under Pressure)
   };
   let result = null;           // { values:[…], reRolls:number } once rolled
 
@@ -89,6 +93,10 @@ export function openRollDialog(character, onDone = null) {
   function talentDefs() { return talentEntries().map((e) => e.def); }
   function voiceTalent() { return talentDefs().find((d) => d.auto?.type === 'buyAutoSuccessesWithThreat' && d.auto.skill === cfg.skill); }
   function autoOneTalent() { return talentDefs().find((d) => d.auto?.type === 'autoOneDie' && d.auto.skill === cfg.skill); }
+  // Other Memory-style flat auto-successes (no skill restriction, condition is narrative).
+  function autoSuccessTalent() { return talentDefs().find((d) => d.auto?.type === 'autoSuccesses'); }
+  // Cool Under Pressure-style: spend 1 Determination → the test auto-succeeds (skill-bound param must match).
+  function coolTalent() { return talentEntries().find(({ t, def }) => def.auto?.type === 'determinationAutoSucceed' && (def.pick !== 'skill' || t.skill === cfg.skill))?.def; }
 
   // difficultyDelta talents applicable to the chosen skill (Nimble, Masterful Innuendo, Ransack, Constantly Watching).
   function diffTalents() {
@@ -122,8 +130,12 @@ export function openRollDialog(character, onDone = null) {
     const eligible = determinationEligible(character, cfg.drive);
     if (!eligible) cfg.autoOne = false;
     const vt = voiceTalent(), aot = autoOneTalent();
+    const om = autoSuccessTalent(), cool = coolTalent();
     if (!vt) cfg.voice = 0;
     if (!aot) cfg.mentatAutoOne = false;
+    if (!om) cfg.otherMemory = false;
+    if (!cool || !eligible) cfg.coolAuto = false;
+    if (cfg.coolAuto) cfg.autoOne = false;   // both spend Determination; auto-success supersedes auto-1
     const dts = diffTalents();
     const dtIdx = new Set(dts.map((e) => e.idx));
     for (const i of [...cfg.talentDiffs]) if (!dtIdx.has(i)) cfg.talentDiffs.delete(i);
@@ -139,7 +151,7 @@ export function openRollDialog(character, onDone = null) {
           el('span', {}, tr.name, el('span', { class: 'tag' }, tr.negative ? 'negative' : 'positive')), box);
       })) : null;
 
-    const talentSection = (vt || aot) ? el('div', {},
+    const talentSection = (vt || aot || om || cool) ? el('div', {},
       el('p', { class: 'small muted' }, 'Talents'),
       vt ? el('div', { class: 'field' },
         el('span', {}, `${vt.name}: auto-successes for Threat (max ${vt.auto.max})`),
@@ -152,6 +164,18 @@ export function openRollDialog(character, onDone = null) {
         box.checked = cfg.mentatAutoOne;
         box.addEventListener('change', () => { cfg.mentatAutoOne = box.checked; });
         return el('label', { class: 'toggle-row', for: 'roll-tauto1' }, el('span', {}, `${aot.name}: one die counts as 1`), box);
+      })() : null,
+      om ? (() => {
+        const box = el('input', { type: 'checkbox', id: 'roll-om' });
+        box.checked = cfg.otherMemory;
+        box.addEventListener('change', () => { cfg.otherMemory = box.checked; render(); });
+        return el('label', { class: 'toggle-row', for: 'roll-om' }, el('span', {}, `${om.name}: +${om.auto.count} automatic successes${om.auto.condition ? ` (${om.auto.condition})` : ''}`), box);
+      })() : null,
+      cool ? (() => {
+        const box = el('input', { type: 'checkbox', id: 'roll-cool' });
+        box.checked = cfg.coolAuto;
+        box.addEventListener('change', () => { cfg.coolAuto = box.checked; render(); });
+        return el('label', { class: 'toggle-row', for: 'roll-cool' }, el('span', {}, `${cool.name}: spend 1 Determination — automatic success (0 Momentum)`), box);
       })() : null) : null;
 
     const diffTalentSection = dts.length ? el('div', {},
@@ -191,7 +215,7 @@ export function openRollDialog(character, onDone = null) {
 
     const detBox = el('input', { type: 'checkbox', id: 'roll-auto1' });
     detBox.checked = cfg.autoOne;
-    detBox.disabled = !eligible;
+    detBox.disabled = !eligible || cfg.coolAuto;
     detBox.addEventListener('change', () => { cfg.autoOne = detBox.checked; });
 
     const afford = cfg.buyWith === 'momentum' ? pools.momentum >= cost : true;
@@ -220,13 +244,14 @@ export function openRollDialog(character, onDone = null) {
       el('div', { class: 'modal-actions' },
         el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
         el('button', { class: 'btn', onclick: () => {
-          if (!afford) { showToast(`Not enough Momentum (need ${cost}).`); return; }
+          if (!cfg.coolAuto && !afford) { showToast(`Not enough Momentum (need ${cost}).`); return; }
           doRoll();
-        } }, 'Roll')),
+        } }, cfg.coolAuto ? 'Auto-succeed' : 'Roll')),
     );
   }
 
   function doRoll() {
+    if (cfg.coolAuto) { result = { auto: true, reRolls: 0, talentRerolls: new Set() }; render(); return; }
     const values = rollD20s(BASE_DICE + cfg.bought);
     let forced = (cfg.autoOne ? 1 : 0) + (cfg.mentatAutoOne ? 1 : 0);   // guaranteed 1s (crits)
     for (let i = 0; i < values.length && forced > 0; i++, forced--) values[i] = 1;
@@ -236,9 +261,12 @@ export function openRollDialog(character, onDone = null) {
 
   // ---------- result ----------
   function renderResult() {
+    if (result.auto) { renderAutoResult(); return; }
     const dice = evaluateDice(result.values, { tn: tn(), skillRating: skillRating(), focus: cfg.focus });
     const diff = effDiff();
-    const successes = dice.reduce((n, d) => n + d.successes, 0) + cfg.voice;   // + Voice-style auto-successes
+    const om = autoSuccessTalent();
+    const bonusAuto = cfg.voice + (cfg.otherMemory && om ? om.auto.count : 0);   // Voice + Other Memory flat successes
+    const successes = dice.reduce((n, d) => n + d.successes, 0) + bonusAuto;
     const complications = dice.filter((d) => d.complication).length;
     const passed = successes >= diff;
     const momentum = passed ? successes - diff : 0;
@@ -262,7 +290,7 @@ export function openRollDialog(character, onDone = null) {
 
     setUI(
       el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure'),
-      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${diff}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}`),
+      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${diff}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}${cfg.otherMemory && om ? ` · +${om.auto.count} ${om.name}` : ''}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${successes} success${successes === 1 ? '' : 'es'}`),
@@ -289,6 +317,33 @@ export function openRollDialog(character, onDone = null) {
     );
   }
 
+  // Cool Under Pressure: automatic success, 0 Momentum, no dice rolled (§3.9).
+  function renderAutoResult() {
+    const cool = coolTalent();
+    setUI(
+      el('h2', { id: 'roll-title' }, 'Success'),
+      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · automatic success`),
+      el('p', { 'aria-live': 'polite' },
+        el('span', { class: 'pill' }, `${cool?.name || 'Cool Under Pressure'}`),
+        el('span', { class: 'pill' }, '+0 Momentum'),
+        el('span', { class: 'pill' }, '−1 Determination')),
+      el('div', { class: 'modal-actions' },
+        el('button', { class: 'btn', onclick: () => commitAuto() }, 'Apply result')),
+    );
+  }
+
+  function commitAuto() {
+    saveCharacter({ ...character, determination: clampDetermination(character.determination - 1) });
+    appendRoll({
+      by: character.owner || null, characterName: character.identity.name || 'Unnamed',
+      skill: cfg.skill, drive: cfg.drive, tn: tn(), dice: [],
+      successes: effDiff(), complications: 0, momentumDelta: 0, threatDelta: 0,
+      note: `Automatic success · ${coolTalent()?.name || 'Cool Under Pressure'} · 1 Determination`,
+    });
+    showToast('Automatic success');
+    close();
+  }
+
   function commit({ successes, complications, passed, momentum }) {
     const pools = getPools();
     const cost = buyCost(cfg.bought);
@@ -309,6 +364,7 @@ export function openRollDialog(character, onDone = null) {
     const extras = [
       detSpent ? `${detSpent} Determination` : null,
       cfg.voice ? `${voiceTalent()?.name || 'Voice'} +${cfg.voice}` : null,
+      cfg.otherMemory && autoSuccessTalent() ? `${autoSuccessTalent().name} +${autoSuccessTalent().auto.count}` : null,
       cfg.mentatAutoOne ? (autoOneTalent()?.name || 'auto-1') : null,
       diffUsed.length ? diffUsed.join(', ') : null,
       result.talentRerolls.size ? `talent re-roll ×${result.talentRerolls.size}` : null,
