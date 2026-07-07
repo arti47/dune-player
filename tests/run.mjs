@@ -552,5 +552,18 @@ const { evaluateDice } = await import(join(root, 'src/roller.js'));
   check('Without focus, a die ≤ skill but > … only crits on nat 1', evaluateDice([5], { tn: 14, skillRating: 6, focus: false })[0].successes === 1);
 }
 
+console.log('— Talent automation descriptors (roller: difficultyDelta + rerollOne) —');
+{
+  const byName = (n) => DATA.talents.find((t) => t.name === n);
+  check('Nimble: difficultyDelta −2 on move', byName('Nimble')?.auto.type === 'difficultyDelta' && byName('Nimble').auto.delta === -2 && byName('Nimble').auto.skill === 'move');
+  check('Masterful Innuendo: difficultyDelta +1 on communicate', byName('Masterful Innuendo')?.auto.delta === 1 && byName('Masterful Innuendo').auto.skill === 'communicate');
+  check('Ransack: difficultyDelta −1 on understand, costs +2 Threat', byName('Ransack')?.auto.delta === -1 && byName('Ransack').auto.skill === 'understand' && /2\s*Threat/i.test(byName('Ransack').auto.cost));
+  check('Constantly Watching: difficultyDelta −2, no skill restriction', byName('Constantly Watching')?.auto.type === 'difficultyDelta' && byName('Constantly Watching').auto.delta === -2 && !byName('Constantly Watching').auto.skill);
+  check('Bold: rerollOne when dice bought with Threat, pick skill', byName('Bold')?.auto.type === 'rerollOne' && byName('Bold').auto.when === 'boughtDiceWithThreat' && byName('Bold').pick === 'skill');
+  check('Cautious: rerollOne when dice bought with Momentum, pick skill', byName('Cautious')?.auto.when === 'boughtDiceWithMomentum' && byName('Cautious').pick === 'skill');
+  check('Prana-Bindu Conditioning: rerollOne on move/discipline', byName('Prana-Bindu Conditioning')?.auto.type === 'rerollOne' && byName('Prana-Bindu Conditioning').auto.skills.includes('move') && byName('Prana-Bindu Conditioning').auto.skills.includes('discipline'));
+  check('The Reason I Fight: rerollOne on battle using picked drive', byName('The Reason I Fight')?.auto.type === 'rerollOne' && byName('The Reason I Fight').auto.skill === 'battle' && byName('The Reason I Fight').auto.usesPickedDrive === true && byName('The Reason I Fight').pick === 'drive');
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
