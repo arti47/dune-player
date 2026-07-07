@@ -5,7 +5,7 @@
 // Deferred to later Phase-3 passes: opposed tests, assists, talent-embedded automation,
 // Architect mode, rules-library citations.
 
-import { el, rollD20s } from './core.js';
+import { el, rollD20s, clamp } from './core.js';
 import { modal, showToast } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
@@ -51,6 +51,9 @@ export function openRollDialog(character, onDone = null) {
     buyWith: 'momentum',       // 'momentum' | 'threat'
     focus: false,
     autoOne: false,            // spend 1 Determination for one automatic 1 (crit)
+    appliedTraits: new Set(),  // trait indices applied to this test (Difficulty modifiers)
+    voice: 0,                  // auto-successes bought with Threat (Voice-style talent)
+    mentatAutoOne: false,      // one die auto-counts as 1 (Mentat Discipline-style talent)
   };
   let result = null;           // { values:[…], reRolls:number } once rolled
 
@@ -64,11 +67,53 @@ export function openRollDialog(character, onDone = null) {
   function tn() { return targetNumber(character, cfg.skill, cfg.drive); }
   function render() { result ? renderResult() : renderConfig(); }
 
+  // Applicable traits shift Difficulty (§3.6 modifier model): negative harder (+1), positive easier (−1).
+  function traitDelta() {
+    const traits = character.traits || [];
+    return [...cfg.appliedTraits].reduce((n, i) => n + (traits[i] && traits[i].negative ? 1 : -1), 0);
+  }
+  function effDiff() { return clamp(cfg.difficulty + traitDelta(), 0, 5); }
+  // Talent-embedded automation, keyed off the machine-readable `auto` descriptors (§3.9).
+  function talentDefs() {
+    return (character.talents || []).map((t) => DATA.talents.find((d) => d.name === t.name)).filter(Boolean);
+  }
+  function voiceTalent() { return talentDefs().find((d) => d.auto?.type === 'buyAutoSuccessesWithThreat' && d.auto.skill === cfg.skill); }
+  function autoOneTalent() { return talentDefs().find((d) => d.auto?.type === 'autoOneDie' && d.auto.skill === cfg.skill); }
+
   // ---------- pre-roll config ----------
   function renderConfig() {
     const pools = getPools();
     const eligible = determinationEligible(character, cfg.drive);
     if (!eligible) cfg.autoOne = false;
+    const vt = voiceTalent(), aot = autoOneTalent();
+    if (!vt) cfg.voice = 0;
+    if (!aot) cfg.mentatAutoOne = false;
+
+    const traits = character.traits || [];
+    const traitSection = traits.length ? el('div', {},
+      el('p', { class: 'small muted' }, 'Traits that apply here (negative = +1 Difficulty, positive = −1):'),
+      ...traits.map((tr, i) => {
+        const box = el('input', { type: 'checkbox', id: `roll-tr-${i}` });
+        box.checked = cfg.appliedTraits.has(i);
+        box.addEventListener('change', () => { box.checked ? cfg.appliedTraits.add(i) : cfg.appliedTraits.delete(i); render(); });
+        return el('label', { class: 'toggle-row', for: `roll-tr-${i}` },
+          el('span', {}, tr.name, el('span', { class: 'tag' }, tr.negative ? 'negative' : 'positive')), box);
+      })) : null;
+
+    const talentSection = (vt || aot) ? el('div', {},
+      el('p', { class: 'small muted' }, 'Talents'),
+      vt ? el('div', { class: 'field' },
+        el('span', {}, `${vt.name}: auto-successes for Threat (max ${vt.auto.max})`),
+        el('div', { class: 'stepper' },
+          el('button', { class: 'step-btn', 'aria-label': 'Fewer Voice successes', onclick: () => { if (cfg.voice > 0) { cfg.voice--; render(); } } }, '−'),
+          el('span', { class: 'stat-val' }, String(cfg.voice)),
+          el('button', { class: 'step-btn', 'aria-label': 'More Voice successes', onclick: () => { if (cfg.voice < (vt.auto.max || 3)) { cfg.voice++; render(); } } }, '+'))) : null,
+      aot ? (() => {
+        const box = el('input', { type: 'checkbox', id: 'roll-tauto1' });
+        box.checked = cfg.mentatAutoOne;
+        box.addEventListener('change', () => { cfg.mentatAutoOne = box.checked; });
+        return el('label', { class: 'toggle-row', for: 'roll-tauto1' }, el('span', {}, `${aot.name}: one die counts as 1`), box);
+      })() : null) : null;
 
     const skillSel = el('select', { 'aria-label': 'Skill' },
       ...SKILLS.map((s) => el('option', { value: s.id, selected: cfg.skill === s.id ? '' : null }, `${s.name} ${character.skills[s.id]}`)));
@@ -108,6 +153,9 @@ export function openRollDialog(character, onDone = null) {
       el('p', {}, el('span', { class: 'pill' }, `Target number ${tn()}`),
         el('span', { class: 'pill' }, `${BASE_DICE + cfg.bought} dice`)),
       el('div', { class: 'field' }, el('span', {}, 'Difficulty'), diffSel),
+      traitDelta() !== 0 ? el('p', {}, el('span', { class: 'pill' }, `Effective Difficulty ${effDiff()} (${traitDelta() > 0 ? '+' : ''}${traitDelta()} from traits)`)) : null,
+      traitSection,
+      talentSection,
       el('div', { class: 'field' }, el('span', {}, `Buy extra dice (max ${MAX_DICE - BASE_DICE})`),
         el('div', { class: 'stepper' }, buyDec, el('span', { class: 'stat-val' }, String(cfg.bought)), buyInc)),
       cfg.bought ? el('div', { class: 'field' }, el('span', {}, `Cost: ${cost} ${cfg.buyWith === 'momentum' ? 'Momentum' : 'Threat'}`), buyWithSel) : null,
@@ -126,7 +174,8 @@ export function openRollDialog(character, onDone = null) {
 
   function doRoll() {
     const values = rollD20s(BASE_DICE + cfg.bought);
-    if (cfg.autoOne) values[0] = 1;            // Determination auto-1 (a guaranteed crit)
+    let forced = (cfg.autoOne ? 1 : 0) + (cfg.mentatAutoOne ? 1 : 0);   // guaranteed 1s (crits)
+    for (let i = 0; i < values.length && forced > 0; i++, forced--) values[i] = 1;
     result = { values, reRolls: 0 };
     render();
   }
@@ -134,10 +183,11 @@ export function openRollDialog(character, onDone = null) {
   // ---------- result ----------
   function renderResult() {
     const dice = evaluateDice(result.values, { tn: tn(), skillRating: skillRating(), focus: cfg.focus });
-    const successes = dice.reduce((n, d) => n + d.successes, 0);
+    const diff = effDiff();
+    const successes = dice.reduce((n, d) => n + d.successes, 0) + cfg.voice;   // + Voice-style auto-successes
     const complications = dice.filter((d) => d.complication).length;
-    const passed = successes >= cfg.difficulty;
-    const momentum = passed ? successes - cfg.difficulty : 0;
+    const passed = successes >= diff;
+    const momentum = passed ? successes - diff : 0;
 
     const detLeft = character.determination - (cfg.autoOne ? 1 : 0) - result.reRolls;
     const canReRoll = determinationEligible(character, cfg.drive) && detLeft > 0;
@@ -156,7 +206,7 @@ export function openRollDialog(character, onDone = null) {
 
     setUI(
       el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure'),
-      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${cfg.difficulty}`),
+      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${diff}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${successes} success${successes === 1 ? '' : 'es'}`),
@@ -179,6 +229,7 @@ export function openRollDialog(character, onDone = null) {
     const cost = buyCost(cfg.bought);
     let momentumDelta = 0, threatDelta = 0;
     if (cfg.bought) { if (cfg.buyWith === 'momentum') momentumDelta -= cost; else threatDelta += cost; }
+    if (cfg.voice) threatDelta += cfg.voice;      // Voice-style auto-successes are bought with Threat
     if (passed) momentumDelta += momentum;
     const detSpent = (cfg.autoOne ? 1 : 0) + result.reRolls;
 
@@ -188,11 +239,17 @@ export function openRollDialog(character, onDone = null) {
     });
     if (detSpent) saveCharacter({ ...character, determination: clampDetermination(character.determination - detSpent) });
 
+    const extras = [
+      detSpent ? `${detSpent} Determination` : null,
+      cfg.voice ? `${voiceTalent()?.name || 'Voice'} +${cfg.voice}` : null,
+      cfg.mentatAutoOne ? (autoOneTalent()?.name || 'auto-1') : null,
+      cfg.appliedTraits.size ? `${cfg.appliedTraits.size} trait${cfg.appliedTraits.size === 1 ? '' : 's'}` : null,
+    ].filter(Boolean);
     appendRoll({
       by: character.owner || null, characterName: character.identity.name || 'Unnamed',
       skill: cfg.skill, drive: cfg.drive, tn: tn(), dice: result.values.slice(),
       successes, complications, momentumDelta, threatDelta,
-      note: `${passed ? 'Success' : 'Failure'} vs Diff ${cfg.difficulty}${detSpent ? ` · ${detSpent} Determination` : ''}`,
+      note: `${passed ? 'Success' : 'Failure'} vs Diff ${effDiff()}${extras.length ? ` · ${extras.join(' · ')}` : ''}`,
     });
     showToast(passed ? `Success · +${momentum} Momentum` : 'Failed');
     close();
