@@ -6,10 +6,11 @@
 import { el, capitalize } from './core.js';
 import {
   listCharacters, currentCharacterId, setCurrentCharacterId,
-  saveCharacter, deleteCharacter, getPools, savePools,
+  saveCharacter, deleteCharacter, getPools, savePools, getRollLog,
 } from './store.js';
 import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
+import { openRollDialog } from './roller.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { DATA } from '../data.js';
 
@@ -93,6 +94,9 @@ function liveSheet(c) {
       [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
        id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character'),
 
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => openRollDialog(c, refresh) }, '⚂ Roll a test')),
+
     el('h4', {}, 'Skills'),
     el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
 
@@ -122,6 +126,7 @@ function liveSheet(c) {
       : null,
 
     notesSection(c),
+    rollLogSection(),
 
     el('div', { class: 'cta-row', style: 'margin-top:14px' },
       el('button', { class: 'btn secondary danger-btn',
@@ -130,6 +135,20 @@ function liveSheet(c) {
             { okLabel: 'Delete' })) { deleteCharacter(c.id); showToast('Character deleted'); refresh(); }
         } }, 'Delete character')),
   );
+}
+
+// ---------- Roll log (recent 2d20 tests) ----------
+function rollLogSection() {
+  const log = getRollLog().slice(0, 8);
+  return el('div', {},
+    el('h4', {}, 'Roll log'),
+    log.length
+      ? el('ul', { class: 'roll-log' }, ...log.map((r) => el('li', { class: 'small' },
+          el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${DRIVE_NAME[r.drive] || r.drive} `),
+          `TN ${r.tn} · [${(r.dice || []).join(', ')}] · ${r.successes} succ`,
+          r.complications ? ` · ${r.complications} comp` : '',
+          r.note ? ` · ${r.note}` : '')))
+      : el('p', { class: 'small muted' }, 'No rolls yet — tap “Roll a test”.'));
 }
 
 // ---------- Drive statements: challenge / recover (§3.8) ----------

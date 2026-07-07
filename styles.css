@@ -110,6 +110,22 @@ button { font: inherit; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Inline "×" remove control on a chosen-talent pill. */
 .chip-x { background: none; border: none; color: inherit; cursor: pointer; font-weight: 700; padding: 0 0 0 2px; }
+/* Dice roller (Phase 3) */
+.dice-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.die {
+  min-width: 42px; min-height: 42px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 1.05rem;
+}
+.die.hit { border-color: var(--ok); }
+.die.crit { background: var(--ok); color: var(--accent-contrast); border-color: var(--ok); }
+.die.miss { opacity: 0.55; }
+.die.comp { background: var(--danger); color: var(--accent-contrast); border-color: var(--danger); }
+.die.sel { outline: 3px solid var(--accent); outline-offset: 1px; }
+.pill.danger-pill { background: var(--danger); color: var(--accent-contrast); border-color: var(--danger); }
+.roll-log { list-style: none; padding: 0; margin: 4px 0 0; }
+.roll-log li { padding: 5px 0; border-bottom: 1px solid var(--border); }
+.roll-log li:last-child { border-bottom: none; }
+
 /* Wizard: faction mandatory-talent banners + locked (fixed/required) rows. */
 .req-banner { color: var(--danger); font-weight: 600; }
 .ok-banner { color: var(--ok); font-weight: 600; }

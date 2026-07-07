@@ -538,5 +538,19 @@ check('importAll round-trips characters + pools + normalizes',
   store.listCharacters()[0].skills.communicate === 4 &&   // back-filled by normalizeCharacter
   store.getPools().momentum === 4);
 
+console.log('— Dice engine invariants (roller: evaluateDice) —');
+const { evaluateDice } = await import(join(root, 'src/roller.js'));
+{
+  const d = evaluateDice([1, 20, 5, 12], { tn: 14, skillRating: 6, focus: true });
+  const succ = d.reduce((n, x) => n + x.successes, 0);
+  const comps = d.filter((x) => x.complication).length;
+  check('Nat 1 crits (2 successes) even at low TN', evaluateDice([1], { tn: 4, skillRating: 4, focus: false })[0].successes === 2);
+  check('Nat 20 = complication, 0 successes', d[1].complication && d[1].successes === 0);
+  check('Focus crits a die ≤ skill rating (5 ≤ 6 → 2 successes)', d[2].crit && d[2].successes === 2);
+  check('Success ≤ TN without focus crit is 1 success (12 ≤ 14, > skill 6)', d[3].success && !d[3].crit && d[3].successes === 1);
+  check('Pool [1,20,5,12] focus tn14 skill6 → 5 successes, 1 complication', succ === 5 && comps === 1);
+  check('Without focus, a die ≤ skill but > … only crits on nat 1', evaluateDice([5], { tn: 14, skillRating: 6, focus: false })[0].successes === 1);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
