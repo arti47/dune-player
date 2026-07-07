@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 # Publishes the static PWA (no build step) to GitHub Pages on every push to main.
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
-# (actions/configure-pages will also try to enable this automatically on first run.)
+# (actions/configure-pages with enablement: true also tries to turn this on automatically.)
 
 on:
   push:
@@ -31,6 +31,8 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

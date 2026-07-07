@@ -255,5 +255,36 @@ details.tips li { margin-bottom: 4px; }
 .stat-chip.wide strong { font-size: 0.95rem; font-weight: 500; }
 h4 { margin: 14px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
+/* ---------- Live sheet (Phase 2) ---------- */
+.pools-bar { display: flex; gap: 8px; justify-content: space-between; }
+.pool-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.pool-name { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); text-align: center; }
+.pools-bar .stepper { gap: 6px; }
+.pools-bar .step-btn { width: 34px; height: 34px; font-size: 1.05rem; }
+
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.section-head h4 { margin-bottom: 4px; }
+
+.pill.neg { border-color: var(--danger); color: var(--danger); }
+.pill-x { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0 0 6px; }
+.pill-x:hover { color: var(--danger); }
+
+.stmt-list { list-style: none; padding: 0; margin: 4px 0; }
+.stmt-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.stmt-item:last-child { border-bottom: none; }
+.stmt-item.challenged { opacity: 0.6; }
+.danger-tag { border-color: var(--danger); color: var(--danger); }
+
+.asset-list { list-style: none; padding: 0; margin: 4px 0; }
+.asset-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.asset-item:last-child { border-bottom: none; }
+.asset-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.asset-controls { display: flex; align-items: center; gap: 8px; }
+.asset-controls .step-btn { width: 32px; height: 32px; }
+.link-btn.on { font-weight: 700; text-decoration: none; }
+.link-btn.on::before { content: '✓ '; }
+.link-btn.disabled { color: var(--muted); text-decoration: line-through; }
+.danger-btn { color: var(--danger); border-color: var(--danger); }
+
 /* Zero horizontal overflow guard at narrow widths */
 img, svg, table, pre { max-width: 100%; }

@@ -741,24 +741,29 @@ export const DATA = {
 
   // ---------- T24 · Advancement ----------
   advancement: {
+    // Book names the earning triggers: Pain/Failure/Peril (grouped as "Adversity"),
+    // Ambition, and Impressing the Group.
     earn: [
-      { desc: 'Ambition progress — minor', points: 1 },
-      { desc: 'Ambition progress — major', points: 3 },
-      { desc: 'Defeated in a conflict', points: 1 },
-      { desc: 'Fail a Difficulty 3+ test', points: 1 },
-      { desc: 'GM spends 4+ Threat at once', points: 1 },
-      { desc: 'Group award (max once per session)', points: 1 },
+      { trigger: 'Ambition', desc: 'Ambition progress — minor contribution (successful test if one is involved)', points: 1 },
+      { trigger: 'Ambition', desc: 'Ambition progress — major contribution', points: 3 },
+      { trigger: 'Pain', desc: 'Defeated in a conflict', points: 1 },
+      { trigger: 'Failure', desc: 'Fail a Difficulty 3+ test', points: 1 },
+      { trigger: 'Peril', desc: 'GM spends 4+ Threat at once', points: 1 },
+      { trigger: 'Impressing the Group', desc: 'Group award for a standout plan/scene (max once per session per player)', points: 1 },
     ],
     costs: {
-      skill:          { name: 'Skill +1 (cap 8)',        cost: '10 + 1 per previous skill advance' },
-      focus:          { name: 'New focus (skill ≥ 6)',   cost: 'Number of focuses owned' },
-      talent:         { name: 'New talent',              cost: '3 × talents owned' },
-      assetPermanent: { name: 'Make asset permanent',    cost: '3' },
+      skill:          { name: 'Skill +1 (cap 8)',        cost: '10 + 1 per previous skill advance',
+        note: 'Each skill may only be advanced this way once; never above 8.' },
+      focus:          { name: 'New focus (skill ≥ 6)',   cost: 'Number of focuses already owned' },
+      talent:         { name: 'New talent',              cost: '3 × talents already owned' },
+      assetPermanent: { name: 'Make an asset permanent', cost: '3', note: 'Any asset except a single-scene one.' },
       assetQuality:   { name: 'Asset Quality +1',        cost: '3 × current Quality' },
     },
     maxPerAdventure: 1,
+    betweenAdventuresOnly: true,
     drivesNeverAdvanceByPoints: true,
-    retraining: 'Halve one advance’s cost (round up) by permanently dropping a skill point (min 4), a focus, or a talent.',
+    drivesChangeNote: 'Drives cannot change through advancement — they use the challenge/recover mechanism (§3.8).',
+    retraining: 'Halve one advance’s cost (round up) by letting another ability atrophy: retraining a skill also drops a skill by 1 (min 4, and this drop does not count as that skill’s one allowed advance); retraining a focus removes a focus you own; retraining a talent removes a talent you own.',
   },
 
   // ---------- T25 · Sandworm riding (extended task requirements) ----------
@@ -1293,5 +1298,53 @@ export const DATA = {
       'Purchase at most 1 advance',
       'Unrecovered challenged statements recover: write a new statement, or −1 the challenged drive / +1 the next lowest (statement kept if the drive stays ≥ 6)',
     ],
+  },
+
+  // ---------- T40 · Supporting characters (Core Rulebook) ----------
+  // A second kind of player-controlled character: shared by the group, created as needed,
+  // NOT permanently owned by one player. Two types (minor · notable) mirror the NPC tiers
+  // but run on Momentum/Threat cost to bring in. Distinct from data-npcs.js tier recipes,
+  // which build GM-run NPCs.
+  supportingCharacters: {
+    intro: 'The people who serve the group’s House in minor and lesser capacities — functionaries, spies, soldiers. Shared by the group and brought into play as needed, not permanently owned by any one player. At the start of a scene, a player may choose to play their main character or an available supporting character.',
+    // Rules for a character you have in a scene but are not directly controlling.
+    uncontrolled: {
+      note: 'A player may directly control only one character per scene. Their other characters in the scene are uncontrolled and limited to:',
+      actions: [
+        { name: 'Difficulty 0 tests', desc: 'May attempt any action that auto-succeeds (Difficulty 0); any higher-Difficulty test auto-fails without rolling.' },
+        { name: 'Assistance', desc: 'May assist another character’s test under the normal assist rules (one character at a time).' },
+        { name: 'Follow orders', desc: 'A controlling character can order the action, then the uncontrolled character attempts it — with assistance from the one giving the order.' },
+        { name: 'Sacrifice', desc: 'Spend 1 Momentum (or add 1 Threat) to have an uncontrolled character suffer the fate that would have defeated/incapacitated a controlled character.' },
+        { name: 'As a trait', desc: 'Uncontrolled characters count as a trait to make an impossible (multi-person) task possible or to lower Difficulty — enough working together can reduce a task to Difficulty 0.' },
+      ],
+      onDefeat: 'If the character you are playing is defeated or incapacitated and you have other characters in the scene, you may immediately take control of one uncontrolled character.',
+    },
+    types: {
+      minor: {
+        label: 'Minor',
+        concept: 'Inconsequential subordinates — House soldiers, servants, and similar.',
+        cost: 'Costs 1 Momentum or adds 1 Threat per minor character. If you are not controlling another character in the scene, one minor supporting character is free.',
+        limit: 'Unlimited number may be created during play.',
+        traits: '1 trait describing the job/role (e.g. House Trooper, Servant, Spy).',
+        drive: { type: 'single', range: [4, 8], typical: 5,
+          note: 'A single Drive rating added to the target number (like a Duty drive); no drive scores or statements. 5 typical · 6 if serving the House’s secondary domain · 7 if serving the primary domain · 4 if especially low-ranking.' },
+        skills: [6, 5, 5, 4, 4],
+        focuses: { note: '1 focus for a skill rated 6 (2 for a 7, 3 for an 8, if a GM grants higher).' },
+        talents: { note: 'A talent only if the House grants special training to that type; otherwise any talent is unique to them.' },
+      },
+      notable: {
+        label: 'Notable',
+        concept: 'Specialists, experts, and trusted lieutenants — not as important as the main characters.',
+        cost: 'Costs 3 Momentum or adds 3 Threat, plus any extras below. Reusing an existing notable costs half its creation cost (round up).',
+        limit: 'Up to 5 per adventure (new or reused); the House may raise or lower this.',
+        traits: '1 role trait (e.g. Military Officer, Steward, Pilot, Scholar). +1 cost adds a 2nd reputation trait.',
+        drives: { high: [7, 6], rest: 5, statements: 1,
+          note: 'Two drives at 7 and 6, the rest 5. One statement on a higher-rated drive; +1 cost adds a statement to the other.' },
+        skills: [7, 6, 5, 5, 4],
+        skillsUpgrade: '+1 cost adds +1 to two different skills.',
+        focuses: { note: '1 focus for a skill rated 6 (2 for a 7, 3 for an 8). +1 cost adds 2 more focuses to skills rated 6+.' },
+        talents: { count: 1, note: 'One talent; +2 cost adds a second.' },
+      },
+    },
   },
 };

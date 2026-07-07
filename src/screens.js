@@ -3,7 +3,8 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { getPools, listCharacters, getHouse } from './store.js';
+import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
+import { confirmModal } from './ui.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { DATA } from '../data.js';
@@ -181,10 +182,33 @@ export function renderRules(root) {
 
   cards.push(ruleCard('Advancement', el('div', {},
     table(['Advance', 'Cost'], Object.values(DATA.advancement.costs).map((c) => [c.name, c.cost])),
+    el('p', { class: 'small' },
+      el('strong', {}, 'Earn: '),
+      DATA.advancement.earn.map((e) => `${e.trigger} — ${e.desc} (${e.points})`).join(' · ')),
     el('p', { class: 'small muted' },
-      `Max ${DATA.advancement.maxPerAdventure} advance per adventure. Earn: ` +
-      DATA.advancement.earn.map((e) => `${e.desc} (${e.points})`).join(' · ') +
-      '. Drives never advance by points. Retraining: halve a cost (round up) by dropping a skill point (min 4), focus, or talent.'))));
+      `Max ${DATA.advancement.maxPerAdventure} advance, purchased between adventures. ` +
+      DATA.advancement.drivesChangeNote + ' ' + DATA.advancement.retraining))));
+
+  cards.push(ruleCard('Supporting characters', el('div', {},
+    el('p', { class: 'small' }, DATA.supportingCharacters.intro),
+    ...['minor', 'notable'].map((k) => {
+      const t = DATA.supportingCharacters.types[k];
+      const d = t.drive || t.drives;
+      return el('details', { class: 'tips' },
+        el('summary', {}, `${t.label} — ${t.concept}`),
+        el('p', { class: 'small' }, el('strong', {}, 'Cost: '), t.cost),
+        el('p', { class: 'small muted' }, el('strong', {}, 'Limit: '), t.limit),
+        el('p', { class: 'small' }, el('strong', {}, 'Traits: '), t.traits),
+        el('p', { class: 'small' }, el('strong', {}, 'Skills: '), t.skills.join('/') + (t.skillsUpgrade ? ` · ${t.skillsUpgrade}` : '')),
+        el('p', { class: 'small' }, el('strong', {}, 'Drives: '), d.note),
+        el('p', { class: 'small' }, el('strong', {}, 'Focuses: '), t.focuses.note),
+        el('p', { class: 'small' }, el('strong', {}, 'Talents: '), t.talents.note));
+    }),
+    el('p', { class: 'small muted' }, el('strong', {}, 'Uncontrolled characters: '),
+      DATA.supportingCharacters.uncontrolled.note),
+    el('ul', {}, ...DATA.supportingCharacters.uncontrolled.actions.map((a) =>
+      el('li', { class: 'small' }, el('strong', {}, a.name + ': '), a.desc))),
+    el('p', { class: 'small muted' }, DATA.supportingCharacters.uncontrolled.onDefeat))));
 
   cards.push(ruleCard('Archetypes', el('div', {},
     el('p', { class: 'small muted' }, `${DATA.archetypes.length} archetypes. Each sets a primary (6) and secondary (5) skill and suggests 2 focuses + 1 talent. Drive hints are guidance only.`),
@@ -255,6 +279,46 @@ export function renderRules(root) {
   root.append(el('div', { class: 'card' }, search), ...cards);
 }
 
+// ---------- Data backup (JSON export / import) ----------
+function dataCard() {
+  const doExport = () => {
+    const bundle = exportAll();
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const a = el('a', { href: url, download: `imperium-backup-${stamp}.json` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Backup downloaded');
+  };
+
+  const fileInput = el('input', { type: 'file', accept: 'application/json,.json', style: 'display:none' });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch { showToast('That file is not valid JSON.'); return; }
+    if (!await confirmModal('Importing replaces all local characters, House, and pools. Continue?',
+      { okLabel: 'Import' })) return;
+    try {
+      const r = importAll(data);
+      showToast(`Imported ${r.characters} character${r.characters === 1 ? '' : 's'}${r.house ? ' + House' : ''}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } catch (e) { showToast(e.message || 'Import failed.'); }
+  });
+
+  return el('section', { class: 'card' },
+    el('h3', {}, 'Backup & transfer'),
+    el('p', { class: 'small muted' },
+      'Export all characters, your House, and pools to a JSON file, or import a backup to this device. Import replaces local data.'),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: doExport }, 'Export JSON'),
+      el('button', { class: 'btn secondary', onclick: () => fileInput.click() }, 'Import JSON'),
+      fileInput));
+}
+
 // ---------- Settings / About ----------
 export function renderSettings(root) {
   // Theme picker
@@ -290,6 +354,7 @@ export function renderSettings(root) {
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel)),
     el('section', { class: 'card' }, el('h3', {}, 'Content & surfaces'), ...toggleRows),
+    dataCard(),
     el('section', { class: 'card' },
       el('h3', {}, 'About'),
       el('p', { class: 'small muted' },
