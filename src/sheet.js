@@ -15,7 +15,7 @@ import {
 import { focusExamplesFor } from './rules.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
-import { renderLifecycle } from './combat.js';
+import { renderLifecycle, renderTasks, renderDefeat } from './combat.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { DATA } from '../data.js';
 
@@ -85,6 +85,7 @@ export function renderSheet(root) {
   );
 
   if (chars.length) root.append(renderLifecycle(refresh));
+  if (chars.length) root.append(renderTasks(refresh));
 
   if (current) root.append(liveSheet(current));
   else root.append(el('section', { class: 'card' },
@@ -122,6 +123,7 @@ function liveSheet(c) {
 
     traitsSection(c),
     assetsSection(c),
+    renderDefeat(c, refresh),
 
     id.ambition ? el('div', {}, el('h4', {}, 'Ambition'),
       el('p', { class: 'small' }, id.ambition)) : null,

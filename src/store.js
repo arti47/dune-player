@@ -62,6 +62,7 @@ export function exportAll() {
     characters: readJSON(K_CHARS, []),
     house: readJSON(K_HOUSE, null),
     pools: getPools(),
+    tasks: readJSON(K_TASKS, []),
     currentCharacterId: currentCharacterId(),
   };
 }
@@ -74,12 +75,18 @@ export function importAll(data) {
   writeJSON(K_CHARS, characters);
   writeJSON(K_HOUSE, data.house ? normalizeHouse(data.house) : null);
   writeJSON(K_POOLS, data.pools && typeof data.pools === 'object' ? data.pools : { momentum: 0, threat: 0 });
+  writeJSON(K_TASKS, Array.isArray(data.tasks) ? data.tasks : []);
   if (data.currentCharacterId && characters.some((c) => c.id === data.currentCharacterId)) {
     localStorage.setItem(K_CURRENT, data.currentCharacterId);
   } else localStorage.removeItem(K_CURRENT);
   notify('characters'); notify('house'); notify('pools'); notify('current');
   return { characters: characters.length, house: !!data.house };
 }
+
+// ---------- Extended tasks (generic; §3.1 — local mirror, campaign-synced in Phase 5) ----------
+const K_TASKS = 'imperium.tasks';
+export function getTasks() { return readJSON(K_TASKS, []); }
+export function saveTasks(tasks) { writeJSON(K_TASKS, tasks); notify('tasks'); }
 
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------
 export function getRollLog() { return readJSON(K_ROLLLOG, []); }

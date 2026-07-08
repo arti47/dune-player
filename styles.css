@@ -317,5 +317,18 @@ h4 { margin: 14px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-sp
 .link-btn.disabled { color: var(--muted); text-decoration: line-through; }
 .danger-btn { color: var(--danger); border-color: var(--danger); }
 
+/* ---------- Extended tasks + defeat track (Phase 4) ---------- */
+.task-list { list-style: none; padding: 0; margin: 6px 0 0; }
+.task-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.task-item:last-child { border-bottom: none; }
+.task-item.done { opacity: 0.7; }
+.task-head { display: flex; align-items: center; gap: 8px; }
+.task-head strong { flex: 1; }
+.task-bar { height: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin: 6px 0; }
+.task-fill { height: 100%; background: var(--ok); border-radius: 999px; transition: width 0.2s ease; }
+.task-fill.danger { background: var(--danger); }
+.task-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.danger-text { color: var(--danger); font-weight: 700; }
+
 /* Zero horizontal overflow guard at narrow widths */
 img, svg, table, pre { max-width: 100%; }

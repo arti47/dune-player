@@ -283,10 +283,12 @@ export const DATA = {
     minorNpcsDefeatedInstantly: true,
     trackRequirement: 'defender skill + defensive asset Quality',
     pointsPerHit: '2 + attacking asset Quality',
-    resistDefeat: { oncePerScene: true, cost: '1 Momentum/Threat + attacker asset Quality', consequence: 'Suffer a complication' },
+    pointsPerHitBase: 2,          // + attacking asset Quality (machine-readable, §10.2)
+    resistDefeat: { oncePerScene: true, cost: '1 Momentum/Threat + attacker asset Quality',
+      momentumCost: 1, consequence: 'Suffer a complication' },   // + attacker asset Quality
     lastingDefeatMomentumCost: 2,
     recovery: {
-      normal:  { kind: 'extendedTask', requirement: '4 + defeating asset Quality', outcome: 'Rejoin the scene' },
+      normal:  { kind: 'extendedTask', requirement: '4 + defeating asset Quality', requirementBase: 4, outcome: 'Rejoin the scene' },
       lasting: { kind: 'test', difficulty: 2, outcome: 'Stabilized — permanent effect prevented; out for the scene' },
     },
   },

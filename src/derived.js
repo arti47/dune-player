@@ -59,7 +59,7 @@ export function normalizeCharacter(c) {
     assets: c.assets || [],
     determination: clampDetermination(c.determination ?? 1),
     state: {
-      defeated: false, lastingDefeat: false, resistUsedThisScene: false,
+      defeated: false, lastingDefeat: false, resistUsedThisScene: false, stabilized: false,
       defeatTrack: { req: 0, progress: 0 }, ...(c.state || {}),
     },
     advancement: {

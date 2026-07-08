@@ -643,5 +643,23 @@ console.log('— Phase 4: advancement cost formulas (§3.10) —');
   check('normalizeCharacter back-fills advancement.skillsAdvanced []', Array.isArray(nc.advancement.skillsAdvanced) && nc.advancement.skillsAdvanced.length === 0);
 }
 
+console.log('— Phase 4: extended tasks + defeat/recovery (§3.1/§3.7/§3.8) —');
+{
+  const { scoreExtendedTask } = await import(join(root, 'src/combat.js'));
+  check('scoreExtendedTask: base 2 + Quality + Momentum − complication, floored',
+    scoreExtendedTask({}) === 2 &&
+    scoreExtendedTask({ assetQuality: 2 }) === 4 &&
+    scoreExtendedTask({ assetQuality: 1, momentumPoints: 2 }) === 5 &&
+    scoreExtendedTask({ assetQuality: 0, complicationPoints: 5 }) === 0);
+  check('Defeat numbers in DATA: hit base 2, recovery base 4, resist 1 Momentum, lasting 2, stabilize Diff 2',
+    DATA.defeat.pointsPerHitBase === 2 && DATA.defeat.recovery.normal.requirementBase === 4 &&
+    DATA.defeat.resistDefeat.momentumCost === 1 && DATA.defeat.lastingDefeatMomentumCost === 2 &&
+    DATA.defeat.recovery.lasting.difficulty === 2);
+  check('normalizeCharacter back-fills state.stabilized = false', normalizeCharacter({}).state.stabilized === false);
+  // Tasks store round-trip (localStorage shim already installed above).
+  store.saveTasks([{ id: 't1', name: 'Ride the worm', requirement: 8, progress: 0, contributors: [], log: [] }]);
+  check('getTasks/saveTasks round-trips', store.getTasks().length === 1 && store.getTasks()[0].requirement === 8);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
