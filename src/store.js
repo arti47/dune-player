@@ -88,6 +88,14 @@ const K_TASKS = 'imperium.tasks';
 export function getTasks() { return readJSON(K_TASKS, []); }
 export function saveTasks(tasks) { writeJSON(K_TASKS, tasks); notify('tasks'); }
 
+// ---------- Conflict (local scene state; campaign-mirrored in Phase 5) ----------
+const K_CONFLICT = 'imperium.conflict';
+export function getConflict() { return readJSON(K_CONFLICT, null); }
+export function saveConflict(conflict) {
+  if (conflict) writeJSON(K_CONFLICT, conflict); else localStorage.removeItem(K_CONFLICT);
+  notify('conflict');
+}
+
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------
 export function getRollLog() { return readJSON(K_ROLLLOG, []); }
 export function appendRoll(entry) {

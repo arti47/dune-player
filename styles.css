@@ -330,5 +330,19 @@ h4 { margin: 14px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-sp
 .task-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .danger-text { color: var(--danger); font-weight: 700; }
 
+/* ---------- Conflict tracker (Phase 4) ---------- */
+.zone-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.zone-chip { display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; padding: 2px 6px; background: var(--surface-2); }
+.zone-chip input { width: 8em; border: none; background: none; padding: 4px 2px; }
+.side-block { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
+.combatant-list { list-style: none; padding: 0; margin: 4px 0; }
+.combatant-item { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.combatant-item:last-child { border-bottom: none; }
+.combatant-item.defeated { opacity: 0.6; }
+.combatant-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.combatant-head strong { margin-right: auto; }
+.combatant-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.combatant-ctl select { width: auto; min-width: 8em; }
+
 /* Zero horizontal overflow guard at narrow widths */
 img, svg, table, pre { max-width: 100%; }

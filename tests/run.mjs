@@ -661,5 +661,27 @@ console.log('— Phase 4: extended tasks + defeat/recovery (§3.1/§3.7/§3.8) �
   check('getTasks/saveTasks round-trips', store.getTasks().length === 1 && store.getTasks()[0].requirement === 8);
 }
 
+console.log('— Phase 4: local conflict helper (§3.12 initiative) —');
+{
+  const { startConflict, takeTurn, nextRound, opposingSide } = await import(join(root, 'src/combat.js'));
+  check('opposingSide flips a↔b', opposingSide('a') === 'b' && opposingSide('b') === 'a');
+  let cf = startConflict('duel');
+  cf.combatants = [
+    { id: 'A1', side: 'a', actedThisRound: false, defeated: false, defeatTrack: { req: 0, progress: 0 } },
+    { id: 'B1', side: 'b', actedThisRound: false, defeated: false, defeatTrack: { req: 0, progress: 0 } },
+  ];
+  check('startConflict: round 1, 2 zones, side A opens', cf.round === 1 && cf.zones.length === 2 && cf.currentSide === 'a');
+  cf = takeTurn(cf, 'A1');   // normal turn → initiative passes to B
+  check('takeTurn passes initiative to the opposing side + marks acted + records last actor',
+    cf.currentSide === 'b' && cf.combatants.find((c) => c.id === 'A1').actedThisRound === true && cf.lastActorId === 'A1' && cf.keptInitiative === false);
+  const kept = takeTurn(cf, 'B1', true);   // Keep the Initiative → side stays B
+  check('Keep the Initiative keeps the same side + sets keptInitiative', kept.currentSide === 'b' && kept.keptInitiative === true);
+  const keptAgain = takeTurn(kept, 'B1', true);   // can't keep twice in a row → passes
+  check('Keep the Initiative cannot be used twice in a row (passes instead)', keptAgain.currentSide === 'a' && keptAgain.keptInitiative === false);
+  const nr = nextRound({ ...cf, lastActorId: 'A1', combatants: cf.combatants.map((c) => ({ ...c, actedThisRound: true })) });
+  check('nextRound: round+1, acted flags cleared, last actor’s side opens',
+    nr.round === 2 && nr.combatants.every((c) => c.actedThisRound === false) && nr.currentSide === 'a');
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
