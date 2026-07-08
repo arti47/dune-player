@@ -7,6 +7,7 @@ import { getPools, listCharacters, getHouse, exportAll, importAll } from './stor
 import { confirmModal } from './ui.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
+import { slug, takeCiteTarget } from './cite.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 
@@ -77,7 +78,7 @@ function houseCard(house) {
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------
 function ruleCard(title, node) {
-  return el('section', { class: 'card', dataset: { search: title.toLowerCase() } },
+  return el('section', { class: 'card', id: slug(title), dataset: { search: title.toLowerCase() } },
     el('h3', {}, title), node);
 }
 function table(headers, rows) {
@@ -277,6 +278,18 @@ export function renderRules(root) {
   });
 
   root.append(el('div', { class: 'card' }, search), ...cards);
+
+  // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
+  const target = takeCiteTarget();
+  if (target) {
+    requestAnimationFrame(() => {
+      const card = document.getElementById(target);
+      if (!card) return;
+      card.scrollIntoView({ block: 'center' });
+      card.classList.add('cited');
+      setTimeout(() => card.classList.remove('cited'), 2200);
+    });
+  }
 }
 
 // ---------- Data backup (JSON export / import) ----------

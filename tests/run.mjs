@@ -21,7 +21,7 @@ const SHELL_FILES = [
   'data-masters-of-dune.js', 'data-fall-of-imperium.js',
   'firebase-config.js', 'database.rules.json', 'README.md', 'CLAUDE.md',
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
-  'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/sheet.js',
+  'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/sheet.js',
   'src/combat.js', 'src/gm.js', 'src/screens.js', 'src/router.js', 'src/main.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
@@ -565,6 +565,24 @@ console.log('— Talent automation descriptors (roller: difficultyDelta + reroll
   check('The Reason I Fight: rerollOne on battle using picked drive', byName('The Reason I Fight')?.auto.type === 'rerollOne' && byName('The Reason I Fight').auto.skill === 'battle' && byName('The Reason I Fight').auto.usesPickedDrive === true && byName('The Reason I Fight').pick === 'drive');
   check('Other Memory: autoSuccesses count 3, no skill restriction', byName('Other Memory')?.auto.type === 'autoSuccesses' && byName('Other Memory').auto.count === 3 && !byName('Other Memory').auto.skill);
   check('Cool Under Pressure: determinationAutoSucceed, 0 Momentum, pick skill', byName('Cool Under Pressure')?.auto.type === 'determinationAutoSucceed' && byName('Cool Under Pressure').auto.momentumGenerated === 0 && byName('Cool Under Pressure').pick === 'skill');
+  check('Calculated Prediction: testForPredictions, Understand D4, +1 per 2 Momentum', byName('Calculated Prediction')?.auto.type === 'testForPredictions' && byName('Calculated Prediction').auto.skill === 'understand' && byName('Calculated Prediction').auto.difficulty === 4 && byName('Calculated Prediction').auto.extraPerMomentum === 2);
+}
+
+console.log('— Phase 3 remaining: Architect mode, opposed/assist, T38 citations —');
+{
+  const { slug } = await import(join(root, 'src/cite.js'));
+  check('cite slug: title → stable rule id', slug('Skill test basics') === 'rule-skill-test-basics' && slug('Opposed tests') === 'rule-opposed-tests');
+  const roller = readFileSync(join(root, 'src/roller.js'), 'utf8');
+  check('Roller: Architect mode uses House skill + personal drive', /house\.skills\[cfg\.skill\]\s*\+\s*character\.drives\[cfg\.drive\]/.test(roller));
+  check('Roller: opposed tie goes to active (successes >= Difficulty)', /successes\s*>=\s*diff/.test(roller));
+  check('Roller: assist successes gated on leader ≥1 (leaderOwn)', /leaderOwn\s*>=\s*1/.test(roller));
+  check('Roller: opposed failure banks shortfall as defender Momentum', /opposedShortfall/.test(roller) && /momentumDelta \+= opposedShortfall/.test(roller));
+  check('Roller: cites the rules library (T38)', /cite\('Skill test basics'/.test(roller) && /cite\('Opposed tests'/.test(roller));
+  // Every card title referenced by a cite() must exist as a rules card in screens.js.
+  const screens = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  const citedTitles = [...roller.matchAll(/cite\('([^']+)'/g)].map((m) => m[1]);
+  check('Every cite() target is a real rules card', citedTitles.every((t) => screens.includes(`ruleCard('${t}'`)),
+    citedTitles.filter((t) => !screens.includes(`ruleCard('${t}'`)).join(', '));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

@@ -122,6 +122,13 @@ button { font: inherit; }
 .die.comp { background: var(--danger); color: var(--accent-contrast); border-color: var(--danger); }
 .die.sel { outline: 3px solid var(--accent); outline-offset: 1px; }
 .pill.danger-pill { background: var(--danger); color: var(--accent-contrast); border-color: var(--danger); }
+/* T38 rules citations */
+.cite { text-decoration: none; border: 1px solid var(--border); border-radius: 999px;
+  padding: 0 6px; margin-left: 6px; font-size: 0.8rem; color: var(--accent); line-height: 1.4; }
+.cite:hover { border-color: var(--accent); }
+.card.cited { outline: 2px solid var(--accent); outline-offset: 2px;
+  animation: cite-flash 2.2s ease; }
+@keyframes cite-flash { 0%,20% { box-shadow: 0 0 0 3px var(--accent) inset; } 100% { box-shadow: none; } }
 .roll-log { list-style: none; padding: 0; margin: 4px 0 0; }
 .roll-log li { padding: 5px 0; border-bottom: 1px solid var(--border); }
 .roll-log li:last-child { border-bottom: none; }
