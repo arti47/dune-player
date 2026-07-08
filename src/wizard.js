@@ -10,7 +10,7 @@ import { PREGENS } from '../data-pregens.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived.js';
 import { rankDrivesFromComparisons } from './rules.js';
-import { allTalents, findTalent, allFactionTemplates, focusExamplesFor } from './content.js';
+import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -20,7 +20,7 @@ const DRIVE_IDS = DATA.drives.map((d) => d.id);
 
 /** Strip a trailing " (parenthetical)" so archetype/faction talent names match the catalog. */
 const baseName = (n) => n.replace(/\s*\(.*\)$/, '').trim();
-const archetypeById = (id) => DATA.archetypes.find((a) => a.id === id) || null;
+const archetypeById = (id) => allArchetypes().find((a) => a.id === id) || null;
 const factionById = (id) => allFactionTemplates().find((f) => f.id === id) || null;
 
 // ---------- Entry points ----------
@@ -169,17 +169,19 @@ function stepArchetype(state, body, rerender) {
     () => { state.archetype = a.id; initSkills(state); applyArchetypeSuggestions(state); rerender(); });
 
   const f = factionById(state.factionTemplate);
-  // When a faction is chosen, surface its suggested archetypes in a group on top (user decision).
-  if (f && Array.isArray(f.suggestedArchetypes) && f.suggestedArchetypes.length) {
-    const suggIds = new Set(f.suggestedArchetypes.map((n) => baseName(n).toLowerCase()));
-    const suggested = DATA.archetypes.filter((a) => suggIds.has(a.name.toLowerCase()));
-    const others = DATA.archetypes.filter((a) => !suggIds.has(a.name.toLowerCase()));
+  // Faction-restricted archetypes (e.g. Fremen-only from Sand and Dust) show only for that faction.
+  const visible = allArchetypes().filter((a) => !a.faction || a.faction === state.factionTemplate);
+  // When a faction is chosen, surface its suggested + faction-specific archetypes in a group on top.
+  if (f && (Array.isArray(f.suggestedArchetypes) || visible.some((a) => a.faction))) {
+    const suggIds = new Set((f.suggestedArchetypes || []).map((n) => baseName(n).toLowerCase()));
+    const isSuggested = (a) => a.faction === state.factionTemplate || suggIds.has(a.name.toLowerCase());
+    const suggested = visible.filter(isSuggested);
+    const others = visible.filter((a) => !isSuggested(a));
     body.append(el('h3', {}, `Suggested for ${f.name}`),
       el('div', { class: 'option-grid' }, ...suggested.map(card)),
-      el('h3', {}, 'Other archetypes'),
-      el('div', { class: 'option-grid' }, ...others.map(card)));
+      ...(others.length ? [el('h3', {}, 'Other archetypes'), el('div', { class: 'option-grid' }, ...others.map(card))] : []));
   } else {
-    body.append(el('div', { class: 'option-grid' }, ...DATA.archetypes.map(card)));
+    body.append(el('div', { class: 'option-grid' }, ...visible.map(card)));
   }
 
   // Locked recap of what the archetype fixes (trait + base skills).

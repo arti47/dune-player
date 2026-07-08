@@ -748,5 +748,34 @@ console.log('— Phase 6: expansion crunch merge + CHOAM (The Great Game, T33) �
   globalThis.localStorage.removeItem('imperium.settings');
 }
 
+console.log('— Sand and Dust: Fremen + Spice (T33) —');
+{
+  const { EXPANSION: SD } = await import(join(root, 'data-sand-and-dust.js'));
+  check('6 Fremen archetypes, all faction:fremen with primary/secondary skills',
+    SD.archetypes.length === 6 && SD.archetypes.every((a) => a.faction === 'fremen' &&
+      DATA.skills.some((s) => s.id === a.primary) && DATA.skills.some((s) => s.id === a.secondary)));
+  check('Fremen + Spice talents present (Crysknife Master, Water Wisdom, Spice Lore, Foresight)',
+    ['Crysknife Master', 'Water Wisdom', 'Spice Lore', 'Foresight'].every((n) => SD.talents.some((t) => t.name === n)) &&
+    SD.talents.filter((t) => t.faction === 'fremen').length >= 7 && SD.talents.filter((t) => t.spice).length >= 6);
+  check('16 Fremen focuses with valid skill ids', SD.focuses.length === 16 &&
+    SD.focuses.every((f) => DATA.skills.some((s) => s.id === f.skill)));
+  check('Fremen life-events d20 table covers all 20 rolls',
+    Array.from({ length: 20 }, (_, i) => SD.lifeEvents.table.find((r) => {
+      const [lo, hi] = r.range.split('–').map(Number); return i + 1 >= lo && i + 1 <= (hi || lo);
+    })).every(Boolean));
+  check('Spice asset + addiction trait present', SD.spice.asset.name && SD.spice.addictionTrait === 'Spice Addicted');
+
+  const content = await import(join(root, 'src/content.js'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ sandAndDust: false }));
+  check('sandAndDust OFF: Fremen archetypes + talents excluded',
+    !content.allArchetypes().some((a) => a.id === 'naib') && !content.findTalent('Crysknife Master'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ sandAndDust: true }));
+  check('sandAndDust ON: Fremen archetype + talent + focus merged in',
+    content.allArchetypes().some((a) => a.id === 'naib' && a.faction === 'fremen') &&
+    content.findTalent('Crysknife Master')?.faction === 'fremen' &&
+    content.focusExamplesFor('understand').some((f) => f.name === 'Desert Navigation'));
+  globalThis.localStorage.removeItem('imperium.settings');
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
