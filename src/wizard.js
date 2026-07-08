@@ -10,7 +10,7 @@ import { PREGENS } from '../data-pregens.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived.js';
 import { rankDrivesFromComparisons } from './rules.js';
-import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor } from './content.js';
+import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor, allDrives, driveName, driveStatementExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -47,6 +47,7 @@ function freshState() {
     mandatoryParam: null,        // …its chosen param, for a bound mandatory talent
     mandatoryKey: null,          // …the resolved key currently held in `talents`
     mandatoryKeys: [],           // faction mandatory (all): every required talent auto-added
+    driveIds: [...DRIVE_IDS],     // the five active drive ids (standard, or swapped for alt drives)
     driveAssignment: { duty: null, faith: null, justice: null, power: null, truth: null },
     statements: {},              // drive -> text
     assets: new Set(),           // asset names
@@ -154,6 +155,7 @@ function applyArchetypeSuggestions(state) {
     { skill: '', name: '' },
   ];
   const arr = DATA.creation.driveArray;   // [8, 7, 6, 5, 4]
+  state.driveIds = [...DRIVE_IDS];   // reset any drive swaps when the archetype's suggestions re-apply
   state.driveAssignment = { duty: null, faith: null, justice: null, power: null, truth: null };
   const sugg = a.driveSuggestions || [];
   if (sugg[0]) state.driveAssignment[sugg[0]] = arr[0];
@@ -340,7 +342,7 @@ function talentParamOptions(def, state, suggested) {
     const need6 = /6\+/.test(def.requirement || '');
     opts = SKILL_IDS.filter((id) => !need6 || (state.skills?.[id] ?? 0) >= 6).map((id) => SKILL_NAME[id]);
   } else if (def.pick === 'drive') {
-    opts = DRIVE_IDS.map((id) => DRIVE_NAME[id]);
+    opts = (state.driveIds || DRIVE_IDS).map((id) => driveName(id));
   } else if (def.pick === 'assetCategory') {
     opts = ['Dueling', 'Warfare', 'Espionage', 'Intrigue'];
   }
@@ -526,12 +528,12 @@ function stepTalents(state, body, rerender) {
 
 // ---------- Step 6: Drives ----------
 function validateDrives(state) {
-  const vals = DRIVE_IDS.map((d) => state.driveAssignment[d]);
+  const vals = state.driveIds.map((d) => state.driveAssignment[d]);
   if (vals.some((v) => v == null)) return 'Assign a value to every drive.';
   const sorted = [...vals].sort((a, b) => b - a).join(',');
   if (sorted !== [...DATA.creation.driveArray].sort((a, b) => b - a).join(','))
     return `Use each of ${DATA.creation.driveArray.join('/')} exactly once.`;
-  const needStatements = DRIVE_IDS.filter((d) => DATA.creation.driveStatements.onDrivesRated.includes(state.driveAssignment[d]));
+  const needStatements = state.driveIds.filter((d) => DATA.creation.driveStatements.onDrivesRated.includes(state.driveAssignment[d]));
   if (needStatements.some((d) => !(state.statements[d] || '').trim()))
     return `Write a statement for each of your ${DATA.creation.driveStatements.onDrivesRated.join('/')}-rated drives.`;
   return null;
@@ -544,16 +546,20 @@ function stepDrives(state, body, rerender) {
     el('p', { class: 'small muted' },
       `Assign ${array.join(' / ')} across your five drives (each value once). Write a statement for the ${rated.join('/')}-rated drives.`));
 
-  // "One Way to Choose Drives" — optional pairwise helper that fills the 8/7/6/5/4 order.
-  if (G.driveRanking) {
+  const standardOnly = state.driveIds.every((d) => DRIVE_IDS.includes(d));
+  // Alternative drives (Power and Pawns) available to swap in, if their toggle is on.
+  const altDrives = allDrives().filter((d) => !DRIVE_IDS.includes(d.id));
+
+  // "One Way to Choose Drives" — optional pairwise helper (standard drives only).
+  if (G.driveRanking && standardOnly) {
     const picks = (state._drivePairPicks ||= {});
     const helper = el('details', { class: 'tips' }, el('summary', {}, 'Help me rank my drives'));
     helper.append(el('p', { class: 'small muted' }, G.driveRanking.intro));
     G.driveRanking.pairs.forEach(([a, b], i) => {
-      const sel = el('select', { 'aria-label': `Comparison ${i + 1}: ${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}` },
-        el('option', { value: '' }, `${DRIVE_NAME[a]} or ${DRIVE_NAME[b]}?`),
-        el('option', { value: a, selected: picks[i] === a ? '' : null }, DRIVE_NAME[a]),
-        el('option', { value: b, selected: picks[i] === b ? '' : null }, DRIVE_NAME[b]));
+      const sel = el('select', { 'aria-label': `Comparison ${i + 1}: ${driveName(a)} or ${driveName(b)}` },
+        el('option', { value: '' }, `${driveName(a)} or ${driveName(b)}?`),
+        el('option', { value: a, selected: picks[i] === a ? '' : null }, driveName(a)),
+        el('option', { value: b, selected: picks[i] === b ? '' : null }, driveName(b)));
       sel.addEventListener('change', () => { picks[i] = sel.value || null; });
       helper.append(el('div', { class: 'focus-row' }, el('span', { class: 'small muted' }, `${i + 1}.`), sel));
     });
@@ -568,29 +574,49 @@ function stepDrives(state, body, rerender) {
     helper.append(apply);
     body.append(helper);
   }
+  if (altDrives.length) body.append(el('p', { class: 'small muted' },
+    'Alternative drives are available — use “swap” on any drive to replace it (recommended ≤ 2).'));
 
   const suggestedDrives = (archetypeById(state.archetype).driveSuggestions) || [];
-  if (suggestedDrives.length) body.append(el('p', { class: 'small muted' },
-    `Pre-filled from your archetype (editable): ${suggestedDrives.map((d) => DRIVE_NAME[d]).join(' 8, ')} 7.`));
+  if (suggestedDrives.length && standardOnly) body.append(el('p', { class: 'small muted' },
+    `Pre-filled from your archetype (editable): ${suggestedDrives.map((d) => driveName(d)).join(' 8, ')} 7.`));
 
-  for (const d of DRIVE_IDS) {
-    // Only offer values not already taken by another drive (keep this drive's own value).
-    const taken = new Set(DRIVE_IDS.filter((o) => o !== d)
+  // Swap drive `d` (at its slot) for `n`, carrying its rating + statement to the new id.
+  const swapDrive = (d, n) => {
+    const idx = state.driveIds.indexOf(d);
+    if (idx < 0 || state.driveIds.includes(n)) return;
+    state.driveIds[idx] = n;
+    if (state.driveAssignment[d] != null) state.driveAssignment[n] = state.driveAssignment[d];
+    delete state.driveAssignment[d];
+    if (state.statements[d]) state.statements[n] = state.statements[d];
+    delete state.statements[d];
+    rerender();
+  };
+
+  for (const d of state.driveIds) {
+    const taken = new Set(state.driveIds.filter((o) => o !== d)
       .map((o) => state.driveAssignment[o]).filter((v) => v != null));
-    const sel = el('select', { 'aria-label': `${DRIVE_NAME[d]} value` },
+    const sel = el('select', { 'aria-label': `${driveName(d)} value` },
       el('option', { value: '' }, '—'),
       ...array.filter((v) => !taken.has(v))
         .map((v) => el('option', { value: String(v), selected: state.driveAssignment[d] === v ? '' : null }, String(v))));
-    sel.addEventListener('change', () => {
-      state.driveAssignment[d] = sel.value ? Number(sel.value) : null;
-      rerender(); // taken-value set changed → rebuild every dropdown + the statement fields
-    });
+    sel.addEventListener('change', () => { state.driveAssignment[d] = sel.value ? Number(sel.value) : null; rerender(); });
     const suggTag = suggestedDrives.includes(d) ? el('span', { class: 'tag' }, 'suggested') : null;
-    body.append(el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, DRIVE_NAME[d], suggTag), sel));
+    const altTag = !DRIVE_IDS.includes(d) ? el('span', { class: 'tag' }, 'alt') : null;
+    const row = el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, driveName(d), suggTag, altTag), sel);
+    // Swap control: pick a drive not already in the five (standard fallback if `d` is currently alt).
+    const swapOpts = [...allDrives().filter((x) => !state.driveIds.includes(x.id) || x.id === d)];
+    if (altDrives.length && swapOpts.length > 1) {
+      const swapSel = el('select', { 'aria-label': `Swap ${driveName(d)} for another drive` },
+        ...swapOpts.map((x) => el('option', { value: x.id, selected: x.id === d ? '' : null }, x.name)));
+      swapSel.addEventListener('change', () => { if (swapSel.value !== d) swapDrive(d, swapSel.value); });
+      row.append(swapSel);
+    }
+    body.append(row);
   }
 
   const stmtArea = el('div', { class: 'stmt-area' }, el('h3', {}, 'Drive statements'));
-  const needy = DRIVE_IDS.filter((d) => rated.includes(state.driveAssignment[d]));
+  const needy = state.driveIds.filter((d) => rated.includes(state.driveAssignment[d]));
   if (!needy.length) {
     stmtArea.append(el('p', { class: 'small muted' }, `Assign your ${rated.join(', ')} drives to unlock statement fields.`));
   } else {
@@ -599,16 +625,14 @@ function stepDrives(state, body, rerender) {
       el('ul', {}, ...G.driveStatementTips.map((t) => el('li', { class: 'small' }, t)))));
     for (const d of needy) {
       const v = state.driveAssignment[d];
-      const ta = el('textarea', { rows: '2', placeholder: `${DRIVE_NAME[d]} (${v}) statement`, 'aria-label': `${DRIVE_NAME[d]} statement` }, state.statements[d] || '');
+      const ta = el('textarea', { rows: '2', placeholder: `${driveName(d)} (${v}) statement`, 'aria-label': `${driveName(d)} statement` }, state.statements[d] || '');
       ta.addEventListener('input', () => { state.statements[d] = ta.value; });
-      // "Insert an example…" drops a book example into the field (editable afterward).
-      const ex = el('select', { class: 'example-pick', 'aria-label': `${DRIVE_NAME[d]} example statements` },
+      const examples = driveStatementExamplesFor(d);
+      const ex = el('select', { class: 'example-pick', 'aria-label': `${driveName(d)} example statements` },
         el('option', { value: '' }, 'Insert an example…'),
-        ...G.driveStatementExamples[d].map((s) => el('option', { value: s }, s)));
-      ex.addEventListener('change', () => {
-        if (ex.value) { state.statements[d] = ex.value; ta.value = ex.value; ex.value = ''; }
-      });
-      stmtArea.append(el('label', { class: 'field' }, el('span', {}, `${DRIVE_NAME[d]} (${v})`), ta, ex));
+        ...examples.map((s) => el('option', { value: s }, s)));
+      ex.addEventListener('change', () => { if (ex.value) { state.statements[d] = ex.value; ta.value = ex.value; ex.value = ''; } });
+      stmtArea.append(el('label', { class: 'field' }, el('span', {}, `${driveName(d)} (${v})`), ta, ex));
     }
   }
   body.append(stmtArea);
@@ -670,7 +694,7 @@ function validateFinishing(state) {
 }
 function stepFinishing(state, body) {
   const G = DATA.creationGuidance;
-  const highest = DRIVE_IDS.reduce((best, d) => (state.driveAssignment[d] > (state.driveAssignment[best] ?? -1) ? d : best), DRIVE_IDS[0]);
+  const highest = state.driveIds.reduce((best, d) => (state.driveAssignment[d] > (state.driveAssignment[best] ?? -1) ? d : best), state.driveIds[0]);
   const field = (label, key, opts = {}) => {
     const input = opts.textarea
       ? el('textarea', { rows: '2', placeholder: opts.ph || '' }, state.identity[key] || '')
@@ -691,9 +715,11 @@ function stepFinishing(state, body) {
       return el('label', { class: 'field' }, el('span', {}, 'Reputation / personality trait'), input);
     })(),
 
-    field('Ambition', 'ambition', { ph: `A long-term goal tied to ${DRIVE_NAME[highest]} (${state.driveAssignment[highest]})` }),
+    field('Ambition', 'ambition', { ph: `A long-term goal tied to ${driveName(highest)} (${state.driveAssignment[highest]})` }),
     el('p', { class: 'small muted' }, G.ambitionRule),
-    el('p', { class: 'small' }, el('strong', {}, `${DRIVE_NAME[highest]} ambitions: `), G.ambitionByDrive[highest]),
+    G.ambitionByDrive[highest]
+      ? el('p', { class: 'small' }, el('strong', {}, `${driveName(highest)} ambitions: `), G.ambitionByDrive[highest])
+      : null,
     el('p', { class: 'small muted' }, G.ambitionExample),
 
     field('Appearance', 'appearance', { textarea: true, ph: 'Optional — see prompts below' }),
@@ -722,7 +748,7 @@ function buildCharacter(state) {
   const f = factionById(state.factionTemplate);
 
   const driveStatements = {};
-  for (const d of DRIVE_IDS) {
+  for (const d of state.driveIds) {
     if ((state.statements[d] || '').trim()) driveStatements[d] = { text: state.statements[d].trim(), challenged: false };
   }
   const traits = [{ name: a.name, negative: false, source: 'archetype' }];
@@ -766,7 +792,8 @@ function buildCharacter(state) {
       relationships: state.identity.relationships.trim(),
     },
     skills: { ...state.skills },
-    drives: { ...state.driveAssignment },
+    // Exactly the five active drives (ignores any stale keys left by a swap).
+    drives: Object.fromEntries(state.driveIds.map((d) => [d, state.driveAssignment[d]])),
     driveStatements,
     focuses: state.focuses.filter((fo) => fo.skill && fo.name.trim()).map((fo) => ({ skill: fo.skill, name: fo.name.trim() })),
     talents,

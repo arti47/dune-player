@@ -22,8 +22,11 @@ import { modal, showToast } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacters } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
-import { findTalent } from './content.js';
+import { findTalent, driveName } from './content.js';
 import { DATA } from '../data.js';
+
+/** A character's drive ids, highest-rated first (drives may be standard or swapped-in). */
+function charDriveIds(ch) { return Object.keys(ch.drives || {}).sort((a, b) => ch.drives[b] - ch.drives[a]); }
 
 const SKILLS = DATA.skills;
 const DRIVES = DATA.drives;
@@ -59,7 +62,7 @@ export function openRollDialog(character, onDone = null) {
 
   const cfg = {
     skill: SKILLS[0].id,
-    drive: DRIVES[0].id,
+    drive: charDriveIds(character)[0] || DRIVES[0].id,   // the character's highest drive (may be a swapped-in one)
     difficulty: 1,
     bought: 0,
     buyWith: 'momentum',       // 'momentum' | 'threat'
@@ -245,7 +248,7 @@ export function openRollDialog(character, onDone = null) {
     skillSel.addEventListener('change', () => { cfg.skill = skillSel.value; render(); });
 
     const driveSel = el('select', { 'aria-label': 'Drive' },
-      ...DRIVES.map((d) => el('option', { value: d.id, selected: cfg.drive === d.id ? '' : null }, `${d.name} ${character.drives[d.id]}`)));
+      ...charDriveIds(character).map((id) => el('option', { value: id, selected: cfg.drive === id ? '' : null }, `${driveName(id)} ${character.drives[id]}`)));
     driveSel.addEventListener('change', () => { cfg.drive = driveSel.value; render(); });
 
     const diffSel = el('select', { 'aria-label': 'Difficulty' },
@@ -299,7 +302,7 @@ export function openRollDialog(character, onDone = null) {
         ...SKILLS.map((s) => el('option', { value: s.id, selected: a.skill === s.id ? '' : null }, `${s.name} ${ch.skills[s.id]}`)));
       sSel.addEventListener('change', () => { a.skill = sSel.value; render(); });
       const dSel = el('select', { 'aria-label': 'Assist drive' },
-        ...DRIVES.map((d) => el('option', { value: d.id, selected: a.drive === d.id ? '' : null }, `${d.name} ${ch.drives[d.id]}`)));
+        ...charDriveIds(ch).map((id) => el('option', { value: id, selected: a.drive === id ? '' : null }, `${driveName(id)} ${ch.drives[id]}`)));
       dSel.addEventListener('change', () => { a.drive = dSel.value; render(); });
       const fBox = el('input', { type: 'checkbox', id: `assist-f-${i}` });
       fBox.checked = a.focus;
@@ -314,7 +317,7 @@ export function openRollDialog(character, onDone = null) {
       const sel = el('select', { 'aria-label': 'Add assistant' },
         el('option', { value: '' }, '+ Add assistant…'),
         ...available.map((c) => el('option', { value: c.id }, c.identity.name || 'Unnamed')));
-      sel.addEventListener('change', () => { if (sel.value) { cfg.assists.push({ id: sel.value, skill: SKILLS[0].id, drive: DRIVES[0].id, focus: false }); render(); } });
+      sel.addEventListener('change', () => { if (sel.value) { const ac = assistChar(sel.value); cfg.assists.push({ id: sel.value, skill: SKILLS[0].id, drive: charDriveIds(ac)[0] || DRIVES[0].id, focus: false }); render(); } });
       return sel;
     })() : null;
     const assistSection = (cfg.assists.length || available.length) ? el('div', {},
@@ -339,6 +342,7 @@ export function openRollDialog(character, onDone = null) {
       defSel.addEventListener('change', () => {
         cfg.opposed.defenderId = defSel.value;
         cfg.opposed.successes = defSel.value ? null : 0;   // character defender must roll first
+        if (defSel.value) cfg.opposed.dDrive = charDriveIds(assistChar(defSel.value))[0] || cfg.opposed.dDrive;
         render();
       });
       const assetsStep = el('div', { class: 'stepper' },
@@ -353,7 +357,7 @@ export function openRollDialog(character, onDone = null) {
           ...SKILLS.map((s) => el('option', { value: s.id, selected: cfg.opposed.dSkill === s.id ? '' : null }, `${s.name} ${dch.skills[s.id]}`)));
         dSkillSel.addEventListener('change', () => { cfg.opposed.dSkill = dSkillSel.value; cfg.opposed.successes = null; render(); });
         const dDriveSel = el('select', { 'aria-label': 'Defender drive' },
-          ...DRIVES.map((d) => el('option', { value: d.id, selected: cfg.opposed.dDrive === d.id ? '' : null }, `${d.name} ${dch.drives[d.id]}`)));
+          ...charDriveIds(dch).map((id) => el('option', { value: id, selected: cfg.opposed.dDrive === id ? '' : null }, `${driveName(id)} ${dch.drives[id]}`)));
         dDriveSel.addEventListener('change', () => { cfg.opposed.dDrive = dDriveSel.value; cfg.opposed.successes = null; render(); });
         const dfBox = el('input', { type: 'checkbox', id: 'opp-focus' });
         dfBox.checked = cfg.opposed.dFocus;
@@ -489,13 +493,13 @@ export function openRollDialog(character, onDone = null) {
 
     setUI(
       el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure', cite('Skill test basics', close)),
-      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · TN ${tn()} · Difficulty ${diff}${cfg.architect ? ' · Architect' : ''}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}${cfg.otherMemory && om ? ` · +${om.auto.count} ${om.name}` : ''}`),
+      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${driveName(cfg.drive)} · TN ${tn()} · Difficulty ${diff}${cfg.architect ? ' · Architect' : ''}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}${cfg.otherMemory && om ? ` · +${om.auto.count} ${om.name}` : ''}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
       assistDice.length ? el('div', {},
         el('p', { class: 'small muted' }, leaderOwn >= 1 ? 'Assist dice' : 'Assist dice (void — you scored 0 successes)'),
         el('div', { class: 'dice-row' }, ...assistDice.map((a) => el('span', {
           class: 'die ' + (a.complication ? 'comp' : a.crit ? 'crit' : a.success ? 'hit' : 'miss') + (leaderOwn >= 1 ? '' : ' miss'),
-          title: `${a.name}: ${SKILLS.find((s) => s.id === a.skill).name}+${DRIVES.find((x) => x.id === a.drive).name}` }, String(a.value)))) ) : null,
+          title: `${a.name}: ${SKILLS.find((s) => s.id === a.skill).name}+${driveName(a.drive)}` }, String(a.value)))) ) : null,
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${successes} success${successes === 1 ? '' : 'es'}`),
         el('span', { class: 'pill' }, passed ? `+${momentum} Momentum` : 'failed'),
@@ -530,7 +534,7 @@ export function openRollDialog(character, onDone = null) {
     const cool = coolTalent();
     setUI(
       el('h2', { id: 'roll-title' }, 'Success'),
-      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${DRIVES.find((x) => x.id === cfg.drive).name} · automatic success`),
+      el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${driveName(cfg.drive)} · automatic success`),
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${cool?.name || 'Cool Under Pressure'}`),
         el('span', { class: 'pill' }, '+0 Momentum'),

@@ -825,5 +825,25 @@ console.log('— The Great Game: CHOAM Director talents + planet generator (T33/
     !GG.talents.some((t) => DATA.talents.some((c) => c.name === t.name)));
 }
 
+console.log('— Alternative drives: merge + swapped-drive character integrity —');
+{
+  const content = await import(join(root, 'src/content.js'));
+  const { targetNumber } = await import(join(root, 'src/derived.js'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ powerAndPawns: false }));
+  check('drives merge: standard 5 only when powerAndPawns off', content.allDrives().length === 5 && !content.allDrives().some((d) => d.id === 'hate'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ powerAndPawns: true }));
+  check('drives merge: alternative drives appear when powerAndPawns on (Hate resolves + statements)',
+    content.allDrives().some((d) => d.id === 'hate') && content.driveName('hate') === 'Hate' &&
+    content.driveStatementExamplesFor('hate').length === 8);
+  globalThis.localStorage.removeItem('imperium.settings');
+  check('driveName falls back gracefully for an unknown id', content.driveName('duty') === 'Duty');
+  // A character who swapped Duty→Hate keeps exactly five drives through normalize + target number.
+  const swapped = normalizeCharacter({ skills: { battle: 6 }, drives: { hate: 8, faith: 7, justice: 6, power: 5, truth: 4 },
+    driveStatements: { hate: { text: 'I hate my enemy.', challenged: false } } });
+  check('normalizeCharacter preserves a swapped drive set (no re-added Duty)',
+    Object.keys(swapped.drives).length === 5 && swapped.drives.hate === 8 && swapped.drives.duty === undefined);
+  check('target number works with a swapped-in drive (Battle 6 + Hate 8 = 14)', targetNumber(swapped, 'battle', 'hate') === 14);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

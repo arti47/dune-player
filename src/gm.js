@@ -8,6 +8,7 @@ import { getPools, savePools, listCharacters } from './store.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
+import { driveName } from './content.js';
 
 const SKILL = DATA.skills, DRIVE = DATA.drives;
 
@@ -84,7 +85,7 @@ function partyCard() {
       ? el('div', {}, ...chars.map((c) => el('details', { class: 'tips' },
           el('summary', {}, `${c.identity.name || 'Unnamed'}${c.state?.defeated ? ' · DEFEATED' : ''} — Det ${c.determination}`),
           el('p', { class: 'small' }, el('strong', {}, 'Skills: '), SKILL.map((s) => `${s.name.slice(0, 3)} ${c.skills[s.id]}`).join(' · ')),
-          el('p', { class: 'small' }, el('strong', {}, 'Drives: '), DRIVE.map((d) => `${d.name.slice(0, 3)} ${c.drives[d.id]}`).join(' · ')),
+          el('p', { class: 'small' }, el('strong', {}, 'Drives: '), Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((id) => `${driveName(id).slice(0, 3)} ${c.drives[id]}`).join(' · ')),
           (c.traits || []).length ? el('p', { class: 'small muted' }, 'Traits: ' + c.traits.map((t) => t.name).join(', ')) : null,
           Object.keys(c.driveStatements || {}).length
             ? el('p', { class: 'small muted' }, 'Statements: ' + Object.entries(c.driveStatements).map(([d, s]) => `${capitalize(d)}${s.challenged ? ' (challenged)' : ''}`).join(', ')) : null)))

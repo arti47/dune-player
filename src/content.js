@@ -28,3 +28,16 @@ export function allArchetypes() { return [...DATA.archetypes, ...collect('archet
 export function focusExamplesFor(skillId) {
   return [...(DATA.focusExamples[skillId] || []), ...collect('focuses').filter((f) => f.skill === skillId)];
 }
+
+// ---------- Drives (standard + alternative drives from an enabled expansion, §Power and Pawns) ----------
+export function allDrives() { return [...DATA.drives, ...collect('drives')]; }
+export function driveName(id) {
+  const d = allDrives().find((x) => x.id === id);
+  return d ? d.name : (id ? id[0].toUpperCase() + id.slice(1) : String(id));
+}
+/** Example drive statements for the statement pickers: core guidance, or an alternative drive's list. */
+export function driveStatementExamplesFor(id) {
+  const std = DATA.creationGuidance.driveStatementExamples[id];
+  if (std) return std;
+  return (allDrives().find((x) => x.id === id) || {}).statements || [];
+}

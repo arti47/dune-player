@@ -52,7 +52,9 @@ export function normalizeCharacter(c) {
       appearance: '', ambition: '', portraitUrl: null, ...(c.identity || {}),
     },
     skills: { ...skills, ...(c.skills || {}) },
-    drives: { ...drives, ...(c.drives || {}) },
+    // Drives are exactly the character's five (standard OR swapped for an alternative drive,
+    // Power and Pawns). Preserve the stored set as-is; only default to the standard five when absent.
+    drives: (c.drives && Object.keys(c.drives).length) ? { ...c.drives } : { ...drives },
     driveStatements: c.driveStatements || {},
     focuses: c.focuses || [],
     talents: c.talents || [],

@@ -12,7 +12,7 @@ import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMoment
 import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
-import { allTalents, focusExamplesFor } from './content.js';
+import { allTalents, focusExamplesFor, driveName } from './content.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -20,7 +20,6 @@ import { modal, showToast, confirmModal } from './ui.js';
 import { DATA } from '../data.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
-const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 
 const SOURCE_LABELS = { archetype: 'archetype', faction: 'faction', finishing: 'reputation' };
 const sourceLabel = (src) => SOURCE_LABELS[src] || src;
@@ -112,7 +111,7 @@ function liveSheet(c) {
     el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
 
     el('h4', {}, 'Drives'),
-    el('div', { class: 'stat-grid' }, ...DATA.drives.map((d) => statChip(d.name, c.drives[d.id]))),
+    el('div', { class: 'stat-grid' }, ...Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((id) => statChip(driveName(id), c.drives[id]))),
 
     statementsSection(c),
     el('h4', {}, 'Focuses'),
@@ -120,7 +119,7 @@ function liveSheet(c) {
 
     el('h4', {}, 'Talents'),
     el('p', { class: 'small' }, (c.talents || []).map((t) => {
-      const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? DRIVE_NAME[t.drive] : t.category || null;
+      const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? driveName(t.drive) : t.category || null;
       return param ? `${t.name} (${param})` : t.name;
     }).join(', ') || '—'),
 
@@ -157,7 +156,7 @@ function rollLogSection() {
     el('h4', {}, 'Roll log'),
     log.length
       ? el('ul', { class: 'roll-log' }, ...log.map((r) => el('li', { class: 'small' },
-          el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${DRIVE_NAME[r.drive] || r.drive} `),
+          el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${driveName(r.drive)} `),
           `TN ${r.tn} · [${(r.dice || []).join(', ')}] · ${r.successes} succ`,
           r.complications ? ` · ${r.complications} comp` : '',
           r.note ? ` · ${r.note}` : '')))
@@ -175,7 +174,7 @@ function statementsSection(c) {
     el('ul', { class: 'stmt-list' }, ...entries.map(([drive, s]) =>
       el('li', { class: 'stmt-item' + (s.challenged ? ' challenged' : '') },
         el('div', { class: 'small' },
-          el('strong', {}, DRIVE_NAME[drive] + ': '),
+          el('strong', {}, driveName(drive) + ': '),
           s.text,
           s.challenged ? el('span', { class: 'tag danger-tag' }, 'challenged') : null),
         (challengeLocked && !s.challenged)
@@ -448,7 +447,7 @@ function openAdvanceDialog(c) {
     } else if (state.type === 'focus') {
       dropCtl = selWrap('Remove a focus', (c.focuses || []).map((f, i) => [String(i), `${f.name} (${SKILL_NAME[f.skill]})`]));
     } else {
-      dropCtl = selWrap('Remove a talent', (c.talents || []).map((t, i) => [String(i), t.name + (t.skill ? ` (${SKILL_NAME[t.skill]})` : t.drive ? ` (${DRIVE_NAME[t.drive]})` : '')]));
+      dropCtl = selWrap('Remove a talent', (c.talents || []).map((t, i) => [String(i), t.name + (t.skill ? ` (${SKILL_NAME[t.skill]})` : t.drive ? ` (${driveName(t.drive)})` : '')]));
     }
     return el('div', {}, row, dropCtl);
 
