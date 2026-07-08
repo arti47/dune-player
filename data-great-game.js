@@ -12,7 +12,18 @@ export const EXPANSION = {
   extracted: false, // full T33–T37 pass pending; houseManagement subsystem + CHOAM options below are done
   archetypes: [],
   assets: [], npcs: [],
-  subsystems: ['houseManagement'],
+  subsystems: ['houseManagement', 'planetGenerator'],
+
+  // ---------- GM planet generator (d20 tables; index = roll − 1) ----------
+  planetGenerator: {
+    rollDie: 'd20',
+    tables: {
+      planetType: ['Uninhabitable gas giant', 'Uninhabitable rocky world', 'Uninhabitable moon/planetoid', 'Uninhabitable ice giant', 'Uninhabitable toxic-atmosphere planet', 'Uninhabitable furnace planet', 'Abandoned volcanic planet', 'Asteroid', 'Ice asteroid', 'Mineral-rich asteroid', 'Habitable alpine world', 'Habitable mineral world', 'Habitable frozen world', 'Habitable ocean world', 'Habitable arid world', 'Habitable forested world', 'Habitable tropical world', 'Habitable savanna world', 'Habitable mined-out world', 'Earth-like planet'],
+      politicalAffiliation: ['Core world under direct House Corrino control', 'Core world under a Great House', 'Core world under a Major House', 'Core world under a Minor/Nascent House', 'Industrial world, House Corrino governorship', 'Agricultural world, House Corrino governorship', 'Mineral-mining world, House Corrino governorship', 'Industrial world, Great House', 'Industrial world, Major House', 'Industrial world, Minor/Nascent House', 'Agricultural world, Great House', 'Agricultural world, Major House', 'Agricultural world, Minor/Nascent House', 'Mineral-mining world, Great House', 'Mineral-mining world, Major House', 'Mineral-mining world, Minor/Nascent House', 'Military-training planet, House Corrino', 'Military-training planet, Great House', 'Military-training planet, Major House', 'Outlier independent world, no affiliation'],
+      militaryPower: ['Major ground forces, space fleet, heavy defenses (key world)', 'Major ground forces, space fleet, heavy defenses', 'Ground forces, space fleet, medium defenses', 'Ground forces, medium defenses', 'Police forces, medium defenses', 'Police forces, small fleet, medium defenses', 'Space fleet, heavy defenses', 'Major space fleet, ground forces, medium defenses', 'Military outpost, space fleet only', 'Military outpost, space fleet only', 'Ground forces, medium defenses', 'Ground forces, small fleet, medium defenses', 'Ground forces, large space fleet, medium defenses', 'Very large ground-training post, small fleet, medium defenses', 'Police forces, medium fleet, basic defenses', 'Police forces, medium fleet, no defenses', 'Police forces, small fleet, no defenses', 'Police forces on the ground, no defenses', 'Lightly policed, no defenses', 'Undefended, only local militia'],
+      populationLifestyle: ['Massive population, trade wealth, bureaucratic services', 'Massive population, agrarian culture', 'Massive population, industrial culture', 'Massive population, mining/smelting', 'Average population, mixed business', 'Average population, higher education & training', 'Average population, military-training facility', 'Average population, agriculture', 'Average population, space shipyards & refitting', 'Average population, entertainment production', 'Low population, nature reserves/zoos/hunting', 'Low population, casinos & pleasure resorts', 'Low population, agriculture & fisheries', 'Low population, religious retreats', 'Low population, ore-refining stations', 'Low population, gas-refining stations', 'Low population, smuggler outpost(s)', 'Low population, Imperial outpost(s)', 'Small towns, subsistence farming', 'Small village(s), a few dozen people'],
+    },
+  },
 
   // ---------- CHOAM options (T33 · owner-supplied 2026-07-08) ----------
   // A CHOAM Agent faction template + 7 CHOAM talents + CHOAM focus examples. Paraphrased.
@@ -48,6 +59,22 @@ export const EXPANSION = {
       auto: { type: 'rerollOne', skills: ['understand', 'communicate'], condition: 'financial/economic test where CHOAM is relevant' } },
     { name: 'Report Malfeasance', faction: 'choamAgent',
       effect: 'At any time, give a target who’d fear a CHOAM audit the complication “Reported to CHOAM”, lasting until they prove innocence or the investigation ends. Spurious reports invite CHOAM reprisal.',
+      auto: { type: 'narrative' } },
+    // CHOAM Director talents — high-level CHOAM agents (also eligible for the CHOAM talents above)
+    { name: 'Access to CHOAM Facilities', faction: 'choamAgent',
+      effect: 'Once per session, spend 1 Momentum to obtain any physical asset (knife to Heighliner) from CHOAM for the next scene, delivered at Quality 0 (rare items may take time, GM’s call).',
+      auto: { type: 'narrative' } },
+    { name: 'Financial Analysis', faction: 'choamAgent',
+      effect: 'Your accountants forensically read any ledgers you access: Obtain Information about the status of any organisation whose records you hold.',
+      auto: { type: 'narrative' } },
+    { name: 'Pull the Strings', faction: 'choamAgent',
+      effect: 'Nudge the Imperial market: every primary and secondary domain in your House generates an additional Wealth point during House management.',
+      auto: { type: 'narrative' } },
+    { name: 'Rich Beyond the Dreams of Avarice', faction: 'choamAgent',
+      effect: 'Any asset you create starts at Quality 1; spend 1 Momentum to make it Quality 2 (in addition to any Momentum spent to make it permanent).',
+      auto: { type: 'narrative' } },
+    { name: 'Sanction Shareholder', faction: 'choamAgent',
+      effect: 'Once per adventure, sanction a shareholder (usually stripping territory/production). The next time they move against you or your faction, their Threat costs the GM double.',
       auto: { type: 'narrative' } },
   ],
   focuses: [

@@ -3,9 +3,11 @@
 // enemy generator). All read already-extracted data — no new rules content here.
 
 import { el, capitalize, d20 } from './core.js';
+import { Settings } from './settings.js';
 import { getPools, savePools, listCharacters } from './store.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
+import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 
 const SKILL = DATA.skills, DRIVE = DATA.drives;
 
@@ -31,15 +33,34 @@ function stepper(value, onChange, { min = 0, max = 999, label = '' } = {}) {
 
 export function renderGM(root) {
   mountRoot = root;
-  root.append(
+  root.append(...[
     el('section', { class: 'card' }, el('h2', {}, 'GM Screen'),
       el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.')),
     threatCard(),
     partyCard(),
     hookCard(),
     enemyCard(),
+    Settings.greatGame() ? planetCard() : null,
     npcCard(),
-  );
+  ].filter((n) => n != null));
+}
+
+// ---------- Planet generator (The Great Game GM table; greatGame toggle) ----------
+function planetCard() {
+  const pg = GREAT_GAME.planetGenerator;
+  const out = el('div', {});
+  const labels = { planetType: 'Type', politicalAffiliation: 'Affiliation', militaryPower: 'Military', populationLifestyle: 'Population' };
+  const roll = () => {
+    out.replaceChildren(el('ul', {}, ...Object.entries(pg.tables).map(([k, entries]) => {
+      const r = d20();
+      return el('li', { class: 'small' }, el('strong', {}, labels[k] + ': '), entries[r - 1], el('span', { class: 'small muted' }, ` (d20=${r})`));
+    })));
+  };
+  return el('section', { class: 'card' },
+    el('h3', {}, 'Planet generator'),
+    el('p', { class: 'small muted' }, 'The Great Game GM tables — rolls a world’s type, political affiliation, military power, and population.'),
+    el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: roll }, 'Generate a planet')),
+    out);
 }
 
 // ---------- Threat pool ----------

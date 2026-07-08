@@ -721,9 +721,9 @@ console.log('— Phase 6: GM screen rollable-table helpers (§3.16) —');
 console.log('— Phase 6: expansion crunch merge + CHOAM (The Great Game, T33) —');
 {
   const { EXPANSION: GG } = await import(join(root, 'data-great-game.js'));
-  check('data-great-game: 1 CHOAM faction template + 7 CHOAM talents + focuses',
+  check('data-great-game: 1 CHOAM faction template + 12 CHOAM talents (7 agent + 5 director) + focuses',
     GG.factionTemplates.length === 1 && GG.factionTemplates[0].id === 'choamAgent' &&
-    GG.talents.length === 7 && GG.talents.every((t) => t.faction === 'choamAgent') &&
+    GG.talents.length === 12 && GG.talents.every((t) => t.faction === 'choamAgent') &&
     GG.focuses.length >= 1);
   check('CHOAM mandatory talent (Hand of CHOAM) exists in the CHOAM talent set',
     GG.factionTemplates[0].mandatoryTalents.options[0] === 'Hand of CHOAM' &&
@@ -809,6 +809,20 @@ console.log('— Power and Pawns: court factions + Guild + political + new drive
     content.allArchetypes().some((a) => a.id === 'guildScout' && a.faction === 'guildAgent') &&
     content.findTalent('Facedance') && content.findTalent('Methodical Efficiency')?.auto.type === 'rerollOne');
   globalThis.localStorage.removeItem('imperium.settings');
+}
+
+console.log('— The Great Game: CHOAM Director talents + planet generator (T33/T36) —');
+{
+  const { EXPANSION: GG } = await import(join(root, 'data-great-game.js'));
+  const dirs = ['Access to CHOAM Facilities', 'Financial Analysis', 'Pull the Strings', 'Rich Beyond the Dreams of Avarice', 'Sanction Shareholder'];
+  check('5 CHOAM Director talents present (faction:choamAgent)',
+    dirs.every((n) => GG.talents.some((t) => t.name === n && t.faction === 'choamAgent')));
+  check('Planet generator: 4 d20 tables, each with 20 entries',
+    (() => { const t = GG.planetGenerator.tables;
+      return ['planetType', 'politicalAffiliation', 'militaryPower', 'populationLifestyle']
+        .every((k) => Array.isArray(t[k]) && t[k].length === 20 && t[k].every((e) => typeof e === 'string' && e.length)); })());
+  check('No Great Game talent name collides with a core talent',
+    !GG.talents.some((t) => DATA.talents.some((c) => c.name === t.name)));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
