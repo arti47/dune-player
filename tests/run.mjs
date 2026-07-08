@@ -585,5 +585,47 @@ console.log('— Phase 3 remaining: Architect mode, opposed/assist, T38 citation
     citedTitles.filter((t) => !screens.includes(`ruleCard('${t}'`)).join(', '));
 }
 
+console.log('— Phase 4: scene/adventure lifecycle engine (§3.17) —');
+{
+  const life = await import(join(root, 'src/combat.js'));
+  // Seed one character with a temporary asset, a permanent asset, a challenged statement,
+  // Resist used, low Determination, and set Momentum 4.
+  _mem.clear();
+  store.saveCharacter({
+    id: 'l1', identity: { name: 'Chani' },
+    skills: { battle: 6 }, drives: { duty: 8 },
+    driveStatements: { duty: { text: 'The desert provides.', challenged: true } },
+    assets: [{ name: 'Crysknife', quality: 1, permanent: true }, { name: 'Borrowed thopter', quality: 0, permanent: false }],
+    determination: 3,
+    state: { resistUsedThisScene: true, defeatTrack: { req: 0, progress: 0 } },
+    advancement: { points: 5, advancesPurchasedThisAdventure: 1, skillAdvancesTotal: 0, log: [] },
+  });
+  store.savePools({ momentum: 4, threat: 2 });
+
+  const es = life.endScene();
+  const afterScene = store.getCharacter('l1');
+  check('endScene: Momentum decays by 1 (4→3)', store.getPools().momentum === 3);
+  check('endScene: temporary asset expired, permanent kept', afterScene.assets.length === 1 && afterScene.assets[0].name === 'Crysknife');
+  check('endScene: Resist Defeat reset', afterScene.state.resistUsedThisScene === false);
+  check('endScene: challenged statement NOT auto-recovered at scene end', afterScene.driveStatements.duty.challenged === true);
+  es.undo();
+  const undone = store.getCharacter('l1');
+  check('endScene undo: restores Momentum + temp asset + resist flag', store.getPools().momentum === 4 && undone.assets.length === 2 && undone.state.resistUsedThisScene === true);
+
+  const ea = life.endAdventure();
+  const afterAdv = store.getCharacter('l1');
+  check('endAdventure: Determination resets to start (1)', afterAdv.determination === 1);
+  check('endAdventure: challenged statement recovers', afterAdv.driveStatements.duty.challenged === false);
+  check('endAdventure: advance-purchase gate resets', afterAdv.advancement.advancesPurchasedThisAdventure === 0);
+  check('endAdventure: temporary asset expired', afterAdv.assets.length === 1);
+  ea.undo();
+  const undone2 = store.getCharacter('l1');
+  check('endAdventure undo: restores Determination + statement + gate', undone2.determination === 3 && undone2.driveStatements.duty.challenged === true && undone2.advancement.advancesPurchasedThisAdventure === 1);
+
+  check('startAdventureDetermination: base 1, +1 with Unquestionable Loyalty (cap 3)',
+    life.startAdventureDetermination({ talents: [] }) === 1 &&
+    life.startAdventureDetermination({ talents: [{ name: 'Unquestionable Loyalty' }] }) === 2);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

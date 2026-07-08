@@ -11,6 +11,7 @@ import {
 import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
+import { renderLifecycle } from './combat.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { DATA } from '../data.js';
 
@@ -78,6 +79,8 @@ export function renderSheet(root) {
               c.id === (current && current.id) ? el('span', { class: 'tag' }, 'active') : null)))
         : el('p', { class: 'muted' }, 'No characters yet.')),
   );
+
+  if (chars.length) root.append(renderLifecycle(refresh));
 
   if (current) root.append(liveSheet(current));
   else root.append(el('section', { class: 'card' },
