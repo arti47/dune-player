@@ -702,5 +702,21 @@ console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
     DATA.creationInPlay.options.every((o) => ids.has(o.id) && o.uses >= 1));
 }
 
+console.log('— Phase 6: GM screen rollable-table helpers (§3.16) —');
+{
+  const { storyHookIndex, rowForRoll } = await import(join(root, 'src/gm.js'));
+  check('storyHookIndex maps d20 to 0–4 by 1–4/5–8/9–12/13–16/17–20',
+    storyHookIndex(1) === 0 && storyHookIndex(4) === 0 && storyHookIndex(5) === 1 &&
+    storyHookIndex(12) === 2 && storyHookIndex(16) === 3 && storyHookIndex(17) === 4 && storyHookIndex(20) === 4);
+  check('Every story-hook column has an entry for all 20 rolls',
+    Object.values(DATA.storyHooks.columns).every((col) =>
+      Array.from({ length: 20 }, (_, i) => col[storyHookIndex(i + 1)]).every((v) => typeof v === 'string' && v.length)));
+  check('rowForRoll resolves Hatred degrees + all 20 Reason rolls',
+    rowForRoll(DATA.houseEnemies.hatred, 1)?.name === 'Dislike' &&
+    rowForRoll(DATA.houseEnemies.hatred, 20)?.name != null &&
+    Array.from({ length: 20 }, (_, i) => rowForRoll(DATA.houseEnemies.reasons, i + 1)).every((r) => r && r.name));
+  check('NPC compendium spans 25 archetypes + 12 iconics', NPCS.archetypes.length === 25 && NPCS.iconics.length === 12);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
