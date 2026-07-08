@@ -759,6 +759,16 @@ export const DATA = {
       assetPermanent: { name: 'Make an asset permanent', cost: '3', note: 'Any asset except a single-scene one.' },
       assetQuality:   { name: 'Asset Quality +1',        cost: '3 × current Quality' },
     },
+    // Machine-readable cost numbers (the `costs.*.cost` strings above are the human display;
+    // these drive the advancement UI so no rules number is hardcoded in a module — §10.2).
+    calc: {
+      skill:          { base: 10, perPreviousSkillAdvance: 1, skillCap: 8, skillFloor: 4 },
+      focus:          { perFocusOwned: 1, minSkillForFocus: 6 },
+      talent:         { perTalentOwned: 3 },
+      assetPermanent: { flat: 3 },
+      assetQuality:   { perCurrentQuality: 3 },
+      retrainDivisor: 2,   // halve the cost (round up) when retraining
+    },
     maxPerAdventure: 1,
     betweenAdventuresOnly: true,
     drivesNeverAdvanceByPoints: true,

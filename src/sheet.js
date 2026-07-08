@@ -9,6 +9,10 @@ import {
   saveCharacter, deleteCharacter, getPools, savePools, getRollLog,
 } from './store.js';
 import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
+import {
+  skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
+} from './rules.js';
+import { focusExamplesFor } from './rules.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle } from './combat.js';
@@ -128,6 +132,7 @@ function liveSheet(c) {
           id.relationships ? el('p', { class: 'small' }, el('strong', {}, 'Relationships: '), id.relationships) : null)
       : null,
 
+    advancementSection(c),
     notesSection(c),
     rollLogSection(),
 
@@ -276,6 +281,233 @@ function addAssetDialog(c) {
       el('button', { class: 'btn', onclick: save }, 'Add')),
   ]);
   name.focus();
+}
+
+// ---------- Advancement (§3.10) ----------
+function logAdvancement(c, entry) {
+  const adv = c.advancement;
+  return { ...adv, log: [...(adv.log || []), `${new Date().toISOString().slice(0, 10)} · ${entry}`] };
+}
+
+function advancementSection(c) {
+  const adv = c.advancement;
+  const gated = adv.advancesPurchasedThisAdventure >= DATA.advancement.maxPerAdventure;
+
+  const earnRow = el('div', { class: 'cta-row' }, ...DATA.advancement.earn.map((e) =>
+    el('button', { class: 'btn small secondary', title: e.desc, onclick: () => {
+      saveCharacter({ ...c, advancement: { ...logAdvancement(c, `Earned +${e.points} (${e.trigger})`), points: adv.points + e.points } });
+      showToast(`+${e.points} advancement`); refresh();
+    } }, `+${e.points} ${e.trigger}`)));
+
+  const buyBtn = el('button', { class: 'btn', onclick: () => openAdvanceDialog(c) }, 'Purchase an advance');
+  if (gated) buyBtn.disabled = true;
+
+  return el('div', {},
+    el('h4', {}, `Advancement · ${adv.points} point${adv.points === 1 ? '' : 's'}`),
+    el('p', { class: 'small muted' }, gated
+      ? 'Advance already purchased this adventure — resets on End adventure.'
+      : 'Earn points from play; spend between adventures (max 1 advance per adventure).'),
+    earnRow,
+    el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Adjust points'),
+      stepper(adv.points, (v) => { saveCharacter({ ...c, advancement: { ...adv, points: Math.max(0, v) } }); refresh(); },
+        { min: 0, max: 999, label: 'points' })),
+    el('div', { class: 'cta-row' }, buyBtn),
+    (adv.log && adv.log.length)
+      ? el('details', { class: 'tips' }, el('summary', {}, `Advancement log (${adv.log.length})`),
+          el('ul', {}, ...adv.log.slice(-8).reverse().map((l) => el('li', { class: 'small' }, l))))
+      : null);
+}
+
+/** Purchase-an-advance modal: the five advance types with live cost + affordability + retraining. */
+function openAdvanceDialog(c) {
+  const CALC = DATA.advancement.calc;
+  const adv = c.advancement;
+  const state = { type: 'skill', target: null, param: null, retrain: false, drop: null };
+
+  const body = el('div', {});
+  const close = modal([el('h2', {}, 'Purchase an advance'), body], { labelledBy: null });
+  render();
+
+  function ownedBaseNames() { return new Set((c.talents || []).map((t) => t.name)); }
+
+  function baseCost() {
+    if (state.type === 'skill') return skillAdvanceCost(c);
+    if (state.type === 'focus') return focusAdvanceCost(c);
+    if (state.type === 'talent') return talentAdvanceCost(c);
+    if (state.type === 'assetPermanent') return assetPermanentCost();
+    if (state.type === 'assetQuality') return state.target ? assetQualityCost(c.assets[state.target]) : 0;
+    return 0;
+  }
+  function canRetrain() { return ['skill', 'focus', 'talent'].includes(state.type); }
+  function finalCost() { return state.retrain && canRetrain() ? retrainedCost(baseCost()) : baseCost(); }
+
+  function render() {
+    const typeSel = el('select', { 'aria-label': 'Advance type' },
+      ...Object.entries(DATA.advancement.costs).map(([k, v]) => el('option', { value: k, selected: state.type === k ? '' : null }, v.name)));
+    typeSel.addEventListener('change', () => { state.type = typeSel.value; state.target = null; state.param = null; state.drop = null; render(); });
+
+    body.replaceChildren(...[
+      el('div', { class: 'field' }, el('span', {}, 'Advance'), typeSel),
+      targetControl(),
+      canRetrain() ? retrainControl() : null,
+      el('p', {}, el('span', { class: 'pill' }, `Cost ${finalCost()} of ${adv.points} points`),
+        state.retrain && canRetrain() ? el('span', { class: 'pill' }, `retrained from ${baseCost()}`) : null),
+      el('div', { class: 'modal-actions' },
+        el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+        buyControl()),
+    ].filter((x) => x != null));
+  }
+
+  function targetControl() {
+    if (state.type === 'skill') {
+      const eligible = DATA.skills.filter((s) => c.skills[s.id] < CALC.skill.skillCap && !(adv.skillsAdvanced || []).includes(s.id));
+      if (!eligible.length) return el('p', { class: 'small muted' }, 'No skill is eligible (each advances once; cap 8).');
+      const sel = el('select', { 'aria-label': 'Skill to advance' },
+        el('option', { value: '' }, 'Choose a skill…'),
+        ...eligible.map((s) => el('option', { value: s.id, selected: state.target === s.id ? '' : null }, `${s.name} ${c.skills[s.id]} → ${c.skills[s.id] + 1}`)));
+      sel.addEventListener('change', () => { state.target = sel.value || null; render(); });
+      return el('div', { class: 'field' }, el('span', {}, 'Skill (+1)'), sel);
+    }
+    if (state.type === 'focus') {
+      const eligibleSkills = DATA.skills.filter((s) => c.skills[s.id] >= CALC.focus.minSkillForFocus);
+      if (!eligibleSkills.length) return el('p', { class: 'small muted' }, `Need a skill rated ${CALC.focus.minSkillForFocus}+ to gain a focus.`);
+      const sSel = el('select', { 'aria-label': 'Focus skill' }, el('option', { value: '' }, 'Skill…'),
+        ...eligibleSkills.map((s) => el('option', { value: s.id, selected: state.target === s.id ? '' : null }, `${s.name} ${c.skills[s.id]}`)));
+      sSel.addEventListener('change', () => { state.target = sSel.value || null; state.param = null; render(); });
+      let nameCtl = null;
+      if (state.target) {
+        const owned = new Set((c.focuses || []).filter((f) => f.skill === state.target).map((f) => f.name));
+        const opts = focusExamplesFor(state.target).map((f) => f.name).filter((n) => !owned.has(n));
+        const nSel = el('select', { 'aria-label': 'Focus name' }, el('option', { value: '' }, 'Focus…'),
+          ...opts.map((n) => el('option', { value: n, selected: state.param === n ? '' : null }, n)));
+        nSel.addEventListener('change', () => { state.param = nSel.value || null; render(); });
+        nameCtl = el('div', { class: 'field' }, el('span', {}, 'Focus'), nSel);
+      }
+      return el('div', {}, el('div', { class: 'field' }, el('span', {}, 'On skill (≥6)'), sSel), nameCtl);
+    }
+    if (state.type === 'talent') {
+      const owned = ownedBaseNames();
+      const allowed = DATA.talents.filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
+      const sel = el('select', { 'aria-label': 'Talent' }, el('option', { value: '' }, 'Choose a talent…'),
+        ...allowed.map((t) => el('option', { value: t.name, selected: state.target === t.name ? '' : null }, t.name)));
+      sel.addEventListener('change', () => { state.target = sel.value || null; state.param = null; render(); });
+      let paramCtl = null;
+      const def = allowed.find((t) => t.name === state.target);
+      if (def && def.pick) {
+        const list = def.pick === 'skill' ? DATA.skills : def.pick === 'drive' ? DATA.drives
+          : DATA.assetRules.categories.map((x) => ({ id: x, name: capitalize(x) }));
+        const pickLabel = def.pick === 'assetCategory' ? 'category' : def.pick;
+        const pSel = el('select', { 'aria-label': 'Parameter' }, el('option', { value: '' }, `Choose ${pickLabel}…`),
+          ...list.map((x) => el('option', { value: x.id, selected: state.param === x.id ? '' : null }, x.name)));
+        pSel.addEventListener('change', () => { state.param = pSel.value || null; render(); });
+        paramCtl = el('div', { class: 'field' }, el('span', {}, capitalize(pickLabel)), pSel);
+      }
+      return el('div', {}, el('div', { class: 'field' }, el('span', {}, 'Talent'), sel), paramCtl);
+    }
+    if (state.type === 'assetPermanent') {
+      const cap = permanentAssetCap(c), have = permanentAssetCount(c);
+      if (have >= cap) return el('p', { class: 'small muted' }, `Permanent-asset cap reached (${cap}).`);
+      const temps = (c.assets || []).map((a, i) => ({ a, i })).filter(({ a }) => a.permanent === false);
+      if (!temps.length) return el('p', { class: 'small muted' }, 'No temporary asset to make permanent.');
+      const sel = el('select', { 'aria-label': 'Asset' }, el('option', { value: '' }, 'Choose an asset…'),
+        ...temps.map(({ a, i }) => el('option', { value: String(i), selected: state.target === i ? '' : null }, a.name)));
+      sel.addEventListener('change', () => { state.target = sel.value === '' ? null : Number(sel.value); render(); });
+      return el('div', { class: 'field' }, el('span', {}, `Asset → permanent (${have}/${cap})`), sel);
+    }
+    if (state.type === 'assetQuality') {
+      if (!(c.assets || []).length) return el('p', { class: 'small muted' }, 'No assets to improve.');
+      const sel = el('select', { 'aria-label': 'Asset' }, el('option', { value: '' }, 'Choose an asset…'),
+        ...c.assets.map((a, i) => el('option', { value: String(i), selected: state.target === i ? '' : null }, `${a.name} (Q${a.quality || 0} → ${(a.quality || 0) + 1})`)));
+      sel.addEventListener('change', () => { state.target = sel.value === '' ? null : Number(sel.value); render(); });
+      return el('div', { class: 'field' }, el('span', {}, 'Asset Quality +1'), sel);
+    }
+    return null;
+  }
+
+  function retrainControl() {
+    const box = el('input', { type: 'checkbox', id: 'adv-retrain' });
+    box.checked = state.retrain;
+    box.addEventListener('change', () => { state.retrain = box.checked; state.drop = null; render(); });
+    const row = el('label', { class: 'toggle-row', for: 'adv-retrain' },
+      el('span', {}, 'Retrain — halve the cost by letting another ability atrophy'), box);
+    if (!state.retrain) return row;
+    // Drop selector: matching kind (skill −1 min 4 / remove a focus / remove a talent).
+    let dropCtl;
+    if (state.type === 'skill') {
+      const droppable = DATA.skills.filter((s) => c.skills[s.id] > CALC.skill.skillFloor);
+      dropCtl = selWrap('Drop a skill by 1 (min 4)', droppable.map((s) => [s.id, `${s.name} ${c.skills[s.id]} → ${c.skills[s.id] - 1}`]));
+    } else if (state.type === 'focus') {
+      dropCtl = selWrap('Remove a focus', (c.focuses || []).map((f, i) => [String(i), `${f.name} (${SKILL_NAME[f.skill]})`]));
+    } else {
+      dropCtl = selWrap('Remove a talent', (c.talents || []).map((t, i) => [String(i), t.name + (t.skill ? ` (${SKILL_NAME[t.skill]})` : t.drive ? ` (${DRIVE_NAME[t.drive]})` : '')]));
+    }
+    return el('div', {}, row, dropCtl);
+
+    function selWrap(label, pairs) {
+      const sel = el('select', { 'aria-label': label }, el('option', { value: '' }, `${label}…`),
+        ...pairs.map(([v, t]) => el('option', { value: v, selected: state.drop === v ? '' : null }, t)));
+      sel.addEventListener('change', () => { state.drop = sel.value || null; });
+      return el('div', { class: 'field' }, el('span', {}, label), sel);
+    }
+  }
+
+  function buyControl() {
+    const btn = el('button', { class: 'btn', onclick: () => buy() }, 'Buy advance');
+    const cost = finalCost();
+    const ready = cost <= adv.points && targetReady() && (!state.retrain || !canRetrain() || state.drop != null);
+    if (!ready) btn.disabled = true;
+    return btn;
+  }
+  function targetReady() {
+    if (state.type === 'focus') return state.target && state.param;
+    if (state.type === 'talent') { const def = DATA.talents.find((t) => t.name === state.target); return state.target && (!def?.pick || state.param); }
+    return state.target != null;
+  }
+
+  function buy() {
+    const cost = finalCost();
+    if (cost > adv.points) { showToast('Not enough advancement points.'); return; }
+    const patch = { skills: { ...c.skills }, focuses: [...(c.focuses || [])], talents: [...(c.talents || [])], assets: (c.assets || []).map((a) => ({ ...a })) };
+    let desc = '';
+    let newAdv = { ...adv };
+
+    if (state.type === 'skill') {
+      patch.skills[state.target] += 1;
+      newAdv.skillAdvancesTotal = (adv.skillAdvancesTotal || 0) + 1;
+      newAdv.skillsAdvanced = [...(adv.skillsAdvanced || []), state.target];
+      desc = `Skill: ${SKILL_NAME[state.target]} → ${patch.skills[state.target]}`;
+    } else if (state.type === 'focus') {
+      patch.focuses.push({ skill: state.target, name: state.param });
+      desc = `Focus: ${state.param} (${SKILL_NAME[state.target]})`;
+    } else if (state.type === 'talent') {
+      const def = DATA.talents.find((t) => t.name === state.target);
+      const t = { name: state.target, source: 'advancement' };
+      if (def?.pick === 'skill') t.skill = state.param; else if (def?.pick === 'drive') t.drive = state.param; else if (def?.pick) t.category = state.param;
+      patch.talents.push(t);
+      desc = `Talent: ${state.target}${state.param ? ` (${state.param})` : ''}`;
+    } else if (state.type === 'assetPermanent') {
+      patch.assets[state.target].permanent = true;
+      desc = `Asset permanent: ${patch.assets[state.target].name}`;
+    } else if (state.type === 'assetQuality') {
+      patch.assets[state.target].quality = (patch.assets[state.target].quality || 0) + 1;
+      desc = `Asset Quality: ${patch.assets[state.target].name} → Q${patch.assets[state.target].quality}`;
+    }
+
+    // Retraining atrophy (skill −1 / remove focus / remove talent).
+    if (state.retrain && canRetrain() && state.drop != null) {
+      if (state.type === 'skill') { patch.skills[state.drop] -= 1; desc += ` · retrained (dropped ${SKILL_NAME[state.drop]})`; }
+      else if (state.type === 'focus') { const f = patch.focuses[Number(state.drop)]; patch.focuses.splice(Number(state.drop), 1); desc += ` · retrained (dropped ${f?.name || 'focus'})`; }
+      else { const tl = patch.talents[Number(state.drop)]; patch.talents.splice(Number(state.drop), 1); desc += ` · retrained (dropped ${tl?.name || 'talent'})`; }
+    }
+
+    newAdv.points = adv.points - cost;
+    newAdv.advancesPurchasedThisAdventure = (adv.advancesPurchasedThisAdventure || 0) + 1;
+    newAdv = { ...logAdvancement({ advancement: newAdv }, `Advance −${cost}: ${desc}`) };
+
+    saveCharacter({ ...c, ...patch, advancement: newAdv });
+    showToast(`Advance purchased: ${desc}`);
+    close(); refresh();
+  }
 }
 
 // ---------- Notes ----------

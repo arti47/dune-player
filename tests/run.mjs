@@ -627,5 +627,21 @@ console.log('— Phase 4: scene/adventure lifecycle engine (§3.17) —');
     life.startAdventureDetermination({ talents: [{ name: 'Unquestionable Loyalty' }] }) === 2);
 }
 
+console.log('— Phase 4: advancement cost formulas (§3.10) —');
+{
+  const R = await import(join(root, 'src/rules.js'));
+  const cA = { advancement: { skillAdvancesTotal: 0 }, focuses: [], talents: [] };
+  const cB = { advancement: { skillAdvancesTotal: 2 }, focuses: [{}, {}, {}, {}], talents: [{}, {}] };
+  check('Skill advance: 10 + 1 per previous (0→10, 2→12)', R.skillAdvanceCost(cA) === 10 && R.skillAdvanceCost(cB) === 12);
+  check('Focus advance: number of focuses owned (0→0, 4→4)', R.focusAdvanceCost(cA) === 0 && R.focusAdvanceCost(cB) === 4);
+  check('Talent advance: 3 × talents owned (0→0, 2→6)', R.talentAdvanceCost(cA) === 0 && R.talentAdvanceCost(cB) === 6);
+  check('Asset permanent: flat 3', R.assetPermanentCost() === 3);
+  check('Asset Quality +1: 3 × current Quality (Q2→6)', R.assetQualityCost({ quality: 2 }) === 6 && R.assetQualityCost({ quality: 0 }) === 0);
+  check('Retrained cost halves, rounds up (12→6, 11→6)', R.retrainedCost(12) === 6 && R.retrainedCost(11) === 6);
+  check('Advancement calc numbers live in DATA (no hardcode)', DATA.advancement.calc.skill.base === 10 && DATA.advancement.calc.talent.perTalentOwned === 3 && DATA.advancement.calc.skill.skillCap === 8);
+  const nc = normalizeCharacter({});
+  check('normalizeCharacter back-fills advancement.skillsAdvanced []', Array.isArray(nc.advancement.skillsAdvanced) && nc.advancement.skillsAdvanced.length === 0);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

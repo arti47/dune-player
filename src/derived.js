@@ -63,7 +63,8 @@ export function normalizeCharacter(c) {
       defeatTrack: { req: 0, progress: 0 }, ...(c.state || {}),
     },
     advancement: {
-      points: 0, advancesPurchasedThisAdventure: 0, skillAdvancesTotal: 0, log: [],
+      points: 0, advancesPurchasedThisAdventure: 0, skillAdvancesTotal: 0,
+      skillsAdvanced: [], log: [],   // skillsAdvanced: skill ids advanced (each skill once, §3.10)
       ...(c.advancement || {}),
     },
     notes: c.notes ?? '',

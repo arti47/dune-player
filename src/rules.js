@@ -26,6 +26,33 @@ export function dieBuyCost(nth) {
   return DATA.dicePool.buyCosts[nth - 1] ?? null;
 }
 
+// ---------- Advancement cost formulas (§3.10, numbers from DATA.advancement.calc) ----------
+/** Point cost of a skill advance for this character (10 + 1 per previous skill advance). */
+export function skillAdvanceCost(character) {
+  const A = DATA.advancement.calc.skill;
+  return A.base + A.perPreviousSkillAdvance * (character.advancement?.skillAdvancesTotal || 0);
+}
+/** Point cost of a new focus (number of focuses already owned). */
+export function focusAdvanceCost(character) {
+  return DATA.advancement.calc.focus.perFocusOwned * (character.focuses?.length || 0);
+}
+/** Point cost of a new talent (3 × talents already owned). */
+export function talentAdvanceCost(character) {
+  return DATA.advancement.calc.talent.perTalentOwned * (character.talents?.length || 0);
+}
+/** Point cost of making an asset permanent (flat). */
+export function assetPermanentCost() {
+  return DATA.advancement.calc.assetPermanent.flat;
+}
+/** Point cost of raising an asset's Quality by 1 (3 × current Quality). */
+export function assetQualityCost(asset) {
+  return DATA.advancement.calc.assetQuality.perCurrentQuality * (asset?.quality || 0);
+}
+/** Halve a cost (round up) when retraining. */
+export function retrainedCost(cost) {
+  return Math.ceil(cost / DATA.advancement.calc.retrainDivisor);
+}
+
 /** Does a focus name apply? (Simple name match; roll dialog passes the chosen focus.) */
 export function characterHasFocusOnSkill(character, skillId) {
   return (character.focuses || []).some((f) => f.skill === skillId);
