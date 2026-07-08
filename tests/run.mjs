@@ -683,5 +683,24 @@ console.log('— Phase 4: local conflict helper (§3.12 initiative) —');
     nr.round === 2 && nr.combatants.every((c) => c.actedThisRound === false) && nr.currentSide === 'a');
 }
 
+console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
+{
+  const nc = normalizeCharacter({});
+  check('normalizeCharacter back-fills creationInPlay (inactive, 7 used counters at 0)',
+    nc.creationInPlay.active === false && nc.creationInPlay.complete === false &&
+    Object.keys(nc.creationInPlay.used).length === 7 &&
+    Object.values(nc.creationInPlay.used).every((v) => v === 0) &&
+    Array.isArray(nc.creationInPlay.skillRatingsUsed) && Array.isArray(nc.creationInPlay.driveRatingsUsed));
+  check('normalizeCharacter merges partial creationInPlay.used without losing keys',
+    (() => { const m = normalizeCharacter({ creationInPlay: { active: true, used: { skills: 2 } } });
+      return m.creationInPlay.active === true && m.creationInPlay.used.skills === 2 &&
+        m.creationInPlay.used.drives === 0 && Object.keys(m.creationInPlay.used).length === 7; })());
+  // Every define option in the data has an id the tracker handles + a positive use count.
+  const ids = new Set(['trait', 'skills', 'focuses', 'talents', 'drives', 'ambition', 'assets']);
+  check('creationInPlay options: all 7 known ids with positive uses',
+    DATA.creationInPlay.options.length === 7 &&
+    DATA.creationInPlay.options.every((o) => ids.has(o.id) && o.uses >= 1));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

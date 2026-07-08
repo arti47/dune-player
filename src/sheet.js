@@ -106,6 +106,8 @@ function liveSheet(c) {
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: () => openRollDialog(c, refresh) }, '⚂ Roll a test')),
 
+    creationInPlaySection(c),
+
     el('h4', {}, 'Skills'),
     el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
 
@@ -166,6 +168,8 @@ function rollLogSection() {
 function statementsSection(c) {
   const entries = Object.entries(c.driveStatements || {});
   if (!entries.length) return null;
+  // §T40: a drive can't be challenged until the character is complete (creation-in-play).
+  const challengeLocked = c.creationInPlay.active && !c.creationInPlay.complete;
   return el('div', {},
     el('h4', {}, 'Drive statements'),
     el('ul', { class: 'stmt-list' }, ...entries.map(([drive, s]) =>
@@ -174,13 +178,15 @@ function statementsSection(c) {
           el('strong', {}, DRIVE_NAME[drive] + ': '),
           s.text,
           s.challenged ? el('span', { class: 'tag danger-tag' }, 'challenged') : null),
-        el('button', { class: 'link-btn',
-          onclick: () => {
-            const next = { ...c.driveStatements, [drive]: { ...s, challenged: !s.challenged } };
-            saveCharacter({ ...c, driveStatements: next });
-            showToast(s.challenged ? 'Statement recovered' : 'Statement challenged');
-            refresh();
-          } }, s.challenged ? 'Recover' : 'Challenge')))));
+        (challengeLocked && !s.challenged)
+          ? el('span', { class: 'small muted' }, 'locked until complete')
+          : el('button', { class: 'link-btn',
+              onclick: () => {
+                const next = { ...c.driveStatements, [drive]: { ...s, challenged: !s.challenged } };
+                saveCharacter({ ...c, driveStatements: next });
+                showToast(s.challenged ? 'Statement recovered' : 'Statement challenged');
+                refresh();
+              } }, s.challenged ? 'Recover' : 'Challenge')))));
 }
 
 // ---------- Traits (incl. complications) ----------
@@ -511,6 +517,222 @@ function openAdvanceDialog(c) {
     showToast(`Advance purchased: ${desc}`);
     close(); refresh();
   }
+}
+
+// ---------- Creation in Play (T40 interactive tracker) ----------
+const CIP = DATA.creationInPlay;
+function cipComplete(cip) { return CIP.options.every((o) => (cip.used[o.id] || 0) >= o.uses); }
+
+/** Apply one define: merge `patch` into the character, bump used[optId], recompute complete. */
+function applyDefine(c, optId, patch = {}, extraCip = {}) {
+  const cip = c.creationInPlay;
+  const used = { ...cip.used, [optId]: (cip.used[optId] || 0) + 1 };
+  const nextCip = { ...cip, ...extraCip, used };
+  const wasComplete = cip.complete;
+  nextCip.complete = cipComplete(nextCip);
+  saveCharacter({ ...c, ...patch, creationInPlay: nextCip });
+  if (nextCip.complete && !wasComplete) showToast('Character complete — advancement unlocked');
+  else showToast('Defined');
+  refresh();
+}
+
+function creationInPlaySection(c) {
+  const cip = c.creationInPlay;
+  if (!cip.active) {
+    if (cip.complete) return null;   // finished characters don't show the starter
+    return el('div', { class: 'cip-start' },
+      el('h4', {}, 'Creation in Play'),
+      el('p', { class: 'small muted' }, CIP.intro),
+      el('button', { class: 'btn small secondary', onclick: () => { saveCharacter({ ...c, creationInPlay: { ...cip, active: true } }); refresh(); } },
+        'Start Creation in Play'));
+  }
+  const remaining = (o) => o.uses - (cip.used[o.id] || 0);
+  return el('div', {},
+    el('h4', {}, `Creation in Play${cip.complete ? ' · complete' : ''}`),
+    el('p', { class: 'small muted' }, cip.complete
+      ? 'All options defined — the character is complete and may earn/spend advancement, and drive statements can now be challenged.'
+      : 'Define your remaining choices as play demands. Defining a drive statement grants 1 Determination; drives can’t be challenged until you’re complete.'),
+    el('ul', { class: 'cip-list' }, ...CIP.options.map((o) => {
+      const left = remaining(o);
+      const btn = el('button', { class: 'btn small secondary', onclick: () => defineOption(c, o) }, 'Define');
+      if (left <= 0) btn.disabled = true;
+      return el('li', { class: 'cip-item' + (left <= 0 ? ' spent' : '') },
+        el('div', {}, el('strong', {}, o.name), el('span', { class: 'tag' }, `${left}/${o.uses} left`)),
+        el('div', { class: 'small muted' }, o.desc),
+        btn);
+    })));
+}
+
+function defineOption(c, o) {
+  const cip = c.creationInPlay;
+  if (o.id === 'trait') {
+    promptModal('Define a reputation/personality trait:', { value: '' }).then((name) => {
+      if (name == null || !name.trim()) return;
+      applyDefine(c, 'trait', { traits: [...(c.traits || []), { name: name.trim(), negative: false, source: 'creation' }] });
+    });
+  } else if (o.id === 'ambition') {
+    promptModal('Define your ambition (tied to your highest drive):', { value: '' }).then((txt) => {
+      if (txt == null || !txt.trim()) return;
+      applyDefine(c, 'ambition', { identity: { ...c.identity, ambition: txt.trim() } });
+    });
+  } else if (o.id === 'skills') {
+    defineSkillDialog(c);
+  } else if (o.id === 'drives') {
+    defineDriveDialog(c);
+  } else if (o.id === 'focuses') {
+    defineFocusDialog(c);
+  } else if (o.id === 'talents') {
+    defineTalentDialog(c);
+  } else if (o.id === 'assets') {
+    defineAssetDialog(c);
+  }
+}
+
+function defineSkillDialog(c) {
+  const cip = c.creationInPlay;
+  const ratings = [4, 5, 6].filter((r) => !cip.skillRatingsUsed.includes(r));
+  const st = { skill: DATA.skills[0].id, rating: ratings[0] };
+  const skillSel = el('select', { 'aria-label': 'Skill' }, ...DATA.skills.map((s) => el('option', { value: s.id }, s.name)));
+  skillSel.addEventListener('change', () => { st.skill = skillSel.value; });
+  const rSel = el('select', { 'aria-label': 'Rating' }, ...ratings.map((r) => el('option', { value: String(r) }, String(r))));
+  rSel.addEventListener('change', () => { st.rating = Number(rSel.value); });
+  const close = modal([
+    el('h2', {}, 'Define a skill'),
+    el('p', { class: 'small muted' }, 'Give an undefined skill a rating of 4, 5, or 6 — each rating used once.'),
+    el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel),
+    el('div', { class: 'field' }, el('span', {}, 'Rating'), rSel),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        close();
+        applyDefine(c, 'skills', { skills: { ...c.skills, [st.skill]: st.rating } },
+          { skillRatingsUsed: [...cip.skillRatingsUsed, st.rating] });
+      } }, 'Define')),
+  ]);
+}
+
+function defineDriveDialog(c) {
+  const cip = c.creationInPlay;
+  const ratings = CIP.driveImportance.map((d) => d.rating).filter((r) => !cip.driveRatingsUsed.includes(r));
+  const st = { drive: DATA.drives[0].id, rating: ratings[0], statement: '' };
+  const box = el('div', {});
+  const stmtField = el('div', {});
+  const draw = () => {
+    const needsStmt = st.rating >= 6;   // a drive rated 6+ needs a statement (grants 1 Determination)
+    stmtField.replaceChildren(needsStmt
+      ? el('label', { class: 'field' }, el('span', {}, 'Drive statement (grants +1 Determination)'),
+          (() => { const ta = el('input', { type: 'text', placeholder: 'A short belief this drive expresses' }); ta.addEventListener('input', () => { st.statement = ta.value; }); return ta; })())
+      : el('p', { class: 'small muted' }, 'No statement needed below rating 6.'));
+  };
+  const driveSel = el('select', { 'aria-label': 'Drive' }, ...DATA.drives.map((d) => el('option', { value: d.id }, d.name)));
+  driveSel.addEventListener('change', () => { st.drive = driveSel.value; });
+  const rSel = el('select', { 'aria-label': 'Rating' }, ...ratings.map((r) => el('option', { value: String(r) }, `${r}`)));
+  rSel.addEventListener('change', () => { st.rating = Number(rSel.value); st.statement = ''; draw(); });
+  draw();
+  const close = modal([
+    el('h2', {}, 'Define a drive'),
+    el('p', { class: 'small muted' }, 'Assign an importance rating (8/7/6/5/4, each used once).'),
+    el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel),
+    el('div', { class: 'field' }, el('span', {}, 'Rating'), rSel),
+    stmtField,
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        if (st.rating >= 6 && !st.statement.trim()) { showToast('A drive rated 6+ needs a statement.'); return; }
+        close();
+        const patch = { drives: { ...c.drives, [st.drive]: st.rating } };
+        const extraCip = { driveRatingsUsed: [...cip.driveRatingsUsed, st.rating] };
+        if (st.rating >= 6) {
+          patch.driveStatements = { ...c.driveStatements, [st.drive]: { text: st.statement.trim(), challenged: false } };
+          patch.determination = clampDetermination(c.determination + 1);
+        }
+        applyDefine(c, 'drives', patch, extraCip);
+      } }, 'Define')),
+  ]);
+}
+
+function defineFocusDialog(c) {
+  const st = { skill: DATA.skills[0].id, name: '' };
+  const box = el('div', {});
+  const skillSel = el('select', { 'aria-label': 'Skill' }, ...DATA.skills.map((s) => el('option', { value: s.id }, `${s.name} ${c.skills[s.id]}`)));
+  const nameWrap = el('div', {});
+  const drawNames = () => {
+    const owned = new Set((c.focuses || []).filter((f) => f.skill === st.skill).map((f) => f.name));
+    const opts = focusExamplesFor(st.skill).map((f) => f.name).filter((n) => !owned.has(n));
+    st.name = opts[0] || '';
+    const nSel = el('select', { 'aria-label': 'Focus' }, ...opts.map((n) => el('option', { value: n }, n)));
+    nSel.addEventListener('change', () => { st.name = nSel.value; });
+    nameWrap.replaceChildren(el('div', { class: 'field' }, el('span', {}, 'Focus'), nSel));
+  };
+  skillSel.addEventListener('change', () => { st.skill = skillSel.value; drawNames(); });
+  drawNames();
+  const close = modal([
+    el('h2', {}, 'Define a focus'),
+    el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel), nameWrap,
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        if (!st.name) { showToast('Choose a focus.'); return; }
+        close();
+        applyDefine(c, 'focuses', { focuses: [...(c.focuses || []), { skill: st.skill, name: st.name }] });
+      } }, 'Define')),
+  ]);
+}
+
+function defineTalentDialog(c) {
+  const owned = new Set((c.talents || []).map((t) => t.name));
+  const allowed = DATA.talents.filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
+  const st = { name: allowed[0]?.name || '', param: null };
+  const sel = el('select', { 'aria-label': 'Talent' }, ...allowed.map((t) => el('option', { value: t.name }, t.name)));
+  const paramWrap = el('div', {});
+  const drawParam = () => {
+    const def = allowed.find((t) => t.name === st.name);
+    st.param = null;
+    if (def && def.pick) {
+      const list = def.pick === 'skill' ? DATA.skills : def.pick === 'drive' ? DATA.drives
+        : DATA.assetRules.categories.map((x) => ({ id: x, name: capitalize(x) }));
+      const pLabel = def.pick === 'assetCategory' ? 'category' : def.pick;
+      const pSel = el('select', { 'aria-label': 'Parameter' }, el('option', { value: '' }, `Choose ${pLabel}…`),
+        ...list.map((x) => el('option', { value: x.id }, x.name)));
+      pSel.addEventListener('change', () => { st.param = pSel.value || null; });
+      paramWrap.replaceChildren(el('div', { class: 'field' }, el('span', {}, capitalize(pLabel)), pSel));
+    } else paramWrap.replaceChildren();
+  };
+  sel.addEventListener('change', () => { st.name = sel.value; drawParam(); });
+  drawParam();
+  const close = modal([
+    el('h2', {}, 'Define a talent'),
+    el('div', { class: 'field' }, el('span', {}, 'Talent'), sel), paramWrap,
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        const def = allowed.find((t) => t.name === st.name);
+        if (!st.name) return;
+        if (def?.pick && !st.param) { showToast(`Choose a ${def.pick === 'assetCategory' ? 'category' : def.pick}.`); return; }
+        const t = { name: st.name, source: 'creation' };
+        if (def?.pick === 'skill') t.skill = st.param; else if (def?.pick === 'drive') t.drive = st.param; else if (def?.pick) t.category = st.param;
+        close();
+        applyDefine(c, 'talents', { talents: [...(c.talents || []), t] });
+      } }, 'Define')),
+  ]);
+}
+
+function defineAssetDialog(c) {
+  const name = el('input', { type: 'text', placeholder: 'e.g. Crysknife, Spy Network' });
+  const tangible = el('input', { type: 'checkbox' }); tangible.checked = true;
+  const close = modal([
+    el('h2', {}, 'Define an asset'),
+    el('label', { class: 'field' }, el('span', {}, 'Name'), name),
+    el('label', { class: 'toggle-row' }, el('span', {}, 'Tangible'), tangible),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        const n = name.value.trim(); if (!n) return;
+        close();
+        applyDefine(c, 'assets', { assets: [...(c.assets || []), { name: n, quality: 0, tangible: tangible.checked, permanent: true }] });
+      } }, 'Define')),
+  ]);
+  name.focus();
 }
 
 // ---------- Notes ----------

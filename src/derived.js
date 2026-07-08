@@ -67,6 +67,15 @@ export function normalizeCharacter(c) {
       skillsAdvanced: [], log: [],   // skillsAdvanced: skill ids advanced (each skill once, §3.10)
       ...(c.advancement || {}),
     },
+    // Creation in Play (T40): incomplete character defined during play. `used` counts each
+    // limited-use define option; skill/drive rating pools enforce "each rating once".
+    creationInPlay: {
+      active: false, complete: false,
+      used: { trait: 0, skills: 0, focuses: 0, talents: 0, drives: 0, ambition: 0, assets: 0 },
+      skillRatingsUsed: [], driveRatingsUsed: [],
+      ...(c.creationInPlay || {}),
+      ...(c.creationInPlay ? { used: { trait: 0, skills: 0, focuses: 0, talents: 0, drives: 0, ambition: 0, assets: 0, ...(c.creationInPlay.used || {}) } } : {}),
+    },
     notes: c.notes ?? '',
   };
 }
