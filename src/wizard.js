@@ -43,9 +43,10 @@ function freshState() {
     skills: null,                // set when archetype chosen
     focuses: [{ skill: '', name: '' }, { skill: '', name: '' }, { skill: '', name: '' }, { skill: '', name: '' }],
     talents: new Set(),          // talent keys (incl. the chosen faction mandatory)
-    mandatoryOption: null,       // faction mandatory: selected option string (radio)
+    mandatoryOption: null,       // faction mandatory (atLeastOne): selected option string (radio)
     mandatoryParam: null,        // …its chosen param, for a bound mandatory talent
     mandatoryKey: null,          // …the resolved key currently held in `talents`
+    mandatoryKeys: [],           // faction mandatory (all): every required talent auto-added
     driveAssignment: { duty: null, faith: null, justice: null, power: null, truth: null },
     statements: {},              // drive -> text
     assets: new Set(),           // asset names
@@ -134,7 +135,9 @@ function stepConcept(state, body) {
  *  chosen fresh from the new faction's list at the Talents step (radio, choose one). */
 function clearMandatory(state) {
   if (state.mandatoryKey) state.talents.delete(state.mandatoryKey);
+  for (const k of state.mandatoryKeys || []) state.talents.delete(k);
   state.mandatoryOption = null; state.mandatoryParam = null; state.mandatoryKey = null;
+  state.mandatoryKeys = [];   // mode:'all' factions auto-add every required talent here
 }
 
 /** Pre-fill the archetype's suggestions as editable starting picks (user decisions 2026-07-06):
@@ -420,8 +423,36 @@ function stepTalents(state, body, rerender) {
     return el('label', { class: 'check-item', for: `tal-${base}` }, box, el('div', {}, tags, effect));
   };
 
-  // ---- Mandatory: choose exactly one from the faction's list (radio) ----
-  if (f) {
+  // ---- Mandatory talents. mode 'all' = every option required (auto-added, locked);
+  //      mode 'atLeastOne' = choose one (radio). A faction with no options is fine (e.g. Ginaz Cadet). ----
+  if (f && f.mandatoryTalents.mode === 'all') {
+    // Auto-add each no-param required talent; track them so a faction change can clear them.
+    for (const opt of factionOpts) {
+      if (mandatoryNeedsParam(opt)) continue;
+      const key = resolveMandatoryKey(opt, null);
+      if (!state.talents.has(key) && state.talents.size < count) state.talents.add(key);
+      if (!state.mandatoryKeys.includes(key)) state.mandatoryKeys.push(key);
+    }
+    updateStatus();
+    const satisfied = factionOpts.every((o) => talentSatisfies(state, o));
+    body.append(el('h3', {}, 'Mandatory talents'),
+      el('p', { class: 'small' + (satisfied ? ' ok-banner' : ' req-banner') },
+        factionOpts.length
+          ? (satisfied ? '✓ Faction mandatory talents added.' : `Required: ${factionOpts.join(', ')}.`)
+          : 'This faction has no mandatory talents.'));
+    if (factionOpts.length) {
+      const mgroup = el('div', { class: 'check-list' });
+      for (const opt of factionOpts) {
+        const def = findTalent(baseName(opt));
+        const box = el('input', { type: 'checkbox', id: `mand-${opt}` });
+        box.checked = talentSatisfies(state, opt); box.disabled = true;
+        mgroup.append(el('label', { class: 'check-item locked', for: `mand-${opt}` }, box,
+          el('div', {}, el('div', {}, opt, el('span', { class: 'tag req-tag' }, 'required')),
+            el('div', { class: 'small muted' }, def ? def.effect : 'See rules library.'))));
+      }
+      body.append(mgroup);
+    }
+  } else if (f) {
     const selectMandatory = (opt, param) => {
       if (state.mandatoryKey) state.talents.delete(state.mandatoryKey);
       state.mandatoryOption = opt;

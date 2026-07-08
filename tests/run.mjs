@@ -777,5 +777,39 @@ console.log('— Sand and Dust: Fremen + Spice (T33) —');
   globalThis.localStorage.removeItem('imperium.settings');
 }
 
+console.log('— Power and Pawns: court factions + Guild + political + new drives (T33) —');
+{
+  const { EXPANSION: PP } = await import(join(root, 'data-power-and-pawns.js'));
+  check('4 faction templates (Sardaukar, Face Dancer, Ginaz Cadet, Ginaz Swordmaster)',
+    ['sardaukar', 'faceDancer', 'ginazCadet', 'ginazSwordmaster'].every((id) => PP.factionTemplates.some((f) => f.id === id)));
+  check('Face Dancer has TWO mode:all mandatory talents, both present in the talent set',
+    (() => { const fd = PP.factionTemplates.find((f) => f.id === 'faceDancer');
+      return fd.mandatoryTalents.mode === 'all' && fd.mandatoryTalents.options.length === 2 &&
+        fd.mandatoryTalents.options.every((o) => PP.talents.some((t) => t.name === o)); })());
+  check('Ginaz Cadet has no forced mandatory (empty options)',
+    PP.factionTemplates.find((f) => f.id === 'ginazCadet').mandatoryTalents.options.length === 0);
+  check('6 Guild archetypes (faction:guildAgent) with valid skills',
+    PP.archetypes.length === 6 && PP.archetypes.every((a) => a.faction === 'guildAgent' &&
+      DATA.skills.some((s) => s.id === a.primary)));
+  check('Talent set spans Sardaukar/FaceDancer/Mentat/Swordmaster/Suk/Guild/political (≥60), names unique',
+    PP.talents.length >= 60 && new Set(PP.talents.map((t) => t.name)).size === PP.talents.length);
+  check('No Power-and-Pawns talent name collides with a core talent',
+    !PP.talents.some((t) => DATA.talents.some((c) => c.name === t.name)));
+  check('14 Guild focuses + 5 Suk assets + 6 new drives',
+    PP.focuses.length === 14 && PP.assets.length === 5 && PP.drives.length === 6 &&
+    PP.drives.every((d) => d.statements.length === 8));
+
+  const content = await import(join(root, 'src/content.js'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ powerAndPawns: false }));
+  check('powerAndPawns OFF: court factions + talents excluded',
+    !content.allFactionTemplates().some((f) => f.id === 'sardaukar') && !content.findTalent('Facedance'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ powerAndPawns: true }));
+  check('powerAndPawns ON: Sardaukar + Face Dancer factions, Guild archetypes, talents merged',
+    content.allFactionTemplates().some((f) => f.id === 'sardaukar') &&
+    content.allArchetypes().some((a) => a.id === 'guildScout' && a.faction === 'guildAgent') &&
+    content.findTalent('Facedance') && content.findTalent('Methodical Efficiency')?.auto.type === 'rerollOne');
+  globalThis.localStorage.removeItem('imperium.settings');
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
