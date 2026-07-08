@@ -9,10 +9,54 @@
 
 export const EXPANSION = {
   id: 'greatGame',
-  extracted: false, // full T33–T37 pass pending; houseManagement subsystem below is done
-  talents: [], archetypes: [], factionTemplates: [], focuses: [],
+  extracted: false, // full T33–T37 pass pending; houseManagement subsystem + CHOAM options below are done
+  archetypes: [],
   assets: [], npcs: [],
   subsystems: ['houseManagement'],
+
+  // ---------- CHOAM options (T33 · owner-supplied 2026-07-08) ----------
+  // A CHOAM Agent faction template + 7 CHOAM talents + CHOAM focus examples. Paraphrased.
+  factionTemplates: [
+    {
+      id: 'choamAgent',
+      name: 'CHOAM Agent',
+      trait: 'CHOAM Agent',
+      mandatoryTalents: { mode: 'all', options: ['Hand of CHOAM'] },
+      suggestedArchetypes: ['Analyst', 'Courtier', 'Envoy', 'Steward', 'Strategist'],
+      desc: 'Embedded in a House to keep it profitable and compliant with the Landsraad trade bureaucracy — while quietly securing CHOAM’s share of every deal, and occasionally spying on their own House for the corporation. Often serves as treasurer, advisor, or envoy.',
+      factionIntro: 'Serving two masters: a CHOAM agent enriches the House but answers to the corporation. Actions that threaten trade — or dishonest dealing that risks an Imperial audit — can put them at odds with the House they serve.',
+    },
+  ],
+  talents: [
+    { name: 'Hand of CHOAM', faction: 'choamAgent',
+      effect: 'Once per session, on a test dealing with planetary or galactic trade you act in or assist, apply the effect of spending 1 Determination — revealing your CHOAM ties to everyone involved.',
+      auto: { type: 'narrative', note: 'Once/session: a free Determination effect on a Trade test.' } },
+    { name: 'Audit', faction: 'choamAgent',
+      effect: 'Spend 1 Momentum to compel a House or CHOAM trade member to show their recent trade records (which may be falsified, but must show something). Abusing it may cost you the talent.',
+      auto: { type: 'narrative' } },
+    { name: 'Check the Books', faction: 'choamAgent',
+      effect: 'Reviewing financial records, when you spend 1 Momentum to Obtain Information you may ask two questions for that first point instead of one.',
+      auto: { type: 'obtainInfoBonus', extraQuestions: 1, condition: 'financial records' } },
+    { name: 'Deep Pockets', faction: 'choamAgent',
+      effect: 'Once per session create a temporary Wealth asset for trade or purchases; it expires at scene end and can’t be made permanent. Raise its Quality by +1 per Momentum spent when created.',
+      auto: { type: 'createAsset', assetName: 'Wealth', temporary: true, qualityPerMomentum: 1, oncePerSession: true } },
+    { name: 'Dirty Money', faction: 'choamAgent',
+      effect: 'On a successful Discipline test, spend 1+ Momentum to legitimise one illegal asset (or a level of its Quality) for a scene; or 2 Momentum per asset/level to make another’s asset suspect, exposing it to CHOAM/Landsraad sanction.',
+      auto: { type: 'narrative', skill: 'discipline' } },
+    { name: 'Master of Coin', faction: 'choamAgent',
+      effect: 'On a financial/economic test where CHOAM’s influence is relevant, re-roll 1d20 that didn’t succeed. Also: a Challenging (D2) Understand test adds +5 to your House’s Wealth for the session (House management).',
+      auto: { type: 'rerollOne', skills: ['understand', 'communicate'], condition: 'financial/economic test where CHOAM is relevant' } },
+    { name: 'Report Malfeasance', faction: 'choamAgent',
+      effect: 'At any time, give a target who’d fear a CHOAM audit the complication “Reported to CHOAM”, lasting until they prove innocence or the investigation ends. Spurious reports invite CHOAM reprisal.',
+      auto: { type: 'narrative' } },
+  ],
+  focuses: [
+    { skill: 'understand', name: 'CHOAM Bureaucracy', desc: 'The corporation’s trade rules, audits, and paperwork.' },
+    { skill: 'understand', name: 'Data Analysis', desc: 'Reading ledgers, markets, and figures for the real story.' },
+    { skill: 'understand', name: 'Imperial Politics', desc: 'The Landsraad and court forces that move trade.' },
+    { skill: 'understand', name: 'Smuggling', desc: 'Moving goods around the rules — and spotting others doing it.' },
+    { skill: 'communicate', name: 'Bartering', desc: 'Haggling a deal to your (and CHOAM’s) advantage.' },
+  ],
 
   // ---------- House Management (T36) — the Wealth/Resources ECONOMY only ----------
   // Core owns the House's narrative + structural layer (type, domain names + counts, the

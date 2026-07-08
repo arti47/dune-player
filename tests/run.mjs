@@ -21,7 +21,7 @@ const SHELL_FILES = [
   'data-masters-of-dune.js', 'data-fall-of-imperium.js',
   'firebase-config.js', 'database.rules.json', 'README.md', 'CLAUDE.md',
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
-  'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/sheet.js',
+  'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/content.js', 'src/sheet.js',
   'src/combat.js', 'src/gm.js', 'src/screens.js', 'src/router.js', 'src/main.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
@@ -716,6 +716,36 @@ console.log('— Phase 6: GM screen rollable-table helpers (§3.16) —');
     rowForRoll(DATA.houseEnemies.hatred, 20)?.name != null &&
     Array.from({ length: 20 }, (_, i) => rowForRoll(DATA.houseEnemies.reasons, i + 1)).every((r) => r && r.name));
   check('NPC compendium spans 25 archetypes + 12 iconics', NPCS.archetypes.length === 25 && NPCS.iconics.length === 12);
+}
+
+console.log('— Phase 6: expansion crunch merge + CHOAM (The Great Game, T33) —');
+{
+  const { EXPANSION: GG } = await import(join(root, 'data-great-game.js'));
+  check('data-great-game: 1 CHOAM faction template + 7 CHOAM talents + focuses',
+    GG.factionTemplates.length === 1 && GG.factionTemplates[0].id === 'choamAgent' &&
+    GG.talents.length === 7 && GG.talents.every((t) => t.faction === 'choamAgent') &&
+    GG.focuses.length >= 1);
+  check('CHOAM mandatory talent (Hand of CHOAM) exists in the CHOAM talent set',
+    GG.factionTemplates[0].mandatoryTalents.options[0] === 'Hand of CHOAM' &&
+    GG.talents.some((t) => t.name === 'Hand of CHOAM'));
+  check('CHOAM suggested archetypes all resolve to real core archetypes',
+    GG.factionTemplates[0].suggestedArchetypes.every((n) => DATA.archetypes.some((a) => a.name === n)));
+  check('Master of Coin automates a conditional single-die re-roll (Understand/Communicate)',
+    GG.talents.find((t) => t.name === 'Master of Coin')?.auto.type === 'rerollOne' &&
+    GG.talents.find((t) => t.name === 'Master of Coin').auto.skills.includes('understand'));
+
+  const content = await import(join(root, 'src/content.js'));
+  // localStorage shim is installed above (store block). Toggle greatGame off → CHOAM hidden.
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ greatGame: false }));
+  check('greatGame OFF: CHOAM faction + talents excluded from the effective set',
+    !content.allFactionTemplates().some((f) => f.id === 'choamAgent') &&
+    !content.findTalent('Hand of CHOAM'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ greatGame: true }));
+  check('greatGame ON: CHOAM faction + talents merged in; findTalent resolves CHOAM talents',
+    content.allFactionTemplates().some((f) => f.id === 'choamAgent') &&
+    content.findTalent('Hand of CHOAM')?.faction === 'choamAgent' &&
+    content.focusExamplesFor('understand').some((f) => f.name === 'CHOAM Bureaucracy'));
+  globalThis.localStorage.removeItem('imperium.settings');
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

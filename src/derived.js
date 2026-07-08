@@ -3,6 +3,7 @@
 
 import { DATA } from '../data.js';
 import { clamp, uid } from './core.js';
+import { findTalent } from './content.js';
 
 /** The only derived stat in the game. */
 export function targetNumber(character, skillId, driveId) {
@@ -16,7 +17,7 @@ export function targetNumber(character, skillId, driveId) {
 export function permanentAssetCap(character) {
   let cap = DATA.assetRules.permanentCap;
   for (const owned of character.talents || []) {
-    const def = DATA.talents.find((t) => t.name === owned.name);
+    const def = findTalent(owned.name);
     if (def?.auto?.type === 'assetCapBonus') cap += def.auto.bonus;
   }
   return cap;

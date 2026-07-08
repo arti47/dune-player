@@ -10,6 +10,7 @@ import { PREGENS } from '../data-pregens.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived.js';
 import { rankDrivesFromComparisons } from './rules.js';
+import { allTalents, findTalent, allFactionTemplates, focusExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -20,7 +21,7 @@ const DRIVE_IDS = DATA.drives.map((d) => d.id);
 /** Strip a trailing " (parenthetical)" so archetype/faction talent names match the catalog. */
 const baseName = (n) => n.replace(/\s*\(.*\)$/, '').trim();
 const archetypeById = (id) => DATA.archetypes.find((a) => a.id === id) || null;
-const factionById = (id) => DATA.factionTemplates.find((f) => f.id === id) || null;
+const factionById = (id) => allFactionTemplates().find((f) => f.id === id) || null;
 
 // ---------- Entry points ----------
 export function startCharacterWizard() {
@@ -120,7 +121,7 @@ function stepConcept(state, body) {
     'A mundane background — full freedom over talents.', () => choose(null));
   body.append(none);
 
-  for (const f of DATA.factionTemplates) {
+  for (const f of allFactionTemplates()) {
     const mand = f.mandatoryTalents.mode === 'all'
       ? `Mandatory: ${f.mandatoryTalents.options.join(', ')}`
       : `Mandatory: choose ≥1 of ${f.mandatoryTalents.options.join(', ')}`;
@@ -277,7 +278,7 @@ function stepFocuses(state, body, rerender) {
     if (f.skill) {
       // Name dropdown = this skill's printed focus examples, plus the current value if it's an
       // archetype-suggested focus not in that generic list (suggested focuses are book content).
-      const names = (DATA.focusExamples[f.skill] || []).map((e) => e.name);
+      const names = focusExamplesFor(f.skill).map((e) => e.name);
       if (f.name && !names.includes(f.name)) names.unshift(f.name);
       const nameSel = el('select', { 'aria-label': `Focus ${i + 1} name` },
         el('option', { value: '' }, '— focus —'),
@@ -350,7 +351,7 @@ function resolveMandatoryKey(option, param) {
   return p ? `${base} (${p})` : base;
 }
 function mandatoryNeedsParam(option) {
-  const def = DATA.talents.find((t) => t.name === baseName(option));
+  const def = findTalent(baseName(option));
   return !!(def && def.pick && !talentParam(option));
 }
 
@@ -368,13 +369,13 @@ function stepTalents(state, body, rerender) {
   const mandatoryBases = new Set(factionOpts.map((o) => baseName(o)));
   // Faction-restricted talents only appear for members of that faction (§3.5 step 5).
   const talentAllowed = (base) => {
-    const def = DATA.talents.find((t) => t.name === base);
+    const def = findTalent(base);
     return !def || !def.faction || def.faction === state.factionTemplate;
   };
 
   // ---- one pickable talent row (checkbox for unbound; param-picker + chips for bound) ----
   const pickRow = (base, suggestedParams, extraTag) => {
-    const def = DATA.talents.find((t) => t.name === base);
+    const def = findTalent(base);
     const tags = el('div', {}, base,
       extraTag ? el('span', { class: 'tag' }, extraTag) : null,
       def?.faction ? el('span', { class: 'tag' }, 'faction-only') : null);
@@ -442,7 +443,7 @@ function stepTalents(state, body, rerender) {
         satisfied ? '✓ Faction mandatory talent selected.' : `Required: choose one of ${factionOpts.join(', ')}.`));
     const mgroup = el('div', { class: 'check-list' });
     for (const opt of factionOpts) {
-      const def = DATA.talents.find((t) => t.name === baseName(opt));
+      const def = findTalent(baseName(opt));
       const checked = state.mandatoryOption === opt;
       const radio = el('input', { type: 'radio', name: 'mandatory-talent', id: `mand-${opt}` });
       radio.checked = checked;
@@ -481,7 +482,7 @@ function stepTalents(state, body, rerender) {
   body.append(search);
   const list = el('div', { class: 'check-list' });
   body.append(list);
-  const otherBases = DATA.talents.map((t) => t.name).filter((b) => !mandatoryBases.has(b) && !archSuggBases.includes(b) && talentAllowed(b));
+  const otherBases = allTalents().map((t) => t.name).filter((b) => !mandatoryBases.has(b) && !archSuggBases.includes(b) && talentAllowed(b));
   const renderList = () => {
     const q = search.value.trim().toLowerCase();
     list.replaceChildren(...otherBases.filter((b) => !q || b.toLowerCase().includes(q)).map((b) => pickRow(b, [], null)));
@@ -704,7 +705,7 @@ function buildCharacter(state) {
     const base = baseName(key);
     const paramMatch = key.match(/\(([^)]*)\)\s*$/);
     const param = paramMatch ? paramMatch[1].trim() : null;
-    const def = DATA.talents.find((t) => t.name === base);
+    const def = findTalent(base);
     const entry = {
       name: base,
       source: f && f.mandatoryTalents.options.some((o) => talentKeyMatchesOption(key, o)) ? 'faction'

@@ -22,6 +22,7 @@ import { modal, showToast } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacters } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
+import { findTalent } from './content.js';
 import { DATA } from '../data.js';
 
 const SKILLS = DATA.skills;
@@ -132,7 +133,7 @@ export function openRollDialog(character, onDone = null) {
   // Pair each character talent (with its picked skill/drive parameter) to its catalog def.
   function talentEntries() {
     return (character.talents || []).map((t, idx) => {
-      const def = DATA.talents.find((d) => d.name === t.name);
+      const def = findTalent(t.name);
       return def ? { t, def, idx } : null;
     }).filter(Boolean);
   }

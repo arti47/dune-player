@@ -12,7 +12,7 @@ import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMoment
 import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
-import { focusExamplesFor } from './rules.js';
+import { allTalents, focusExamplesFor } from './content.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -396,7 +396,7 @@ function openAdvanceDialog(c) {
     }
     if (state.type === 'talent') {
       const owned = ownedBaseNames();
-      const allowed = DATA.talents.filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
+      const allowed = allTalents().filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
       const sel = el('select', { 'aria-label': 'Talent' }, el('option', { value: '' }, 'Choose a talent…'),
         ...allowed.map((t) => el('option', { value: t.name, selected: state.target === t.name ? '' : null }, t.name)));
       sel.addEventListener('change', () => { state.target = sel.value || null; state.param = null; render(); });
@@ -469,7 +469,7 @@ function openAdvanceDialog(c) {
   }
   function targetReady() {
     if (state.type === 'focus') return state.target && state.param;
-    if (state.type === 'talent') { const def = DATA.talents.find((t) => t.name === state.target); return state.target && (!def?.pick || state.param); }
+    if (state.type === 'talent') { const def = allTalents().find((t) => t.name === state.target); return state.target && (!def?.pick || state.param); }
     return state.target != null;
   }
 
@@ -489,7 +489,7 @@ function openAdvanceDialog(c) {
       patch.focuses.push({ skill: state.target, name: state.param });
       desc = `Focus: ${state.param} (${SKILL_NAME[state.target]})`;
     } else if (state.type === 'talent') {
-      const def = DATA.talents.find((t) => t.name === state.target);
+      const def = allTalents().find((t) => t.name === state.target);
       const t = { name: state.target, source: 'advancement' };
       if (def?.pick === 'skill') t.skill = state.param; else if (def?.pick === 'drive') t.drive = state.param; else if (def?.pick) t.category = state.param;
       patch.talents.push(t);
@@ -681,7 +681,7 @@ function defineFocusDialog(c) {
 
 function defineTalentDialog(c) {
   const owned = new Set((c.talents || []).map((t) => t.name));
-  const allowed = DATA.talents.filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
+  const allowed = allTalents().filter((t) => !t.creationOnly && (!t.faction || t.faction === c.identity.factionTemplate) && (t.pick || !owned.has(t.name)));
   const st = { name: allowed[0]?.name || '', param: null };
   const sel = el('select', { 'aria-label': 'Talent' }, ...allowed.map((t) => el('option', { value: t.name }, t.name)));
   const paramWrap = el('div', {});
