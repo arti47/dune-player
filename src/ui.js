@@ -48,6 +48,20 @@ export function showToast(message, ms = 2800) {
   setTimeout(() => t.remove(), ms);
 }
 
+/** A persistent toast with an action button (no auto-dismiss). Returns a dismiss fn.
+ *  Used for the "new version available — reload" prompt. */
+export function showActionToast(message, actionLabel, onAction) {
+  const region = qs('#toast-region');
+  const t = el('div', { class: 'toast toast-action', role: 'status', 'aria-live': 'polite' },
+    el('span', {}, message));
+  const dismiss = () => t.remove();
+  t.append(
+    el('button', { class: 'toast-btn', onclick: () => onAction(dismiss) }, actionLabel),
+    el('button', { class: 'toast-x', 'aria-label': 'Dismiss', onclick: dismiss }, '×'));
+  region.append(t);
+  return dismiss;
+}
+
 /** Themed confirm → Promise<boolean>. */
 export function confirmModal(message, { okLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {
   return new Promise((resolve) => {

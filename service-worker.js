@@ -1,6 +1,6 @@
 // service-worker.js — network-first PWA cache. Bump CACHE_VERSION on ANY shipped-file change.
 
-const CACHE_VERSION = 'imperium-v0.55.0';
+const CACHE_VERSION = 'imperium-v0.56.0';
 
 const APP_SHELL = [
   './',
@@ -40,7 +40,13 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_SHELL))
   );
-  self.skipWaiting();
+  // No auto skipWaiting: the new worker waits until the page's "Reload to update"
+  // prompt is accepted (posts SKIP_WAITING below), so updates never disrupt a live session.
+});
+
+// The page posts this when the user accepts the update prompt.
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

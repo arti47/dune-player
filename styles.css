@@ -201,6 +201,12 @@ input[type="text"], input[type="search"], select {
   animation: toast-in 0.25s ease;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* Actionable toast (e.g. update prompt): re-enable pointer events for its controls. */
+.toast-action { display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+.toast-btn { background: var(--accent); color: #1a1206; border: none; border-radius: 8px;
+  padding: 6px 14px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+.toast-x { background: none; border: none; color: var(--bg); opacity: 0.7; cursor: pointer;
+  font-size: 1.1rem; line-height: 1; padding: 0 2px; }
 
 .noscript { padding: 80px 20px; text-align: center; }
 

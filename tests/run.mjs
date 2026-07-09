@@ -32,6 +32,15 @@ check('CACHE_VERSION present', /CACHE_VERSION = 'imperium-v[\d.]+'/.test(sw));
 for (const f of SHELL_FILES.filter((f) => !['service-worker.js', 'database.rules.json', 'README.md', 'CLAUDE.md'].includes(f) && !f.startsWith('tests'))) {
   check(`SW shell lists ${f}`, sw.includes(`'./${f}'`));
 }
+// PWA update flow: the new worker must WAIT (no auto-skipWaiting in install) and skip on message.
+const swInstallBlock = sw.slice(sw.indexOf("addEventListener('install'"), sw.indexOf("addEventListener('message'"));
+check('SW install has no auto skipWaiting (waits for the update prompt)',
+  !/self\.skipWaiting\(\)/.test(swInstallBlock) &&
+  /addEventListener\('message'[\s\S]*?SKIP_WAITING[\s\S]*?self\.skipWaiting\(\)/.test(sw));
+const mainSrc = readFileSync(join(root, 'src/main.js'), 'utf8');
+check('main.js drives the update prompt (SKIP_WAITING message + controllerchange reload)',
+  /postMessage\(\{ type: 'SKIP_WAITING' \}\)/.test(mainSrc) &&
+  /controllerchange/.test(mainSrc) && /showActionToast/.test(mainSrc));
 
 console.log('— Data invariants (ledger 0a) —');
 const { DATA } = await import(join(root, 'data.js'));
