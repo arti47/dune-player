@@ -488,6 +488,17 @@ check('Target number = skill + drive (6+8=14)', targetNumber(c, 'battle', 'duty'
 check('Normalized character has all 5 skills ≥4',
   ['battle', 'communicate', 'discipline', 'move', 'understand'].every((s) => c.skills[s] >= 4));
 check('Determination clamps to cap 3', clampDetermination(9) === 3);
+
+const { hasSupportingStatement, canSpendDetermination } = await import(join(root, 'src/derived.js'));
+check('hasSupportingStatement: true only with an unchallenged statement',
+  hasSupportingStatement({ driveStatements: { duty: { text: 'Serve', challenged: false } } }) === true &&
+  hasSupportingStatement({ driveStatements: { duty: { text: 'Serve', challenged: true } } }) === false &&
+  hasSupportingStatement({ driveStatements: {} }) === false);
+check('canSpendDetermination: needs Determination ≥1 AND a supporting statement (Declaration/Extra action §3.1)',
+  canSpendDetermination({ determination: 1, driveStatements: { duty: { text: 'Serve', challenged: false } } }) === true &&
+  canSpendDetermination({ determination: 0, driveStatements: { duty: { text: 'Serve', challenged: false } } }) === false &&
+  canSpendDetermination({ determination: 2, driveStatements: { duty: { text: 'Serve', challenged: true } } }) === false);
+
 const { permanentAssetCap } = await import(join(root, 'src/derived.js'));
 check('Asset cap: base 5; +2 with Specialist; +3 with Specialist+Improved Resources',
   permanentAssetCap(c) === 5 &&

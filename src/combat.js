@@ -11,9 +11,9 @@
 import { el, uid } from './core.js';
 import { modal, showToast, confirmModal, promptModal } from './ui.js';
 import {
-  getPools, savePools, listCharacters, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
+  getPools, savePools, listCharacters, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
-import { clampMomentum, clampDetermination } from './derived.js';
+import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
@@ -425,7 +425,21 @@ export function renderConflict(onChange) {
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn small' + (isTurn ? '' : ' secondary'), disabled: c.defeated ? '' : null,
           onclick: () => save(takeTurn(conflict, c.id, keepBox.checked)) }, 'Take turn'),
-        el('label', { class: 'small', for: `keep-${c.id}` }, keepBox, ` Keep initiative (2 ${typeDef.attackSkill ? 'Mom/Threat' : ''})`)));
+        el('label', { class: 'small', for: `keep-${c.id}` }, keepBox, ` Keep initiative (2 ${typeDef.attackSkill ? 'Mom/Threat' : ''})`),
+        (!c.npc && c.charId) ? el('button', { class: 'btn small secondary', disabled: c.defeated ? '' : null,
+          onclick: () => extraAction(c.charId) }, 'Extra action (1 Det)') : null));
+  }
+
+  /** Determination spend §3.1: spend 1 to act again (stacks with Keep the Initiative).
+   *  Gated on the PC having Determination and an unchallenged drive statement to support it. */
+  function extraAction(charId) {
+    const ch = getCharacter(charId);
+    if (!ch) { showToast('Character not found.'); return; }
+    if (ch.determination < 1) { showToast(`${ch.identity.name || 'This character'} has no Determination.`); return; }
+    if (!hasSupportingStatement(ch)) { showToast('Extra action needs an unchallenged drive statement to support it.'); return; }
+    saveCharacter({ ...ch, determination: clampDetermination(ch.determination - 1) });
+    showToast(`${ch.identity.name || 'PC'}: extra action — act again (−1 Determination)`);
+    onChange && onChange();
   }
 
   function addCombatantDialog(side) {

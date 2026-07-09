@@ -36,6 +36,17 @@ export function clampMomentum(v) {
   return clamp(v, 0, DATA.momentumRules.cap);
 }
 
+/** §3.1: does the character carry an unchallenged drive statement (needed to support a
+ *  Determination spend such as Declaration or an Extra action)? */
+export function hasSupportingStatement(character) {
+  return Object.values((character && character.driveStatements) || {})
+    .some((s) => s && s.text && !s.challenged);
+}
+/** Can this character spend Determination on a Declaration / Extra action right now? */
+export function canSpendDetermination(character) {
+  return (character?.determination || 0) >= 1 && hasSupportingStatement(character);
+}
+
 /**
  * Normalization/migration: back-fill schema defaults on old characters.
  * Every schema addition MUST extend this (process rule: never crash on old data).

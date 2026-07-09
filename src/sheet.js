@@ -9,7 +9,7 @@ import {
   saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog,
   characterToMarkdown, characterFromMarkdown,
 } from './store.js';
-import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
+import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum, hasSupportingStatement } from './derived.js';
 import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
@@ -295,11 +295,20 @@ function statementsSection(c) {
 }
 
 // ---------- Traits (incl. complications) ----------
+/** Determination spend §3.1: a Declaration requires an unchallenged drive statement to support it. */
+function supportingStatements(c) {
+  return hasSupportingStatement(c)
+    ? Object.entries(c.driveStatements || {}).filter(([, s]) => s && s.text && !s.challenged)
+    : [];
+}
+
 function traitsSection(c) {
   return el('div', {},
     el('div', { class: 'section-head' },
       el('h4', {}, 'Traits'),
-      el('button', { class: 'link-btn', onclick: () => addTraitDialog(c) }, '+ Add')),
+      el('div', {},
+        el('button', { class: 'link-btn', onclick: () => declarationDialog(c) }, 'Declaration'),
+        el('button', { class: 'link-btn', onclick: () => addTraitDialog(c) }, '+ Add'))),
     (c.traits || []).length
       ? el('div', { class: 'trait-list' }, ...c.traits.map((t, i) =>
           el('span', { class: 'pill' + (t.negative ? ' neg' : '') }, t.name,
@@ -331,6 +340,43 @@ function addTraitDialog(c) {
     el('div', { class: 'modal-actions' },
       el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
       el('button', { class: 'btn', onclick: save }, 'Add')),
+  ]);
+  name.focus();
+}
+
+/** Declaration (§3.1 Determination spend): spend 1 Determination to create/alter/remove a
+ *  trait — "reveal something true" — gated on an unchallenged drive statement that supports it. */
+function declarationDialog(c) {
+  const supporting = supportingStatements(c);
+  if (c.determination < 1) { showToast('No Determination to spend.'); return; }
+  if (!supporting.length) { showToast('Declaration needs an unchallenged drive statement to support it.'); return; }
+
+  const driveSel = el('select', { 'aria-label': 'Supporting statement' },
+    ...supporting.map(([d, s]) => el('option', { value: d }, `${driveName(d)}: ${s.text}`)));
+  const name = el('input', { type: 'text', placeholder: 'e.g. Hidden passage, Ally in the guard, Exposed weakness' });
+  const neg = el('input', { type: 'checkbox', id: 'decl-neg' });
+  const close = modal([
+    el('h2', {}, 'Declaration', cite('Determination')),
+    el('p', { class: 'small muted' }, 'Spend 1 Determination to reveal something true — create a trait. A drive statement must support it.'),
+    el('label', { class: 'field' }, el('span', {}, 'Supporting statement'), driveSel),
+    el('label', { class: 'field' }, el('span', {}, 'Trait'), name),
+    el('label', { class: 'toggle-row' },
+      el('div', {}, el('div', {}, 'Complication (negative)'),
+        el('div', { class: 'small muted' }, '+1 Difficulty on affected tests, or gates an action.')),
+      neg),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        const n = name.value.trim();
+        if (!n) { showToast('Name the trait you reveal.'); return; }
+        if (c.determination < 1) { showToast('No Determination to spend.'); close(); return; }
+        saveCharacter({
+          ...c,
+          determination: clampDetermination(c.determination - 1),
+          traits: [...(c.traits || []), { name: n, negative: neg.checked, source: 'declaration' }],
+        });
+        close(); showToast('Declaration — trait revealed (−1 Determination)'); refresh();
+      } }, 'Declare (−1 Det)')),
   ]);
   name.focus();
 }
