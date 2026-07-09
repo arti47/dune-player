@@ -152,6 +152,8 @@ button { font: inherit; }
 }
 
 /* Tables */
+.recover-opt { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 10px; }
+.recover-opt h4 { margin: 0 0 4px; }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table.rules { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.rules th, table.rules td {

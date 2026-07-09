@@ -499,6 +499,25 @@ check('canSpendDetermination: needs Determination ≥1 AND a supporting statemen
   canSpendDetermination({ determination: 0, driveStatements: { duty: { text: 'Serve', challenged: false } } }) === false &&
   canSpendDetermination({ determination: 2, driveStatements: { duty: { text: 'Serve', challenged: true } } }) === false);
 
+const { recoverStatementByDriveShift, STATEMENT_MIN_DRIVE } = await import(join(root, 'src/derived.js'));
+check('STATEMENT_MIN_DRIVE is 6 (lowest statement-bearing creation rating)', STATEMENT_MIN_DRIVE === 6);
+{
+  // §3.8 −1/+1 route: challenged 8-drive swaps with the next-lowest (7); stays ≥6 → statement kept.
+  const hi = recoverStatementByDriveShift(
+    { drives: { duty: 8, faith: 7, justice: 6, power: 5, truth: 4 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');
+  check('recoverStatementByDriveShift: 8→7 swaps with 7→8, statement kept (≥6)',
+    hi && hi.drives.duty === 7 && hi.drives.faith === 8 && hi.kept === true && hi.driveStatements.duty.challenged === false);
+  // Challenged 6-drive drops to 5 → below 6 → statement lost.
+  const lo = recoverStatementByDriveShift(
+    { drives: { duty: 6, faith: 5, justice: 4, power: 8, truth: 7 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');
+  check('recoverStatementByDriveShift: 6→5 swaps with 5→6, statement lost (<6)',
+    lo && lo.drives.duty === 5 && lo.drives.faith === 6 && lo.kept === false && !('duty' in lo.driveStatements));
+  // Challenged lowest drive (4) → no lower drive → null (only "new statement" route in UI).
+  const none = recoverStatementByDriveShift(
+    { drives: { duty: 4, faith: 8, justice: 7, power: 6, truth: 5 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');
+  check('recoverStatementByDriveShift: lowest drive has no −1/+1 route (null)', none === null);
+}
+
 const { permanentAssetCap } = await import(join(root, 'src/derived.js'));
 check('Asset cap: base 5; +2 with Specialist; +3 with Specialist+Improved Resources',
   permanentAssetCap(c) === 5 &&

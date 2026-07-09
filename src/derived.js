@@ -47,6 +47,37 @@ export function canSpendDetermination(character) {
   return (character?.determination || 0) >= 1 && hasSupportingStatement(character);
 }
 
+/** The rating at/above which a drive carries a statement (§3.8 keep/lose threshold) — the
+ *  lowest of the statement-bearing creation ratings (8/7/6 → 6). */
+export const STATEMENT_MIN_DRIVE = Math.min(...DATA.creation.driveStatements.onDrivesRated);
+
+/**
+ * §3.8 challenged-statement recovery via the −1/+1 route: lower the challenged drive by 1 and
+ * raise the next-lowest drive by 1 (a swap that preserves the 8/7/6/5/4 array). The statement
+ * survives only if the challenged drive stays ≥ 6, otherwise it's lost.
+ * Returns { drives, driveStatements, kept, target } — or null when the route is unavailable
+ * (the challenged drive is already the lowest, so there is nothing below it to raise).
+ */
+export function recoverStatementByDriveShift(character, driveId) {
+  const drives = { ...(character.drives || {}) };
+  const cur = drives[driveId];
+  if (cur == null) return null;
+  // next-lowest = the OTHER drive with the greatest rating strictly below the challenged one.
+  let target = null, targetVal = -Infinity;
+  for (const [id, v] of Object.entries(drives)) {
+    if (id === driveId || v >= cur) continue;
+    if (v > targetVal) { target = id; targetVal = v; }
+  }
+  if (target == null) return null;
+  drives[driveId] = cur - 1;
+  drives[target] = targetVal + 1;
+  const kept = drives[driveId] >= STATEMENT_MIN_DRIVE;
+  const driveStatements = { ...(character.driveStatements || {}) };
+  if (kept) driveStatements[driveId] = { ...driveStatements[driveId], challenged: false };
+  else delete driveStatements[driveId];   // statement lost when the drive drops below 6
+  return { drives, driveStatements, kept, target };
+}
+
 /**
  * Normalization/migration: back-fill schema defaults on old characters.
  * Every schema addition MUST extend this (process rule: never crash on old data).

@@ -9,7 +9,10 @@ import {
   saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog,
   characterToMarkdown, characterFromMarkdown,
 } from './store.js';
-import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum, hasSupportingStatement } from './derived.js';
+import {
+  permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum,
+  hasSupportingStatement, recoverStatementByDriveShift, STATEMENT_MIN_DRIVE,
+} from './derived.js';
 import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
@@ -285,13 +288,58 @@ function statementsSection(c) {
           s.challenged ? el('span', { class: 'tag danger-tag' }, 'challenged') : null),
         (challengeLocked && !s.challenged)
           ? el('span', { class: 'small muted' }, 'locked until complete')
-          : el('button', { class: 'link-btn',
-              onclick: () => {
-                const next = { ...c.driveStatements, [drive]: { ...s, challenged: !s.challenged } };
-                saveCharacter({ ...c, driveStatements: next });
-                showToast(s.challenged ? 'Statement recovered' : 'Statement challenged');
-                refresh();
-              } }, s.challenged ? 'Recover' : 'Challenge')))));
+          : s.challenged
+            ? el('button', { class: 'link-btn', onclick: () => recoverStatementDialog(c, drive) }, 'Recover…')
+            : el('button', { class: 'link-btn',
+                onclick: () => {
+                  const next = { ...c.driveStatements, [drive]: { ...s, challenged: true } };
+                  saveCharacter({ ...c, driveStatements: next });
+                  showToast('Statement challenged'); refresh();
+                } }, 'Challenge')))));
+}
+
+/** §3.8 guided recovery of a challenged statement: write a new statement (drive unchanged), or
+ *  −1 the challenged drive / +1 the next-lowest (statement kept only if the drive stays ≥ 6). */
+function recoverStatementDialog(c, driveId) {
+  const shift = recoverStatementByDriveShift(c, driveId);   // null if no lower drive to raise
+  const newText = el('textarea', { rows: '2', placeholder: `A new ${driveName(driveId)} belief`, 'aria-label': 'New statement' });
+
+  const options = [
+    el('div', { class: 'recover-opt' },
+      el('h4', {}, 'Write a new statement'),
+      el('p', { class: 'small muted' }, 'Keep the drive rating; the recovered statement replaces the old one.'),
+      newText,
+      el('button', { class: 'btn secondary', onclick: () => {
+        const t = newText.value.trim();
+        if (!t) { showToast('Write the new statement first.'); return; }
+        saveCharacter({ ...c, driveStatements: { ...c.driveStatements, [driveId]: { text: t, challenged: false } } });
+        close(); showToast('Statement recovered'); refresh();
+      } }, 'Recover with new statement')),
+  ];
+
+  if (shift) {
+    const label = `−1 ${driveName(driveId)} (${c.drives[driveId]}→${shift.drives[driveId]}) / +1 ${driveName(shift.target)} (${c.drives[shift.target]}→${shift.drives[shift.target]})`;
+    options.push(el('div', { class: 'recover-opt' },
+      el('h4', {}, 'Shift a drive'),
+      el('p', { class: 'small muted' }, shift.kept
+        ? `The drive stays ≥ ${STATEMENT_MIN_DRIVE}, so the statement is kept.`
+        : `The drive drops below ${STATEMENT_MIN_DRIVE}, so this statement is lost.`),
+      el('button', { class: 'btn secondary', onclick: () => {
+        saveCharacter({ ...c, drives: shift.drives, driveStatements: shift.driveStatements });
+        close(); showToast(shift.kept ? 'Recovered — drive shifted, statement kept' : 'Drive shifted — statement lost'); refresh();
+      } }, label)));
+  } else {
+    options.push(el('p', { class: 'small muted' }, `This drive is already your lowest — the −1/+1 route isn’t available, so write a new statement.`));
+  }
+
+  const close = modal([
+    el('h2', {}, 'Recover a statement', cite('Drive statements')),
+    el('p', { class: 'small' }, el('strong', {}, `${driveName(driveId)}: `), c.driveStatements[driveId].text),
+    el('p', { class: 'small muted' }, 'Recover on reflection (a scene where no Determination was spent or gained) or between adventures (§3.8). Choose one:'),
+    ...options,
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel')),
+  ]);
 }
 
 // ---------- Traits (incl. complications) ----------
