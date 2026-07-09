@@ -8,14 +8,15 @@
 //                   statements recover; the advance-purchase gate resets; temp assets expire.
 // Both apply immediately with a summary + one-step Undo (snapshot/restore).
 
-import { el, uid } from './core.js';
+import { el, uid, d20 } from './core.js';
 import { modal, showToast, confirmModal, promptModal } from './ui.js';
 import {
   getPools, savePools, listCharacters, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
-import { expansionNpcs } from './content.js';
+import { expansionNpcs, driveName } from './content.js';
+import { evaluateDice } from './roller.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 
@@ -424,11 +425,144 @@ export function renderConflict(onChange) {
         stepper(track.req, (v) => save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === c.id ? { ...x, defeatTrack: { ...track, req: v } } : x) }), { min: 0, max: 40, label: 'requirement' }),
         el('button', { class: 'btn small secondary', onclick: recordHit }, 'Hit +2')),
       el('div', { class: 'cta-row' },
+        el('button', { class: 'btn small', disabled: c.defeated ? '' : null,
+          onclick: () => attackDialog(c) }, '⚔ Attack'),
         el('button', { class: 'btn small' + (isTurn ? '' : ' secondary'), disabled: c.defeated ? '' : null,
           onclick: () => save(takeTurn(conflict, c.id, keepBox.checked)) }, 'Take turn'),
         el('label', { class: 'small', for: `keep-${c.id}` }, keepBox, ` Keep initiative (2 ${typeDef.attackSkill ? 'Mom/Threat' : ''})`),
         (!c.npc && c.charId) ? el('button', { class: 'btn small secondary', disabled: c.defeated ? '' : null,
           onclick: () => extraAction(c.charId) }, 'Extra action (1 Det)') : null));
+  }
+
+  // ---- Resolve a combatant to a "fighter" with rollable skills/drives/focuses ----
+  function fighterOf(c) {
+    if (!c.npc && c.charId) {
+      const ch = getCharacter(c.charId);
+      if (ch) return { name: ch.identity.name || 'PC', skills: ch.skills, drives: ch.drives, focuses: ch.focuses || [], isPc: true };
+    }
+    return { name: c.name, skills: c.skills || {}, drives: c.drives || {}, focuses: c.focuses || [], isPc: false };
+  }
+  const highestDrive = (drives) => Object.keys(drives || {}).sort((a, b) => drives[b] - drives[a])[0] || null;
+  const rollPool = (n, tn, skillRating, focus) =>
+    evaluateDice(Array.from({ length: n }, () => d20()), { tn, skillRating, focus });
+  const sumSucc = (dice) => dice.reduce((s, d) => s + d.successes, 0);
+  const countComp = (dice) => dice.filter((d) => d.complication).length;
+
+  /** §3.7 attack: defender rolls first (successes + defensive assets = attacker Difficulty),
+   *  then the attacker rolls; tie → attacker wins. A hit scores 2 + attacker asset Quality onto
+   *  the target's defeat track; a miss banks the shortfall as defender Momentum. */
+  function attackDialog(attacker) {
+    const targets = conflict.combatants.filter((t) => t.side !== attacker.side && !t.defeated);
+    if (!targets.length) { showToast('No undefeated target on the opposing side.'); return; }
+    const atk = fighterOf(attacker);
+    const atkSkill = typeDef.attackSkill || 'battle';
+    const st = {
+      targetId: targets[0].id,
+      atkDrive: highestDrive(atk.drives),
+      atkFocus: false,
+      defSkill: (typeDef.defendSkills || ['discipline'])[0],
+      defAssets: 0,
+      defResult: null,   // { succ, comp }
+      atkResult: null,   // { succ, comp }
+      quality: 0,
+    };
+    const wrap = el('div', {});
+    const close = modal([wrap]);
+    render();
+
+    function render() {
+      const target = targets.find((t) => t.id === st.targetId) || targets[0];
+      const def = fighterOf(target);
+      const defDrive = highestDrive(def.drives);
+      const atkTN = (atk.skills[atkSkill] || 0) + (st.atkDrive ? atk.drives[st.atkDrive] : 0);
+      const defTN = (def.skills[st.defSkill] || 0) + (defDrive ? def.drives[defDrive] : 0);
+      const difficulty = (st.defResult ? st.defResult.succ : 0) + st.defAssets;
+      const atkHasFocus = (atk.focuses || []).some((f) => f.skill === atkSkill);
+
+      const targetSel = el('select', { 'aria-label': 'Target' },
+        ...targets.map((t) => el('option', { value: t.id, selected: t.id === st.targetId ? '' : null }, t.name)));
+      targetSel.addEventListener('change', () => { st.targetId = targetSel.value; st.defResult = null; st.atkResult = null; render(); });
+
+      const defSkillSel = el('select', { 'aria-label': 'Defence skill' },
+        ...(typeDef.defendSkills || ['discipline']).map((s) => el('option', { value: s, selected: s === st.defSkill ? '' : null }, capOf(s))));
+      defSkillSel.addEventListener('change', () => { st.defSkill = defSkillSel.value; st.defResult = null; render(); });
+
+      wrap.replaceChildren(
+        el('h2', {}, `Attack — ${atk.name}`, cite('Defeat & recovery')),
+        el('p', { class: 'small muted' }, `${capOf(atkSkill)} conflict. The defender rolls first; their successes + defensive assets set your Difficulty. Tie goes to the attacker.`),
+
+        el('div', { class: 'field' }, el('span', {}, 'Target'), targetSel),
+
+        // --- Defender rolls first ---
+        el('h4', {}, `Defender: ${def.name}`),
+        el('div', { class: 'field' }, el('span', {}, 'Defence skill'), defSkillSel),
+        el('p', { class: 'small muted' }, `Defence pool: ${capOf(st.defSkill)} ${def.skills[st.defSkill] || 0} + ${defDrive ? driveName(defDrive) : '—'} ${defDrive ? def.drives[defDrive] : 0} = TN ${defTN}`),
+        el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Defensive assets in zone (+1 Diff each)'),
+          stepper(st.defAssets, (v) => { st.defAssets = v; render(); }, { min: 0, max: 6, label: 'defensive assets' })),
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary', onclick: () => { const dice = rollPool(2, defTN, def.skills[st.defSkill] || 0, false); st.defResult = { succ: sumSucc(dice), comp: countComp(dice), dice: dice.map((d) => d.value) }; render(); } }, 'Roll defender'),
+          st.defResult ? el('span', { class: 'small' }, `[${st.defResult.dice.join(', ')}] → ${st.defResult.succ} successes${st.defResult.comp ? ` · ${st.defResult.comp} comp` : ''}`) : el('span', { class: 'small muted' }, 'not rolled')),
+        el('p', {}, el('span', { class: 'pill' }, `Attacker Difficulty: ${difficulty}`)),
+
+        // --- Attacker rolls ---
+        el('h4', {}, `Attacker: ${atk.name}`),
+        (() => {
+          const driveSel = el('select', { 'aria-label': 'Attack drive' },
+            ...Object.keys(atk.drives || {}).sort((a, b) => atk.drives[b] - atk.drives[a])
+              .map((id) => el('option', { value: id, selected: id === st.atkDrive ? '' : null }, `${driveName(id)} ${atk.drives[id]}`)));
+          driveSel.addEventListener('change', () => { st.atkDrive = driveSel.value; st.atkResult = null; render(); });
+          return el('div', { class: 'field' }, el('span', {}, 'Attack drive'), driveSel);
+        })(),
+        el('p', { class: 'small muted' }, `Attack pool: ${capOf(atkSkill)} ${atk.skills[atkSkill] || 0} + drive = TN ${atkTN}`),
+        atkHasFocus ? (() => {
+          const box = el('input', { type: 'checkbox', id: 'atk-focus' }); box.checked = st.atkFocus;
+          box.addEventListener('change', () => { st.atkFocus = box.checked; st.atkResult = null; render(); });
+          return el('label', { class: 'toggle-row', for: 'atk-focus' }, el('span', {}, `Applicable focus (crit on ≤ ${atk.skills[atkSkill]})`), box);
+        })() : null,
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn', disabled: st.defResult ? null : '', onclick: () => {
+            if (!st.defResult) { showToast('Roll the defender first.'); return; }
+            const dice = rollPool(2, atkTN, atk.skills[atkSkill] || 0, st.atkFocus);
+            st.atkResult = { succ: sumSucc(dice), comp: countComp(dice), dice: dice.map((d) => d.value) }; render();
+          } }, 'Roll attack'),
+          st.atkResult ? el('span', { class: 'small' }, `[${st.atkResult.dice.join(', ')}] → ${st.atkResult.succ} successes${st.atkResult.comp ? ` · ${st.atkResult.comp} comp` : ''}`) : el('span', { class: 'small muted' }, 'not rolled')),
+
+        // --- Resolve ---
+        st.atkResult ? resolveBlock(target, difficulty) : null,
+        el('div', { class: 'modal-actions' }, el('button', { class: 'btn secondary', onclick: () => close() }, 'Close')),
+      );
+    }
+
+    function resolveBlock(target, difficulty) {
+      const hit = st.atkResult.succ >= difficulty;   // tie → attacker wins (§3.7)
+      const shortfall = Math.max(0, difficulty - st.atkResult.succ);
+      const box = el('div', { class: 'recover-opt' }, el('h4', {}, hit ? 'HIT' : 'Miss'));
+      if (hit) {
+        box.append(
+          el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Attacker asset Quality'),
+            stepper(st.quality, (v) => { st.quality = v; render(); }, { min: 0, max: 5, label: 'asset quality' })),
+          el('p', { class: 'small muted' }, `Scores ${DATA.defeat.pointsPerHitBase} + ${st.quality} = ${DATA.defeat.pointsPerHitBase + st.quality} onto ${target.name}’s defeat track.`),
+          el('button', { class: 'btn', onclick: () => {
+            const score = DATA.defeat.pointsPerHitBase + st.quality;
+            const track = target.defeatTrack || { req: 0, progress: 0 };
+            const progress = track.progress + score;
+            const defeated = track.req >= 1 && progress >= track.req;
+            save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === target.id ? { ...x, defeatTrack: { ...track, progress }, defeated } : x) });
+            showToast(`${target.name} hit for ${score}${defeated ? ' — DEFEATED' : ` (${progress}/${track.req})`}`);
+            close();
+          } }, `Apply hit (+${DATA.defeat.pointsPerHitBase + st.quality})`));
+      } else {
+        box.append(
+          el('p', { class: 'small muted' }, `Failed attack — the defender banks the shortfall (${shortfall}) as Momentum (§3.7).`),
+          el('button', { class: 'btn secondary', onclick: () => {
+            const pools = getPools();
+            savePools({ ...pools, momentum: clampMomentum(pools.momentum + shortfall) });
+            showToast(`Defender gains ${shortfall} Momentum`);
+            close();
+          } }, `Bank ${shortfall} Momentum`));
+      }
+      return box;
+    }
   }
 
   /** Determination spend §3.1: spend 1 to act again (stacks with Keep the Initiative).
@@ -462,7 +596,10 @@ export function renderConflict(onChange) {
     };
     const addNpc = () => {
       const n = compendium[Number(npcSel.value)]; if (!n) return;
-      commit({ id: uid(), name: n.name, side, zoneId: zoneSel.value, npc: true, tier: n.tier, actedThisRound: false, defeated: false, defeatTrack: { req: npcDefaultReq(n.tier), progress: 0 } });
+      // Store the NPC's skills/drives/focuses so the attack flow can roll its pool.
+      commit({ id: uid(), name: n.name, side, zoneId: zoneSel.value, npc: true, tier: n.tier,
+        skills: { ...n.skills }, drives: { ...n.drives }, focuses: (n.focuses || []).map((f) => ({ ...f })),
+        actedThisRound: false, defeated: false, defeatTrack: { req: npcDefaultReq(n.tier), progress: 0 } });
     };
     const commit = (combatant) => { save({ ...conflict, combatants: [...conflict.combatants, combatant] }); close(); };
 
