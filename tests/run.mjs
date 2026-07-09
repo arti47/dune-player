@@ -750,6 +750,11 @@ console.log('— Phase 4: local conflict helper (§3.12 initiative) —');
   check('defeatRequirementFor: duel → Battle rating; espionage → Discipline rating; unknown → 0',
     defeatRequirementFor(pc, 'duel') === 6 && defeatRequirementFor(pc, 'espionage') === 7 &&
     defeatRequirementFor({ skills: {} }, 'duel') === 0);
+  // Regression: the attack dialog builds its body with `? … : null` branches, so the
+  // replaceChildren list must be nullish-filtered or a stray "null" text node renders.
+  const combatSrc = readFileSync(join(root, 'src/combat.js'), 'utf8');
+  check('attackDialog replaceChildren is nullish-filtered (no stray "null")',
+    /wrap\.replaceChildren\(\.\.\.\[[\s\S]*\]\.filter\(\(k\) => k != null\)\)/.test(combatSrc));
   let cf = startConflict('duel');
   cf.combatants = [
     { id: 'A1', side: 'a', actedThisRound: false, defeated: false, defeatTrack: { req: 0, progress: 0 } },

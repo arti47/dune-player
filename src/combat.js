@@ -496,7 +496,8 @@ export function renderConflict(onChange) {
         ...(typeDef.defendSkills || ['discipline']).map((s) => el('option', { value: s, selected: s === st.defSkill ? '' : null }, capOf(s))));
       defSkillSel.addEventListener('change', () => { st.defSkill = defSkillSel.value; st.defResult = null; render(); });
 
-      wrap.replaceChildren(
+      // Filter nullish so a `? … : null` branch can't leave a stray "null" text node.
+      wrap.replaceChildren(...[
         el('h2', {}, `Attack — ${atk.name}`, cite('Defeat & recovery')),
         el('p', { class: 'small muted' }, `${capOf(atkSkill)} conflict. The defender rolls first; their successes + defensive assets set your Difficulty. Tie goes to the attacker.`),
 
@@ -539,7 +540,7 @@ export function renderConflict(onChange) {
         // --- Resolve ---
         st.atkResult ? resolveBlock(target, difficulty) : null,
         el('div', { class: 'modal-actions' }, el('button', { class: 'btn secondary', onclick: () => close() }, 'Close')),
-      );
+      ].filter((k) => k != null));
     }
 
     function resolveBlock(target, difficulty) {
