@@ -74,6 +74,7 @@ export function renderSheet(root) {
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: startCharacterWizard }, '+ New character'),
         el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic'),
+        chars.length ? el('button', { class: 'btn secondary', onclick: () => chooseExportTargetDialog() }, 'Export (.md)') : null,
         mdImportButton()),
       chars.length
         ? el('ul', { class: 'char-list' }, ...chars.map((c) =>
@@ -162,6 +163,31 @@ function exportCharacterMarkdown(c) {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast('Sheet exported (.md)');
+}
+
+/** Pick which character to export as Markdown. One character exports directly; several
+ *  open a chooser (defaults to the currently-open character). */
+function chooseExportTargetDialog() {
+  const chars = listCharacters();
+  if (!chars.length) { showToast('No characters to export.'); return; }
+  if (chars.length === 1) { exportCharacterMarkdown(chars[0]); return; }
+
+  const currentId = currentCharacterId();
+  const sel = el('select', { 'aria-label': 'Character to export' },
+    ...chars.map((c) => el('option', { value: c.id, selected: c.id === currentId ? '' : null }, c.identity.name || 'Unnamed')));
+
+  const close = modal([
+    el('h2', {}, 'Export a character'),
+    el('p', { class: 'small muted' }, 'Choose which character to download as a Markdown (.md) sheet.'),
+    el('label', { class: 'field' }, el('span', {}, 'Character'), sel),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        const c = chars.find((x) => x.id === sel.value);
+        close();
+        if (c) exportCharacterMarkdown(c);
+      } }, 'Export')),
+  ]);
 }
 
 /** Hidden file input + button that imports a Markdown sheet, letting the user choose
