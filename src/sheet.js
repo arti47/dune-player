@@ -3,11 +3,11 @@
 // challenge/recover (§3.8), traits (incl. complications), assets (5-permanent cap
 // enforced, §3.11), notes. Every edit persists immediately via store + re-renders.
 
-import { el, capitalize } from './core.js';
+import { el, capitalize, uid } from './core.js';
 import {
   listCharacters, currentCharacterId, setCurrentCharacterId,
   saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog,
-  characterToMarkdown, importCharacterMarkdown,
+  characterToMarkdown, characterFromMarkdown,
 } from './store.js';
 import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
 import {
@@ -164,23 +164,57 @@ function exportCharacterMarkdown(c) {
   showToast('Sheet exported (.md)');
 }
 
-/** Hidden file input + button that imports a Markdown sheet as a new character. */
+/** Hidden file input + button that imports a Markdown sheet, letting the user choose
+ *  whether it becomes a new character or replaces an existing one. */
 function mdImportButton() {
   const input = el('input', { type: 'file', accept: 'text/markdown,.md,.markdown,text/plain', style: 'display:none' });
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
     input.value = '';
     if (!file) return;
-    try {
-      const char = importCharacterMarkdown(await file.text());
-      setCurrentCharacterId(char.id);
-      showToast(`Imported ${char.identity.name || 'character'}`);
-      refresh();
-    } catch (e) { showToast(e.message || 'Import failed.'); }
+    let parsed;
+    try { parsed = characterFromMarkdown(await file.text()); }
+    catch (e) { showToast(e.message || 'Import failed.'); return; }
+    chooseImportTargetDialog(parsed);
   });
   return el('span', {},
     el('button', { class: 'btn secondary', onclick: () => input.click() }, 'Import (.md)'),
     input);
+}
+
+/** Ask where a parsed Markdown character should land: a new character, or overwrite an
+ *  existing one (picked from the roster). With no existing characters, import as new directly. */
+function chooseImportTargetDialog(parsed) {
+  const commit = (targetId) => {
+    saveCharacter({ ...parsed, id: targetId });
+    setCurrentCharacterId(targetId);
+    showToast(`Imported ${parsed.identity.name || 'character'}`);
+    refresh();
+  };
+
+  const existing = listCharacters();
+  if (!existing.length) { commit(uid()); return; }
+
+  const sel = el('select', { 'aria-label': 'Import target' },
+    el('option', { value: '__new__' }, `New character — “${parsed.identity.name || 'Unnamed'}”`),
+    ...existing.map((c) => el('option', { value: c.id }, `Replace: ${c.identity.name || 'Unnamed'}`)));
+
+  const close = modal([
+    el('h2', {}, 'Import character'),
+    el('p', { class: 'small muted' },
+      `“${parsed.identity.name || 'Unnamed'}” — add it as a new character, or replace an existing one (its Momentum/Threat pools are unaffected).`),
+    el('label', { class: 'field' }, el('span', {}, 'Import as'), sel),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: async () => {
+        const target = sel.value;
+        if (target === '__new__') { close(); commit(uid()); return; }
+        const victim = existing.find((c) => c.id === target);
+        if (!await confirmModal(`Replace ${victim?.identity.name || 'this character'} with the imported sheet? This overwrites it.`,
+          { okLabel: 'Replace' })) return;
+        close(); commit(target);
+      } }, 'Import')),
+  ]);
 }
 
 // ---------- Roll log (recent 2d20 tests; delete one / clear all) ----------
