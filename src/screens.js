@@ -82,10 +82,11 @@ function ruleCard(title, node) {
     el('h3', {}, title), node);
 }
 function table(headers, rows) {
-  return el('table', { class: 'rules' },
-    el('thead', {}, el('tr', {}, ...headers.map((h) => el('th', {}, h)))),
-    el('tbody', {}, ...rows.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, c)))))
-  );
+  // Wrapped so a wide table scrolls inside its own container instead of overflowing the page (§5).
+  return el('div', { class: 'table-scroll' },
+    el('table', { class: 'rules' },
+      el('thead', {}, el('tr', {}, ...headers.map((h) => el('th', {}, h)))),
+      el('tbody', {}, ...rows.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, c)))))));
 }
 
 export function renderRules(root) {
@@ -149,6 +150,13 @@ export function renderRules(root) {
     table(['Use', 'Effect'], DATA.determination.spends.map((s) => [s.name, s.desc])),
     el('p', { class: 'small muted' }, 'Earning: ' + DATA.determination.earn.map((e) => e.desc).join(' · ')))));
 
+  cards.push(ruleCard('Drive statements', el('div', {},
+    el('p', { class: 'small' }, `Write a statement on your ${DATA.creation.driveStatements.onDrivesRated.join('/')}-rated drives. A statement must support an action to spend Determination on it.`),
+    el('p', { class: 'small' }, el('strong', {}, 'When it conflicts: '),
+      'the GM offers a Determination point — comply (take an immediate complication) or challenge (cross out the statement and lose that drive until it recovers). Writing a new statement in play grants +1 Determination.'),
+    el('p', { class: 'small muted' }, el('strong', {}, 'Recovery: '),
+      'at the end of a scene of reflection (if no Determination was spent or gained), or automatically between adventures — write a new statement, or −1 the challenged drive / +1 the next lowest (the statement is kept only if the drive stays ≥ 6).'))));
+
   cards.push(ruleCard('Complications', el('div', {},
     el('p', { class: 'small' }, DATA.complications.effects.join(' · ') +
       `. Buy one off for ${DATA.complications.buyOffThreat} Threat.`),
@@ -158,9 +166,22 @@ export function renderRules(root) {
         .map(([skill, list]) => `${capitalize(skill)}: ${list.join(', ')}`)
         .join(' — ')))));
 
+  cards.push(ruleCard('Traits', el('div', {},
+    el('p', { class: 'small' }, DATA.traitRule),
+    el('p', { class: 'small muted' },
+      `Complications add negative traits that auto-apply — +1 Difficulty on affected tests, or they gate an action entirely. ` +
+      `Buy one off for ${DATA.complications.buyOffThreat} Threat, or an ally describes a fix and passes a test to clear it. ` +
+      `Spend Momentum to create, alter, or remove a trait (see Momentum spends), or 1 Determination as a Declaration. ` +
+      `A House may lend a trait to a character for a scene for 1 Momentum.`))));
+
   cards.push(ruleCard('Opposed tests', el('p', { class: 'small' },
     'The defender rolls first; their successes (+1 per defensive asset in their zone) set the attacker\'s Difficulty. ' +
     'Equal successes = the active character wins. If the attacker fails, the defender gains the shortfall as Momentum, spendable immediately.')));
+
+  cards.push(ruleCard('Assists', el('p', { class: 'small' },
+    `Each assistant rolls ${DATA.assists.dicePerAssistant}d20 with their own Skill + Drive (focuses apply; no bought dice). ` +
+    `Their successes count only if the leader scores at least ${DATA.assists.leaderMustScore} success themselves. ` +
+    `Assist dice follow all normal rules — a natural 1 still crits, a natural 20 still causes a complication (ruling #2).`)));
 
   cards.push(ruleCard('Extended tasks', el('p', { class: 'small' },
     `Each passed test scores ${DATA.extendedTask.basePoints} points + the Quality of an applicable asset. ` +
@@ -169,10 +190,27 @@ export function renderRules(root) {
   cards.push(ruleCard('Conflict types', table(['Type', 'Scale', 'Attack skill'],
     DATA.conflictTypes.map((c) => [c.name, c.scale, capitalize(c.attackSkill)]))));
 
+  cards.push(ruleCard('Conflict turn order', el('div', {},
+    el('p', { class: 'small' },
+      `The GM picks the first actor (or spends ${DATA.initiative.gmSeizeFirstActionThreat} Threat to seize it). After each turn initiative passes to an opposing side. ` +
+      `One action per turn — move one zone, attack, or create a trait/asset; ${DATA.movement.extraZoneMomentum} Momentum buys an extra zone or asset move.`),
+    el('p', { class: 'small' },
+      `Keep the Initiative: ${DATA.initiative.keepInitiativeCost} Momentum/Threat lets your side act again (that ally at +${DATA.initiative.keepInitiativePenalty} Difficulty), never twice in a row. The last actor of a round opens the next.`),
+    el('p', { class: 'small muted' },
+      `Subtle move (Difficulty ${DATA.movement.subtleMoveDifficulty}): no reactions, Keep the Initiative costs 0. Bold move (Difficulty ${DATA.movement.boldMoveDifficulty}): force an enemy asset to move a zone. ${DATA.movement.armorNote}`))));
+
   cards.push(ruleCard('Defeat & recovery', el('p', { class: 'small' },
     `Minor characters lose one contest and are out. Others have a defeat track (requirement ≈ skill + defensive Quality); each hit scores 2 + asset Quality. ` +
     `Resist Defeat once per scene (1 Momentum + attacker's asset Quality, suffer a complication). Lasting defeat costs the attacker 2 Momentum. ` +
     `Recovery: extended task 4 + Quality (normal) or a Difficulty 2 stabilize (lasting).`)));
+
+  cards.push(ruleCard('Scene & adventure lifecycle', el('div', {},
+    el('h4', {}, 'End of scene'),
+    el('ul', {}, ...DATA.lifecycle.sceneEnd.map((x) => el('li', { class: 'small' }, x))),
+    el('h4', {}, 'Start of adventure'),
+    el('ul', {}, ...DATA.lifecycle.adventureStart.map((x) => el('li', { class: 'small' }, x))),
+    el('h4', {}, 'End of adventure'),
+    el('ul', {}, ...DATA.lifecycle.adventureEnd.map((x) => el('li', { class: 'small' }, x))))));
 
   cards.push(ruleCard('Focus examples', el('div', {},
     el('p', { class: 'small muted' }, 'A focus widens your critical range on matching tests to any die ≤ your Skill rating. These are the book’s examples per skill; * = specify a specialty.'),
@@ -189,6 +227,18 @@ export function renderRules(root) {
     el('p', { class: 'small muted' },
       `Max ${DATA.advancement.maxPerAdventure} advance, purchased between adventures. ` +
       DATA.advancement.drivesChangeNote + ' ' + DATA.advancement.retraining))));
+
+  cards.push(ruleCard('Assets & wealth', el('div', {},
+    el('p', { class: 'small' },
+      `Assets are tangible or intangible, each with a Quality rating. A character keeps at most ${DATA.assetRules.permanentCap} permanent assets (the Specialist talent raises the cap). Assets created in play default to Quality ${DATA.assetRules.createdInPlayQuality}.`),
+    el('p', { class: 'small muted' }, DATA.assetNote),
+    el('h4', {}, 'Wealth ladder'),
+    el('p', { class: 'small' }, DATA.wealth.purchaseRule),
+    table(['Tier', 'Examples'], DATA.wealth.ladder.map((w) => [String(w.tier), w.examples])))));
+
+  cards.push(ruleCard('Powers', el('p', { class: 'small' },
+    'Voice, Mentat computation, prana-bindu conditioning, and prescience are not a separate subsystem — they are talents with embedded dice effects, resolved in the roller ' +
+    '(e.g. Voice spends Threat for automatic successes; Mentat Discipline forces a die to count as a 1). Every talent with a dice effect is playable “tap to use” in the roll dialog.')));
 
   cards.push(ruleCard('Supporting characters', el('div', {},
     el('p', { class: 'small' }, DATA.supportingCharacters.intro),
@@ -231,10 +281,10 @@ export function renderRules(root) {
   cards.push(ruleCard('Ambition', el('div', {},
     el('p', { class: 'small' }, DATA.creationGuidance.ambitionIntro),
     el('p', { class: 'small' }, DATA.creationGuidance.ambitionRule),
-    el('table', { class: 'rules' },
+    el('div', { class: 'table-scroll' }, el('table', { class: 'rules' },
       el('thead', {}, el('tr', {}, el('th', {}, 'Highest drive'), el('th', {}, 'Ambitions tend toward…'))),
       el('tbody', {}, ...DATA.drives.map((d) =>
-        el('tr', {}, el('td', {}, el('strong', {}, d.name)), el('td', {}, DATA.creationGuidance.ambitionByDrive[d.id]))))),
+        el('tr', {}, el('td', {}, el('strong', {}, d.name)), el('td', {}, DATA.creationGuidance.ambitionByDrive[d.id])))))),
     el('p', { class: 'small muted' }, DATA.creationGuidance.ambitionChangeRule))));
 
   cards.push(ruleCard('Sandworm riding', table(['Worm', 'Extended task requirement'],

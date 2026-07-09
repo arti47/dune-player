@@ -14,6 +14,7 @@ import {
   getPools, savePools, listCharacters, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
 import { clampMomentum, clampDetermination } from './derived.js';
+import { cite } from './cite.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 
@@ -129,7 +130,7 @@ export function renderLifecycle(onChange) {
     } }, label);
 
   return el('section', { class: 'card' },
-    el('h3', {}, 'Scene & adventure'),
+    el('h3', {}, 'Scene & adventure', cite('Scene & adventure lifecycle')),
     el('p', { class: 'small muted' }, 'End-of-scene and end-of-adventure bookkeeping (§3.17). Each shows what changed with one-step Undo.'),
     el('div', { class: 'cta-row' },
       control('End scene', endScene, 'End the scene? Momentum −1, temporary assets expire, and Resist Defeat resets for everyone.'),
@@ -216,7 +217,7 @@ function taskRow(task, onChange) {
 export function renderTasks(onChange) {
   const tasks = getTasks();
   return el('section', { class: 'card' },
-    el('h3', {}, 'Extended tasks'),
+    el('h3', {}, 'Extended tasks', cite('Extended tasks')),
     el('p', { class: 'small muted' }, 'Shared progress tracks — recovery, sandworm riding, projects. Each success scores 2 + an applicable asset’s Quality (§3.1); Momentum adds points, a complication subtracts.'),
     el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: () => newTaskDialog(onChange) }, '+ New task')),
     tasks.length ? el('ul', { class: 'task-list' }, ...tasks.map((t) => taskRow(t, onChange))) : el('p', { class: 'small muted' }, 'No active tasks.'));
@@ -285,7 +286,7 @@ export function renderDefeat(character, onChange) {
   }
 
   return el('div', {},
-    el('h4', {}, 'Defeat & recovery'),
+    el('h4', {}, 'Defeat & recovery', cite('Defeat & recovery')),
     el('p', { class: 'small muted' }, 'Track = defender skill + defensive asset Quality; each hit scores 2 + attacker asset Quality (§3.7).'),
     el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Requirement'),
       stepper(track.req, (v) => save({ defeatTrack: { ...track, req: v } }), { min: 0, max: 40, label: 'requirement' })),
@@ -350,7 +351,7 @@ export function renderConflict(onChange) {
     const typeSel = el('select', { 'aria-label': 'Conflict type' },
       ...DATA.conflictTypes.map((t) => el('option', { value: t.id }, `${t.name} — ${t.scale}`)));
     return el('section', { class: 'card' },
-      el('h3', {}, 'Conflict'),
+      el('h3', {}, 'Conflict', cite('Conflict turn order')),
       el('p', { class: 'small muted' }, 'A local tracker for the five conflict types (§3.12): zones, sides, initiative, and defeat tracks. Drop in NPCs from the compendium.'),
       el('div', { class: 'field' }, el('span', {}, 'Type'), typeSel),
       el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: () => save(startConflict(typeSel.value)) }, 'Start a conflict')));

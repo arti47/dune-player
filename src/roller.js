@@ -196,7 +196,7 @@ export function openRollDialog(character, onDone = null) {
 
     const traits = character.traits || [];
     const traitSection = traits.length ? el('div', {},
-      el('p', { class: 'small muted' }, 'Traits that apply here (negative = +1 Difficulty, positive = −1):'),
+      el('p', { class: 'small muted' }, 'Traits that apply here ', cite('Traits', close), ' (negative = +1 Difficulty, positive = −1):'),
       ...traits.map((tr, i) => {
         const box = el('input', { type: 'checkbox', id: `roll-tr-${i}` });
         box.checked = cfg.appliedTraits.has(i);
@@ -321,7 +321,7 @@ export function openRollDialog(character, onDone = null) {
       return sel;
     })() : null;
     const assistSection = (cfg.assists.length || available.length) ? el('div', {},
-      el('p', { class: 'small muted' }, 'Assists ', cite('Skill test basics', close),
+      el('p', { class: 'small muted' }, 'Assists ', cite('Assists', close),
         ' — each rolls 1d20; counts only if you score ≥ 1 success'),
       ...assistRows, addAssistSel) : null;
 

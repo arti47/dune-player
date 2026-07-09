@@ -152,6 +152,7 @@ button { font: inherit; }
 }
 
 /* Tables */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table.rules { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.rules th, table.rules td {
   text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border);

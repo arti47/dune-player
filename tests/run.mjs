@@ -617,11 +617,22 @@ console.log('— Phase 3 remaining: Architect mode, opposed/assist, T38 citation
   check('Roller: assist successes gated on leader ≥1 (leaderOwn)', /leaderOwn\s*>=\s*1/.test(roller));
   check('Roller: opposed failure banks shortfall as defender Momentum', /opposedShortfall/.test(roller) && /momentumDelta \+= opposedShortfall/.test(roller));
   check('Roller: cites the rules library (T38)', /cite\('Skill test basics'/.test(roller) && /cite\('Opposed tests'/.test(roller));
-  // Every card title referenced by a cite() must exist as a rules card in screens.js.
+  // Every card title referenced by a cite() anywhere must exist as a rules card in screens.js.
   const screens = readFileSync(join(root, 'src/screens.js'), 'utf8');
-  const citedTitles = [...roller.matchAll(/cite\('([^']+)'/g)].map((m) => m[1]);
-  check('Every cite() target is a real rules card', citedTitles.every((t) => screens.includes(`ruleCard('${t}'`)),
+  const citeSources = ['src/roller.js', 'src/combat.js', 'src/sheet.js']
+    .map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
+  const citedTitles = [...new Set([...citeSources.matchAll(/cite\('([^']+)'/g)].map((m) => m[1]))];
+  check('Every cite() target (roller/combat/sheet) is a real rules card', citedTitles.every((t) => screens.includes(`ruleCard('${t}'`)),
     citedTitles.filter((t) => !screens.includes(`ruleCard('${t}'`)).join(', '));
+
+  // T38: the library covers every §3 mechanic the ledger enumerates.
+  const requiredCards = ['Skill test basics', 'Difficulty ladder', 'Momentum spends', 'Threat spends (GM)',
+    'Determination', 'Drive statements', 'Complications', 'Traits', 'Opposed tests', 'Assists',
+    'Extended tasks', 'Conflict types', 'Conflict turn order', 'Defeat & recovery',
+    'Scene & adventure lifecycle', 'Advancement', 'Assets & wealth', 'Powers'];
+  check('T38 rules library covers every §3 mechanic',
+    requiredCards.every((t) => screens.includes(`ruleCard('${t}'`)),
+    requiredCards.filter((t) => !screens.includes(`ruleCard('${t}'`)).join(', '));
 }
 
 console.log('— Phase 4: scene/adventure lifecycle engine (§3.17) —');

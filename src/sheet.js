@@ -14,6 +14,7 @@ import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
 import { allTalents, focusExamplesFor, driveName } from './content.js';
+import { cite } from './cite.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -275,7 +276,7 @@ function statementsSection(c) {
   // §T40: a drive can't be challenged until the character is complete (creation-in-play).
   const challengeLocked = c.creationInPlay.active && !c.creationInPlay.complete;
   return el('div', {},
-    el('h4', {}, 'Drive statements'),
+    el('h4', {}, 'Drive statements', cite('Drive statements')),
     el('ul', { class: 'stmt-list' }, ...entries.map(([drive, s]) =>
       el('li', { class: 'stmt-item' + (s.challenged ? ' challenged' : '') },
         el('div', { class: 'small' },
@@ -340,7 +341,7 @@ function assetsSection(c) {
   const permCount = permanentAssetCount(c);
   return el('div', {},
     el('div', { class: 'section-head' },
-      el('h4', {}, `Assets · ${permCount}/${cap} permanent`),
+      el('h4', {}, `Assets · ${permCount}/${cap} permanent`, cite('Assets & wealth')),
       el('button', { class: 'link-btn', onclick: () => addAssetDialog(c) }, '+ Add')),
     (c.assets || []).length
       ? el('ul', { class: 'asset-list' }, ...c.assets.map((a, i) => assetRow(c, a, i, cap, permCount)))
@@ -416,7 +417,7 @@ function advancementSection(c) {
   if (gated) buyBtn.disabled = true;
 
   return el('div', {},
-    el('h4', {}, `Advancement · ${adv.points} point${adv.points === 1 ? '' : 's'}`),
+    el('h4', {}, `Advancement · ${adv.points} point${adv.points === 1 ? '' : 's'}`, cite('Advancement')),
     el('p', { class: 'small muted' }, gated
       ? 'Advance already purchased this adventure — resets on End adventure.'
       : 'Earn points from play; spend between adventures (max 1 advance per adventure).'),
