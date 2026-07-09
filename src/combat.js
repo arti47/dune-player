@@ -310,6 +310,14 @@ export function opposingSide(s) { return s === 'a' ? 'b' : 'a'; }
 /** Default defeat-track requirement for a dropped-in NPC by tier (minor = one hit). */
 function npcDefaultReq(tier) { return tier === 'minor' ? 1 : tier === 'major' ? 7 : 5; }
 
+/** §3.7 defeat-track requirement ≈ the defender's relevant (defence) skill + defensive asset
+ *  Quality. Defaults to the conflict type's first defence skill; assets are added by the GM. */
+export function defeatRequirementFor(character, conflictTypeId) {
+  const t = DATA.conflictTypes.find((x) => x.id === conflictTypeId);
+  const defSkill = (t && t.defendSkills && t.defendSkills[0]) || 'discipline';
+  return (character.skills && character.skills[defSkill]) || 0;
+}
+
 export function startConflict(type) {
   return {
     active: true, type, round: 1,
@@ -421,7 +429,8 @@ export function renderConflict(onChange) {
       el('div', { class: 'combatant-ctl' },
         el('span', { class: 'small muted' }, 'Zone'), zoneSel),
       el('div', { class: 'combatant-ctl' },
-        el('span', { class: 'small muted' }, `Defeat ${track.progress}/${track.req}`),
+        el('span', { class: 'small muted', title: 'Hits taken / requirement to be defeated (§3.7)' },
+          `Defeat ${track.progress} / ${track.req || '—'}`),
         stepper(track.req, (v) => save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === c.id ? { ...x, defeatTrack: { ...track, req: v } } : x) }), { min: 0, max: 40, label: 'requirement' }),
         el('button', { class: 'btn small secondary', onclick: recordHit }, 'Hit +2')),
       el('div', { class: 'cta-row' },
@@ -592,7 +601,9 @@ export function renderConflict(onChange) {
 
     const addPc = () => {
       const c = pcs.find((x) => x.id === pcSel.value); if (!c) return;
-      commit({ id: uid(), charId: c.id, name: c.identity.name || 'Unnamed', side, zoneId: zoneSel.value, npc: false, actedThisRound: false, defeated: false, defeatTrack: { req: 0, progress: 0 } });
+      // §3.7 defeat requirement ≈ defender's relevant (defence) skill + defensive asset Quality.
+      const req = defeatRequirementFor(c, conflict.type);
+      commit({ id: uid(), charId: c.id, name: c.identity.name || 'Unnamed', side, zoneId: zoneSel.value, npc: false, actedThisRound: false, defeated: false, defeatTrack: { req, progress: 0 } });
     };
     const addNpc = () => {
       const n = compendium[Number(npcSel.value)]; if (!n) return;

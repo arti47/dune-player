@@ -743,8 +743,13 @@ console.log('— Phase 4: extended tasks + defeat/recovery (§3.1/§3.7/§3.8) �
 
 console.log('— Phase 4: local conflict helper (§3.12 initiative) —');
 {
-  const { startConflict, takeTurn, nextRound, opposingSide } = await import(join(root, 'src/combat.js'));
+  const { startConflict, takeTurn, nextRound, opposingSide, defeatRequirementFor } = await import(join(root, 'src/combat.js'));
   check('opposingSide flips a↔b', opposingSide('a') === 'b' && opposingSide('b') === 'a');
+  // §3.7: a PC's defeat requirement defaults to the conflict type's defence skill (not 0).
+  const pc = { skills: { battle: 6, communicate: 4, discipline: 7, move: 5, understand: 4 } };
+  check('defeatRequirementFor: duel → Battle rating; espionage → Discipline rating; unknown → 0',
+    defeatRequirementFor(pc, 'duel') === 6 && defeatRequirementFor(pc, 'espionage') === 7 &&
+    defeatRequirementFor({ skills: {} }, 'duel') === 0);
   let cf = startConflict('duel');
   cf.combatants = [
     { id: 'A1', side: 'a', actedThisRound: false, defeated: false, defeatTrack: { req: 0, progress: 0 } },
