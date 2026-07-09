@@ -16,7 +16,7 @@ import { allTalents, focusExamplesFor, driveName } from './content.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
-import { modal, showToast, confirmModal } from './ui.js';
+import { modal, showToast, confirmModal, promptModal } from './ui.js';
 import { DATA } from '../data.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -537,20 +537,17 @@ function applyDefine(c, optId, patch = {}, extraCip = {}) {
 
 function creationInPlaySection(c) {
   const cip = c.creationInPlay;
-  if (!cip.active) {
-    if (cip.complete) return null;   // finished characters don't show the starter
-    return el('div', { class: 'cip-start' },
-      el('h4', {}, 'Creation in Play'),
-      el('p', { class: 'small muted' }, CIP.intro),
-      el('button', { class: 'btn small secondary', onclick: () => { saveCharacter({ ...c, creationInPlay: { ...cip, active: true } }); refresh(); } },
-        'Start Creation in Play'));
-  }
+  // Only "define in play" characters carry the tracker; it's started from the wizard, not the sheet.
+  if (!cip.active) return null;
+  if (cip.complete) return el('div', { class: 'cip-done' },
+    el('h4', {}, 'Creation in Play · complete'),
+    el('p', { class: 'small muted' },
+      'All options defined — advancement is unlocked and drive statements can now be challenged.'));
   const remaining = (o) => o.uses - (cip.used[o.id] || 0);
   return el('div', {},
-    el('h4', {}, `Creation in Play${cip.complete ? ' · complete' : ''}`),
-    el('p', { class: 'small muted' }, cip.complete
-      ? 'All options defined — the character is complete and may earn/spend advancement, and drive statements can now be challenged.'
-      : 'Define your remaining choices as play demands. Defining a drive statement grants 1 Determination; drives can’t be challenged until you’re complete.'),
+    el('h4', {}, 'Creation in Play'),
+    el('p', { class: 'small muted' },
+      'Started incomplete — skills sit at your archetype base and drives at 4. Define your remaining choices as play demands. Defining a drive statement grants 1 Determination; drives can’t be challenged until you’re complete.'),
     el('ul', { class: 'cip-list' }, ...CIP.options.map((o) => {
       const left = remaining(o);
       const btn = el('button', { class: 'btn small secondary', onclick: () => defineOption(c, o) }, 'Define');

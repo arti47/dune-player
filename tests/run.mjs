@@ -700,6 +700,34 @@ console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
   check('creationInPlay options: all 7 known ids with positive uses',
     DATA.creationInPlay.options.length === 7 &&
     DATA.creationInPlay.options.every((o) => ids.has(o.id) && o.uses >= 1));
+
+  // Redesign: Creation in Play is an alternative creation MODE entered in the wizard,
+  // not a post-creation toggle on a finished sheet.
+  const { stepsFor, buildCharacterInPlay } = await import(join(root, 'src/wizard.js'));
+  check('wizard stepsFor: complete mode = 8 steps, inPlay mode = Concept+Archetype only',
+    stepsFor({ mode: 'complete' }).length === 8 &&
+    stepsFor({ mode: 'inPlay' }).length === 2 &&
+    stepsFor({ mode: 'inPlay' }).map((s) => s.title).join(',') === 'Concept,Archetype');
+  {
+    // A "define in play" Warrior (Battle primary) starts incomplete: tracker active,
+    // skills at the archetype base, all five drives at the floor 4, nothing else defined yet.
+    const ip = buildCharacterInPlay({ mode: 'inPlay', archetype: 'warrior', factionTemplate: null,
+      identity: { name: 'Test' }, skills: { battle: 6, communicate: 4, discipline: 4, move: 5, understand: 4 } });
+    check('buildCharacterInPlay starts an incomplete, active creation-in-play character',
+      ip.creationInPlay.active === true && ip.creationInPlay.complete === false &&
+      ip.identity.name === 'Test' && ip.skills.battle === 6 &&
+      Object.keys(ip.drives).length === 5 && Object.values(ip.drives).every((v) => v === 4) &&
+      ip.focuses.length === 0 && ip.assets.length === 0 &&
+      ip.traits.some((t) => t.source === 'archetype') &&
+      ip.determination === DATA.determination.startPerAdventure);
+  }
+  {
+    // A fixed faction (Bene Gesserit, mode:'all') grants its mandatory talent + trait up front.
+    const bg = buildCharacterInPlay({ mode: 'inPlay', archetype: 'warrior', factionTemplate: 'beneGesserit',
+      identity: { name: 'Sister' }, skills: { battle: 6, communicate: 4, discipline: 4, move: 5, understand: 4 } });
+    check('buildCharacterInPlay: fixed faction grants trait + mandatory talent at creation',
+      bg.traits.some((t) => t.source === 'faction') && bg.talents.some((t) => t.source === 'faction'));
+  }
 }
 
 console.log('— Phase 6: GM screen rollable-table helpers (§3.16) —');

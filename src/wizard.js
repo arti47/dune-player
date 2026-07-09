@@ -38,6 +38,7 @@ export function startCharacterWizard() {
 function freshState() {
   return {
     step: 0,
+    mode: 'complete',            // 'complete' = full 8-step wizard · 'inPlay' = Concept+Archetype only, define the rest during play (§T40)
     factionTemplate: null,
     archetype: null,
     skills: null,                // set when archetype chosen
@@ -69,14 +70,23 @@ const STEPS = [
   { title: 'Finishing', render: stepFinishing, validate: validateFinishing },
 ];
 
+/** Active step list for the chosen creation mode: full 8 steps normally, or just
+ *  Concept + Archetype for "define in play" (§T40 — the rest become sheet define-options). */
+export function stepsFor(state) {
+  return state.mode === 'inPlay' ? STEPS.slice(0, 2) : STEPS;
+}
+
 function renderWizard(state, rerender) {
-  const step = STEPS[state.step];
+  const steps = stepsFor(state);
+  if (state.step > steps.length - 1) state.step = steps.length - 1;   // clamp after a mode switch
+  const step = steps[state.step];
+  const isLast = state.step === steps.length - 1;
   const wrap = el('div', { class: 'wizard' });
 
   // Progress
   wrap.append(
-    el('div', { class: 'wizard-progress', 'aria-label': `Step ${state.step + 1} of ${STEPS.length}` },
-      ...STEPS.map((st, i) =>
+    el('div', { class: 'wizard-progress', 'aria-label': `Step ${state.step + 1} of ${steps.length}` },
+      ...steps.map((st, i) =>
         el('span', { class: 'wizard-dot' + (i === state.step ? ' active' : i < state.step ? ' done' : ''), title: st.title },
           String(i + 1)))),
     el('h2', {}, `${state.step + 1}. ${step.title}`),
@@ -93,13 +103,16 @@ function renderWizard(state, rerender) {
     state.step--; rerender();
   } }, state.step === 0 ? 'Cancel' : 'Back');
 
-  const isLast = state.step === STEPS.length - 1;
+  const finishLabel = state.mode === 'inPlay' ? 'Start playing' : 'Create character';
   const next = el('button', { class: 'btn', onclick: () => {
     const err = step.validate(state);
     if (err) { showToast(err); return; }
-    if (isLast) { finish(state); return; }
+    if (isLast) {
+      if (state.mode === 'inPlay' && !state.identity.name.trim()) { showToast('Give your character a name.'); return; }
+      finish(state); return;
+    }
     state.step++; rerender();
-  } }, isLast ? 'Create character' : 'Next');
+  } }, isLast ? finishLabel : 'Next');
 
   wrap.append(el('div', { class: 'wizard-nav' }, back, next));
   return wrap;
@@ -110,14 +123,36 @@ async function cancelWizard(rerender) {
   if (ok) location.hash = '#/home';
 }
 
-// ---------- Step 1: Concept (optional faction template) ----------
-function stepConcept(state, body) {
+// ---------- Step 1: Concept (creation mode + optional faction template) ----------
+function stepConcept(state, body, rerender) {
+  // Creation mode: build the whole character now, or start incomplete and define during play (§T40).
+  body.append(el('h3', {}, 'How do you want to build this character?'));
+  // Switching mode changes the step count, so re-render the whole wizard (progress dots + nav).
+  body.append(el('div', { class: 'option-grid' },
+    optionCard(state.mode === 'complete', 'Complete now',
+      'Full 8-step creation — skills, focuses, talents, drives, assets, finishing.',
+      () => { state.mode = 'complete'; rerender(); }),
+    optionCard(state.mode === 'inPlay', 'Define in play',
+      'Start incomplete: set concept + archetype only, then define skills, focuses, talents, drives, ambition, assets, and a trait during play as situations demand.',
+      () => { state.mode = 'inPlay'; rerender(); })));
+
+  if (state.mode === 'inPlay') {
+    const nameInput = el('input', { type: 'text', placeholder: 'Character name', value: state.identity.name || '' });
+    nameInput.addEventListener('input', () => { state.identity.name = nameInput.value; });
+    body.append(el('label', { class: 'field' }, el('span', {}, 'Name'), nameInput),
+      el('p', { class: 'small muted' },
+        'Your skills will start at the archetype base (primary 6 · secondary 5 · rest 4) and drives at 4 — raise them via the define-options on your sheet.'));
+  }
+
+  body.append(el('h3', {}, 'Faction template (optional)'));
   body.append(el('p', { class: 'small muted' },
-    'Optionally begin with a faction template. It grants a bonus trait and one or more mandatory talents (chosen at the Talents step). Max one per character.'));
+    state.mode === 'inPlay'
+      ? 'Grants a bonus trait (a fixed faction’s mandatory talent is added now; a choose-one faction’s talent is picked when you define talents in play). Max one per character.'
+      : 'Optionally begin with a faction template. It grants a bonus trait and one or more mandatory talents (chosen at the Talents step). Max one per character.'));
 
   if (DATA.factionIntro) body.append(el('p', { class: 'small muted' }, DATA.factionIntro));
 
-  const choose = (id) => { state.factionTemplate = id; clearMandatory(state); rerenderInto(body, () => stepConcept(state, body)); };
+  const choose = (id) => { state.factionTemplate = id; clearMandatory(state); rerenderInto(body, () => stepConcept(state, body, rerender)); };
 
   const none = optionCard(state.factionTemplate === null, 'No faction template',
     'A mundane background — full freedom over talents.', () => choose(null));
@@ -743,6 +778,46 @@ function stepFinishing(state, body) {
 }
 
 // ---------- Assembly ----------
+/** Creation in Play (§T40): an incomplete character with only Concept + Archetype set.
+ *  Skills start at the archetype base (primary 6 · secondary 5 · rest 4); drives default to 4
+ *  (normalizeCharacter fills them). Everything else is defined on the sheet via the limited-use
+ *  define-options. A fixed faction's mandatory talent(s) are granted now; a choose-one faction's
+ *  talent is chosen when the player defines a talent in play. */
+export function buildCharacterInPlay(state) {
+  const a = archetypeById(state.archetype);
+  const f = factionById(state.factionTemplate);
+
+  const traits = [{ name: a.name, negative: false, source: 'archetype' }];
+  if (f) traits.push({ name: f.trait, negative: false, source: 'faction' });
+
+  const talents = [];
+  if (f && f.mandatoryTalents.mode === 'all') {
+    for (const opt of f.mandatoryTalents.options) {
+      const base = baseName(opt);
+      const def = findTalent(base);
+      if (def && def.pick) continue;   // parameterised mandatory → picked when defining talents in play
+      talents.push({ name: base, source: 'faction' });
+    }
+  }
+
+  return normalizeCharacter({
+    id: uid(),
+    identity: {
+      name: state.identity.name.trim() || 'Unnamed', archetype: a.id, factionTemplate: f ? f.id : null,
+      houseRole: state.houseRole || null, appearance: '', ambition: '', portraitUrl: null, relationships: '',
+    },
+    skills: { ...state.skills },   // archetype base (§Q3: pre-filled)
+    // drives omitted → normalizeCharacter defaults all five standard drives to 4 (the floor)
+    driveStatements: {},
+    focuses: [],
+    talents,
+    traits,
+    assets: [],
+    determination: DATA.determination.startPerAdventure,
+    creationInPlay: { active: true, complete: false, used: {}, skillRatingsUsed: [], driveRatingsUsed: [] },
+  });
+}
+
 function buildCharacter(state) {
   const a = archetypeById(state.archetype);
   const f = factionById(state.factionTemplate);
@@ -812,7 +887,7 @@ function goToScreen(id) {
 }
 
 function finish(state) {
-  const char = buildCharacter(state);
+  const char = state.mode === 'inPlay' ? buildCharacterInPlay(state) : buildCharacter(state);
   saveCharacter(char);
   setCurrentCharacterId(char.id);
   // If they claimed a House role, record it on the shared House too (ruling #4: local player acts as GM/Ruler).
@@ -820,7 +895,7 @@ function finish(state) {
     const house = getHouse();
     if (house) { house.roles = { ...house.roles, [state.houseRole]: char.id }; saveHouse(house); }
   }
-  showToast(`${char.identity.name} created.`);
+  showToast(state.mode === 'inPlay' ? `${char.identity.name} — define abilities as you play.` : `${char.identity.name} created.`);
   goToScreen('sheet');
 }
 
