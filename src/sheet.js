@@ -6,7 +6,8 @@
 import { el, capitalize } from './core.js';
 import {
   listCharacters, currentCharacterId, setCurrentCharacterId,
-  saveCharacter, deleteCharacter, getPools, savePools, getRollLog,
+  saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog,
+  characterToMarkdown, importCharacterMarkdown,
 } from './store.js';
 import { permanentAssetCap, permanentAssetCount, clampDetermination, clampMomentum } from './derived.js';
 import {
@@ -72,7 +73,8 @@ export function renderSheet(root) {
       el('h2', {}, 'Characters'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: startCharacterWizard }, '+ New character'),
-        el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic')),
+        el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic'),
+        mdImportButton()),
       chars.length
         ? el('ul', { class: 'char-list' }, ...chars.map((c) =>
             el('li', {},
@@ -141,6 +143,7 @@ function liveSheet(c) {
     rollLogSection(),
 
     el('div', { class: 'cta-row', style: 'margin-top:14px' },
+      el('button', { class: 'btn secondary', onclick: () => exportCharacterMarkdown(c) }, '⬇ Export sheet (.md)'),
       el('button', { class: 'btn secondary danger-btn',
         onclick: async () => {
           if (await confirmModal(`Delete ${id.name || 'this character'}? This cannot be undone.`,
@@ -149,17 +152,59 @@ function liveSheet(c) {
   );
 }
 
-// ---------- Roll log (recent 2d20 tests) ----------
+// ---------- Character Markdown export / import ----------
+function exportCharacterMarkdown(c) {
+  const md = characterToMarkdown(c);
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const slug = (c.identity.name || 'character').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'character';
+  const a = el('a', { href: url, download: `${slug}.md` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('Sheet exported (.md)');
+}
+
+/** Hidden file input + button that imports a Markdown sheet as a new character. */
+function mdImportButton() {
+  const input = el('input', { type: 'file', accept: 'text/markdown,.md,.markdown,text/plain', style: 'display:none' });
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const char = importCharacterMarkdown(await file.text());
+      setCurrentCharacterId(char.id);
+      showToast(`Imported ${char.identity.name || 'character'}`);
+      refresh();
+    } catch (e) { showToast(e.message || 'Import failed.'); }
+  });
+  return el('span', {},
+    el('button', { class: 'btn secondary', onclick: () => input.click() }, 'Import (.md)'),
+    input);
+}
+
+// ---------- Roll log (recent 2d20 tests; delete one / clear all) ----------
 function rollLogSection() {
   const log = getRollLog().slice(0, 8);
   return el('div', {},
-    el('h4', {}, 'Roll log'),
+    el('div', { class: 'section-head' },
+      el('h4', {}, 'Roll log'),
+      log.length
+        ? el('button', { class: 'link-btn', onclick: async () => {
+            if (await confirmModal('Clear the entire roll log?', { okLabel: 'Clear all' })) {
+              clearRollLog(); showToast('Roll log cleared'); refresh();
+            }
+          } }, 'Clear all')
+        : null),
     log.length
-      ? el('ul', { class: 'roll-log' }, ...log.map((r) => el('li', { class: 'small' },
-          el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${driveName(r.drive)} `),
-          `TN ${r.tn} · [${(r.dice || []).join(', ')}] · ${r.successes} succ`,
-          r.complications ? ` · ${r.complications} comp` : '',
-          r.note ? ` · ${r.note}` : '')))
+      ? el('ul', { class: 'roll-log' }, ...log.map((r, i) => el('li', { class: 'small roll-log-item' },
+          el('span', {},
+            el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${driveName(r.drive)} `),
+            `TN ${r.tn} · [${(r.dice || []).join(', ')}] · ${r.successes} succ`,
+            r.complications ? ` · ${r.complications} comp` : '',
+            r.note ? ` · ${r.note}` : ''),
+          el('button', { class: 'chip-x', 'aria-label': 'Delete this roll',
+            onclick: () => { deleteRollAt(i); refresh(); } }, '×'))))
       : el('p', { class: 'small muted' }, 'No rolls yet — tap “Roll a test”.'));
 }
 

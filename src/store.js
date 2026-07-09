@@ -1,8 +1,10 @@
 // store.js — local/cloud character + House persistence, pools, roll log.
 // Phase 0: localStorage only. Cloud mirroring arrives in Phase 5 via sync.js.
 
-import { uid } from './core.js';
+import { uid, capitalize } from './core.js';
 import { normalizeCharacter, normalizeHouse } from './derived.js';
+import { DATA } from '../data.js';
+import { driveName } from './content.js';
 
 const K_CHARS = 'imperium.characters';
 const K_CURRENT = 'imperium.currentCharacterId';
@@ -83,6 +85,70 @@ export function importAll(data) {
   return { characters: characters.length, house: !!data.house };
 }
 
+// ---------- Character Markdown export / import (single-sheet, human-readable + lossless) ----------
+// A readable Markdown sheet with a trailing HTML-comment data island so it round-trips exactly.
+const MD_START = '<!-- IMPERIUM-CHARACTER v1';
+const MD_END = '-->';
+const skillName = (id) => (DATA.skills.find((s) => s.id === id) || {}).name || id;
+
+export function characterToMarkdown(char) {
+  const c = normalizeCharacter(char);
+  const id = c.identity;
+  const L = [];
+  L.push(`# ${id.name || 'Unnamed'}`, '');
+  const sub = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
+    id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ');
+  if (sub) L.push(`*${sub}*`, '');
+
+  L.push('## Skills', ...DATA.skills.map((s) => `- ${s.name} ${c.skills[s.id]}`), '');
+  const driveIds = Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]);
+  L.push('## Drives', ...driveIds.map((d) => `- ${driveName(d)} ${c.drives[d]}`), '');
+
+  const stmts = Object.entries(c.driveStatements || {});
+  if (stmts.length) L.push('## Drive statements',
+    ...stmts.map(([d, s]) => `- **${driveName(d)}:** ${s.text}${s.challenged ? ' _(challenged)_' : ''}`), '');
+  if ((c.focuses || []).length) L.push('## Focuses',
+    ...c.focuses.map((f) => `- ${f.name} (${skillName(f.skill)})`), '');
+  if ((c.talents || []).length) L.push('## Talents', ...c.talents.map((t) => {
+    const p = t.skill ? skillName(t.skill) : t.drive ? driveName(t.drive) : t.category || null;
+    return `- ${p ? `${t.name} (${p})` : t.name}`;
+  }), '');
+  if ((c.traits || []).length) L.push('## Traits',
+    ...c.traits.map((t) => `- ${t.name}${t.negative ? ' _(negative)_' : ''}${t.source ? ` _(${t.source})_` : ''}`), '');
+  if ((c.assets || []).length) L.push('## Assets',
+    ...c.assets.map((a) => `- ${a.name} — Quality ${a.quality}, ${a.tangible ? 'tangible' : 'intangible'}${a.permanent ? ', permanent' : ''}`), '');
+
+  L.push('## Determination', `${c.determination} / ${DATA.determination.cap}`, '');
+  if (id.ambition) L.push('## Ambition', id.ambition, '');
+  if (id.appearance) L.push('## Appearance', id.appearance, '');
+  if (id.relationships) L.push('## Relationships', id.relationships, '');
+  if (c.notes) L.push('## Notes', c.notes, '');
+
+  // Lossless data island — invisible in a rendered Markdown viewer, parsed back on import.
+  L.push(MD_START, JSON.stringify(c), MD_END, '');
+  return L.join('\n');
+}
+
+/** Parse a character back from an app-exported Markdown sheet (reads the data island). */
+export function characterFromMarkdown(md) {
+  if (typeof md !== 'string' || !md.includes(MD_START)) {
+    throw new Error('No Imperium character data found in this Markdown file.');
+  }
+  const after = md.slice(md.indexOf(MD_START) + MD_START.length);
+  const end = after.indexOf(MD_END);
+  const json = (end < 0 ? after : after.slice(0, end)).trim();
+  let obj;
+  try { obj = JSON.parse(json); } catch { throw new Error('The character data block is corrupt.'); }
+  return normalizeCharacter(obj);
+}
+
+/** Import a Markdown sheet as a NEW character (fresh id); returns the saved character. */
+export function importCharacterMarkdown(md) {
+  const c = characterFromMarkdown(md);
+  c.id = uid();
+  return saveCharacter(c);
+}
+
 // ---------- Extended tasks (generic; §3.1 — local mirror, campaign-synced in Phase 5) ----------
 const K_TASKS = 'imperium.tasks';
 export function getTasks() { return readJSON(K_TASKS, []); }
@@ -104,3 +170,12 @@ export function appendRoll(entry) {
   writeJSON(K_ROLLLOG, log.slice(0, ROLL_LOG_CAP));
   notify('rollLog');
 }
+/** Delete a single roll-log entry by its position in the newest-first log. */
+export function deleteRollAt(index) {
+  const log = getRollLog();
+  if (index < 0 || index >= log.length) return;
+  log.splice(index, 1);
+  writeJSON(K_ROLLLOG, log);
+  notify('rollLog');
+}
+export function clearRollLog() { writeJSON(K_ROLLLOG, []); notify('rollLog'); }

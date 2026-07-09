@@ -132,6 +132,9 @@ button { font: inherit; }
 .roll-log { list-style: none; padding: 0; margin: 4px 0 0; }
 .roll-log li { padding: 5px 0; border-bottom: 1px solid var(--border); }
 .roll-log li:last-child { border-bottom: none; }
+.roll-log-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.roll-log-item .chip-x { flex: none; color: var(--muted); font-size: 1.05rem; line-height: 1; }
+.roll-log-item .chip-x:hover { color: var(--danger, #c0392b); }
 
 /* Wizard: faction mandatory-talent banners + locked (fixed/required) rows. */
 .req-banner { color: var(--danger); font-weight: 600; }

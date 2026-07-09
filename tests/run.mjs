@@ -538,6 +538,45 @@ check('importAll round-trips characters + pools + normalizes',
   store.listCharacters()[0].skills.communicate === 4 &&   // back-filled by normalizeCharacter
   store.getPools().momentum === 4);
 
+console.log('— Roll log: delete one / clear all —');
+_mem.clear();
+store.appendRoll({ skill: 'battle', drive: 'duty', tn: 14, dice: [3], successes: 1 });
+store.appendRoll({ skill: 'move', drive: 'faith', tn: 12, dice: [20], successes: 0, complications: 1 });
+store.appendRoll({ skill: 'understand', drive: 'truth', tn: 11, dice: [5], successes: 1 });
+check('appendRoll stacks newest-first', store.getRollLog().length === 3 && store.getRollLog()[0].skill === 'understand');
+store.deleteRollAt(0);   // remove the newest
+check('deleteRollAt removes exactly that entry', store.getRollLog().length === 2 && store.getRollLog()[0].skill === 'move');
+store.deleteRollAt(99);  // out of range = no-op
+check('deleteRollAt ignores an out-of-range index', store.getRollLog().length === 2);
+store.clearRollLog();
+check('clearRollLog empties the log', store.getRollLog().length === 0);
+
+console.log('— Character Markdown export / import (round-trip + reject) —');
+_mem.clear();
+{
+  const src = normPre({ id: 'md1', identity: { name: 'Chani', archetype: 'warrior', ambition: 'Free Arrakis' },
+    skills: { battle: 6, move: 5 }, drives: { duty: 8, faith: 7 },
+    driveStatements: { duty: { text: 'Serve the tribe', challenged: false } },
+    focuses: [{ skill: 'battle', name: 'Short Blades' }],
+    talents: [{ name: 'Bold', skill: 'battle', source: 'chosen' }],
+    traits: [{ name: 'Warrior', negative: false, source: 'archetype' }],
+    assets: [{ name: 'Crysknife', quality: 1, tangible: true, permanent: true }], notes: 'Sietch Tabr' });
+  const md = store.characterToMarkdown(src);
+  check('characterToMarkdown renders readable headings + a data island',
+    md.startsWith('# Chani') && md.includes('## Skills') && md.includes('- Battle 6') &&
+    md.includes('IMPERIUM-CHARACTER v1'));
+  const back = store.characterFromMarkdown(md);
+  check('characterFromMarkdown round-trips the character losslessly',
+    back.identity.name === 'Chani' && back.skills.battle === 6 && back.drives.duty === 8 &&
+    back.driveStatements.duty.text === 'Serve the tribe' && back.talents[0].skill === 'battle' &&
+    back.assets[0].name === 'Crysknife' && back.notes === 'Sietch Tabr');
+  check('characterFromMarkdown rejects a Markdown file with no data island',
+    (() => { try { store.characterFromMarkdown('# Just a heading\n\nsome prose'); return false; } catch { return true; } })());
+  const imported = store.importCharacterMarkdown(md);
+  check('importCharacterMarkdown saves under a fresh id (not the source id)',
+    imported.id !== 'md1' && store.getCharacter(imported.id).identity.name === 'Chani');
+}
+
 console.log('— Dice engine invariants (roller: evaluateDice) —');
 const { evaluateDice } = await import(join(root, 'src/roller.js'));
 {
