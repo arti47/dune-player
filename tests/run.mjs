@@ -933,6 +933,37 @@ console.log('— The Great Game: CHOAM Director talents + planet generator (T33/
     !GG.talents.some((t) => DATA.talents.some((c) => c.name === t.name)));
 }
 
+console.log('— Expansion NPC stat blocks (T35) —');
+{
+  const { EXPANSION: SD } = await import(join(root, 'data-sand-and-dust.js'));
+  const { EXPANSION: PP } = await import(join(root, 'data-power-and-pawns.js'));
+  const SKILLS = ['battle', 'communicate', 'discipline', 'move', 'understand'];
+  const wellFormed = (list) => list.every((n) =>
+    n.id && n.name && n.tier &&
+    Object.keys(n.skills).length === 5 && SKILLS.every((s) => Number.isInteger(n.skills[s])) &&
+    Object.keys(n.drives).length === 5 &&
+    (n.focuses || []).every((f) => SKILLS.includes(f.skill) && f.name) &&
+    Object.keys(n.statements || {}).every((d) => d in n.drives) &&
+    Array.isArray(n.talents) && Array.isArray(n.assets));
+  check('Sand and Dust: 19 NPC stat blocks, all well-formed', SD.npcs.length === 19 && wellFormed(SD.npcs));
+  check('Power and Pawns: 10 NPC stat blocks, all well-formed', PP.npcs.length === 10 && wellFormed(PP.npcs));
+  const allIds = [...SD.npcs, ...PP.npcs].map((n) => n.id);
+  check('Expansion NPC ids are unique', new Set(allIds).size === allIds.length);
+  check('Spot-check: Fremen Infiltrator + Guild Navigator numbers',
+    SD.npcs.find((n) => n.id === 'fremenInfiltrator')?.skills.communicate === 7 &&
+    SD.npcs.find((n) => n.id === 'fremenInfiltrator')?.statements.truth === 'Learn about them.' &&
+    PP.npcs.find((n) => n.id === 'guildNavigator')?.skills.move === 2 &&
+    PP.npcs.find((n) => n.id === 'guildNavigator')?.drives.faith === 7);
+
+  const content = await import(join(root, 'src/content.js'));
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ sandAndDust: false, powerAndPawns: false }));
+  check('expansionNpcs OFF: no expansion NPCs when toggles off', content.expansionNpcs().length === 0);
+  globalThis.localStorage.setItem('imperium.settings', JSON.stringify({ sandAndDust: true, powerAndPawns: true }));
+  check('expansionNpcs ON: 29 merged (19 S&D + 10 P&P), Fremen Infiltrator present',
+    content.expansionNpcs().length === 29 && content.expansionNpcs().some((n) => n.id === 'fremenInfiltrator'));
+  globalThis.localStorage.removeItem('imperium.settings');
+}
+
 console.log('— Alternative drives: merge + swapped-drive character integrity —');
 {
   const content = await import(join(root, 'src/content.js'));

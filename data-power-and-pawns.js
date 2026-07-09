@@ -11,8 +11,94 @@
 
 export const EXPANSION = {
   id: 'powerAndPawns',
-  extracted: false, // court factions + Guild + political + new drives done; wider TOC still to map
-  npcs: [], subsystems: ['newDrives'],
+  extracted: false, // court factions + Guild + political + new drives + 10 NPC stat blocks (T35) done; wider TOC still to map
+  subsystems: ['newDrives'],
+
+  // ---------- NPC stat blocks (T35, owner-supplied 2026-07-09) ----------
+  // The Emperor's Court NPCs. Tier not printed; inferred Notable (no skill hits 8, the Major
+  // threshold — §T28), flagged `tierInferred`. Example NPCs + scenario hooks (setting/adventure
+  // content) excluded per §12; only the mechanical stat block is extracted.
+  npcs: [
+    { id: 'confidante', name: 'Confidante', tier: 'notable', tierInferred: true,
+      traits: ['Domestic Servant', 'Loyal'],
+      skills: { battle: 4, communicate: 7, discipline: 6, move: 5, understand: 5 },
+      focuses: [{ skill: 'communicate', name: 'Inspiration' }, { skill: 'communicate', name: 'Listening' }, { skill: 'discipline', name: 'Composure' }],
+      drives: { duty: 5, faith: 6, justice: 5, power: 5, truth: 7 },
+      statements: { truth: 'A secret is sacred and dangerous.' },
+      talents: ['Passive Scrutiny'], assets: ['Cone of Silence', 'Aristocratic Contacts', 'Household Goods'] },
+
+    { id: 'schemingNoble', name: 'Scheming Noble', tier: 'notable', tierInferred: true,
+      traits: ['Aristocracy', 'Ambitious'],
+      skills: { battle: 4, communicate: 6, discipline: 5, move: 5, understand: 7 },
+      focuses: [{ skill: 'communicate', name: 'Deception' }, { skill: 'understand', name: 'House Politics' }, { skill: 'understand', name: 'Imperial Politics' }],
+      drives: { duty: 5, faith: 5, justice: 5, power: 7, truth: 6 },
+      statements: { power: 'Ambition is rewarded.' },
+      talents: ['Subtle Words'], assets: ['Blackmail Materials', 'Recording Devices', 'Luxury Goods for Bribes'] },
+
+    { id: 'guildBanker', name: 'Guild Banker', tier: 'notable', tierInferred: true,
+      traits: ['Guild Agent', 'Banker'],
+      skills: { battle: 4, communicate: 5, discipline: 7, move: 5, understand: 6 },
+      focuses: [{ skill: 'discipline', name: 'Composure' }, { skill: 'discipline', name: 'Precision' }, { skill: 'understand', name: 'Finance' }],
+      drives: { duty: 6, faith: 5, justice: 7, power: 5, truth: 5 },
+      statements: { justice: 'Wealth flows to those who deserve it.' },
+      talents: ['Methodical Efficiency'], assets: ['Guild Loan Contract', 'Guild Bank Guards'] },
+
+    { id: 'socialite', name: 'Socialite', tier: 'notable', tierInferred: true,
+      traits: ['Wealthy', 'Fashionable'],
+      skills: { battle: 4, communicate: 7, discipline: 5, move: 5, understand: 6 },
+      focuses: [{ skill: 'communicate', name: 'Charm' }, { skill: 'communicate', name: 'Listening' }, { skill: 'understand', name: 'Imperial Politics' }],
+      drives: { duty: 5, faith: 7, justice: 5, power: 6, truth: 5 },
+      statements: { faith: 'I believe most strongly in myself.' },
+      talents: ['Hidden Motives'], assets: ['Social Network', 'Extensive Wardrobe', 'Personal Ornithopter', 'Rare Wine Collection'] },
+
+    { id: 'guildEngineer', name: 'Guild Engineer', tier: 'notable', tierInferred: true,
+      traits: ['Guild Engineer', 'Technician'],
+      skills: { battle: 4, communicate: 5, discipline: 6, move: 5, understand: 7 },
+      focuses: [{ skill: 'discipline', name: 'Precision' }, { skill: 'understand', name: 'Advanced Technology' }, { skill: 'understand', name: 'Spaceship Technology' }],
+      drives: { duty: 6, faith: 5, justice: 5, power: 5, truth: 7 },
+      statements: { truth: 'Machines don’t lie.' },
+      talents: ['Foldspace Technology'], assets: ['Full Heighliner Access', 'Tool Kit', 'Spare Parts'] },
+
+    { id: 'guildNavigator', name: 'Guild Navigator', tier: 'notable', tierInferred: true,
+      traits: ['Guild Agent', 'Navigator', 'Spice Addict'],
+      skills: { battle: 4, communicate: 4, discipline: 7, move: 2, understand: 7 },
+      focuses: [{ skill: 'communicate', name: 'Secret Language (Navigator)' }, { skill: 'discipline', name: 'Precision' }, { skill: 'understand', name: 'Foldspace Navigation' }, { skill: 'understand', name: 'Space Navigation' }, { skill: 'understand', name: 'Mathematics' }],
+      drives: { duty: 6, faith: 7, justice: 5, power: 5, truth: 5 },
+      statements: { faith: 'My own abilities keep us safe.' },
+      talents: ['All Navigator talents'], assets: ['Containment Tank', 'Spice Capsules', 'Heighliner', 'Servants and Guards'] },
+
+    { id: 'guildSpy', name: 'Guild Spy', tier: 'notable', tierInferred: true,
+      traits: ['Imposter', 'Guild Agent'],
+      skills: { battle: 6, communicate: 7, discipline: 5, move: 4, understand: 5 },
+      focuses: [{ skill: 'battle', name: 'Sneak Attacks' }, { skill: 'communicate', name: 'Acting' }, { skill: 'communicate', name: 'Disguise' }],
+      drives: { duty: 7, faith: 5, justice: 6, power: 5, truth: 5 },
+      statements: { duty: 'The Guild relies on my information.' },
+      talents: ['Hidden Motives'], assets: ['Cibus Hood', 'Memocorder', 'Flip-dart'] },
+
+    { id: 'waykuSteward', name: 'Wayku Steward', tier: 'notable', tierInferred: true,
+      traits: ['Wayku', 'Servant'],
+      skills: { battle: 4, communicate: 5, discipline: 7, move: 5, understand: 6 },
+      focuses: [{ skill: 'discipline', name: 'Observe' }, { skill: 'discipline', name: 'Precision' }, { skill: 'understand', name: 'Etiquette' }],
+      drives: { duty: 6, faith: 5, justice: 5, power: 5, truth: 7 },
+      statements: { truth: 'I yearn to see new places.' },
+      talents: ['Subtle Step'], assets: ['Influence Aboard Ship', 'Invisible to the Upper Class', 'Network of Shipboard Passages'] },
+
+    { id: 'bodyguard', name: 'Bodyguard', tier: 'notable', tierInferred: true,
+      traits: ['Fighter', 'Observant'],
+      skills: { battle: 7, communicate: 4, discipline: 5, move: 6, understand: 5 },
+      focuses: [{ skill: 'battle', name: 'Evasive Action' }, { skill: 'battle', name: 'Unarmed Combat' }, { skill: 'move', name: 'Unobtrusive' }],
+      drives: { duty: 7, faith: 5, justice: 5, power: 6, truth: 5 },
+      statements: { duty: 'I will protect my charge.' },
+      talents: ['Constantly Watching', 'Rapid Recovery'], assets: ['Defensive Shield', 'Kindjal', 'Maula Pistol'] },
+
+    { id: 'weakNoble', name: 'Weak Noble', tier: 'notable', tierInferred: true,
+      traits: ['Aristocrat', 'Overwhelmed'],
+      skills: { battle: 7, communicate: 5, discipline: 5, move: 6, understand: 4 },
+      focuses: [{ skill: 'battle', name: 'Dirty Fighting' }, { skill: 'battle', name: 'Sneak Attacks' }, { skill: 'move', name: 'Unobtrusive' }],
+      drives: { duty: 5, faith: 6, justice: 5, power: 7, truth: 5 },
+      statements: { power: 'I want it, and I deserve it.' },
+      talents: ['Cautious (Communicate)'], assets: ['Defensive Shield', 'Bodyguards', 'Slip-Tip'] },
+  ],
 
   // ---------- New faction templates ----------
   factionTemplates: [

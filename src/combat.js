@@ -15,6 +15,7 @@ import {
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
+import { expansionNpcs } from './content.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 
@@ -447,6 +448,7 @@ export function renderConflict(onChange) {
     const compendium = [
       ...NPCS.archetypes.map((n) => ({ ...n, group: 'Archetypes' })),
       ...NPCS.iconics.map((n) => ({ ...n, group: 'Iconics' })),
+      ...expansionNpcs().map((n) => ({ ...n, group: 'Expansion' })),   // toggle-gated
     ];
     const pcSel = el('select', { 'aria-label': 'Player character' }, el('option', { value: '' }, 'Player character…'),
       ...pcs.map((c) => el('option', { value: c.id }, c.identity.name || 'Unnamed')));

@@ -8,7 +8,7 @@ import { getPools, savePools, listCharacters } from './store.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
-import { driveName } from './content.js';
+import { driveName, expansionNpcs } from './content.js';
 
 const SKILL = DATA.skills, DRIVE = DATA.drives;
 
@@ -143,15 +143,20 @@ function npcCard() {
   const draw = () => {
     const q = search.value.trim().toLowerCase();
     const hit = (n) => !q || n.name.toLowerCase().includes(q);
-    list.replaceChildren(
+    const expansion = expansionNpcs();   // toggle-gated (enabled books only)
+    list.replaceChildren(...[
       el('h4', {}, `Generic archetypes (${NPCS.archetypes.filter(hit).length})`),
       ...NPCS.archetypes.filter(hit).map((n) => npcBlock(n, 'archetype')),
       el('h4', {}, `Iconic characters (${NPCS.iconics.filter(hit).length})`),
-      ...NPCS.iconics.filter(hit).map((n) => npcBlock(n, 'iconic')));
+      ...NPCS.iconics.filter(hit).map((n) => npcBlock(n, 'iconic')),
+      expansion.length ? el('h4', {}, `Expansion NPCs (${expansion.filter(hit).length})`) : null,
+      ...expansion.filter(hit).map((n) => npcBlock(n, 'archetype')),
+    ].filter((x) => x != null));
   };
   search.addEventListener('input', draw);
   draw();
+  const total = NPCS.archetypes.length + NPCS.iconics.length + expansionNpcs().length;
   return el('section', { class: 'card' },
-    el('h3', {}, `NPC compendium (${NPCS.archetypes.length + NPCS.iconics.length})`),
+    el('h3', {}, `NPC compendium (${total})`),
     search, list);
 }

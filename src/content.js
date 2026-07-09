@@ -23,6 +23,8 @@ export function allTalents() { return [...DATA.talents, ...collect('talents')]; 
 export function findTalent(name) { return allTalents().find((t) => t.name === name) || null; }
 export function allFactionTemplates() { return [...DATA.factionTemplates, ...collect('factionTemplates')]; }
 export function allArchetypes() { return [...DATA.archetypes, ...collect('archetypes')]; }
+/** NPC stat blocks from any enabled expansion (T35) — merged into the GM compendium + conflict drop-in. */
+export function expansionNpcs() { return collect('npcs'); }
 
 /** Focus examples for a skill: the core book list + any active-expansion focuses for that skill. */
 export function focusExamplesFor(skillId) {
