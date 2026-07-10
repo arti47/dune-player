@@ -58,7 +58,10 @@ function houseCard(house) {
       el('p', { class: 'small muted' },
         'The House is your group’s shared foundation — normally one person creates it and everyone else joins. Recommended first, but you can skip and add it later.'),
       el('div', { class: 'cta-row' },
-        el('button', { class: 'btn', onclick: startHouseWizard }, 'Create your House')));
+        el('button', { class: 'btn', onclick: startHouseWizard }, 'Create your House'),
+        Settings.greatGame()
+          ? el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/house'; } }, 'Load an example House')
+          : null));
   }
   const domainNames = (house.domains || [])
     .map((d) => (DATA.houseDomains.find((x) => x.id === d.id) || {}).name)
@@ -73,6 +76,9 @@ function houseCard(house) {
           el('span', { class: 'pill' }, `${house.wealth} Wealth`))
       : null,
     el('div', { class: 'cta-row' },
+      Settings.greatGame()
+        ? el('button', { class: 'btn', onclick: () => { location.hash = '#/house'; } }, 'Manage House')
+        : null,
       el('button', { class: 'btn secondary', onclick: startHouseWizard }, 'Edit House')));
 }
 
