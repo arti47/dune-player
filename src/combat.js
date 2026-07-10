@@ -341,12 +341,14 @@ export function takeTurn(conflict, actorId, keep = false) {
   };
 }
 
-/** New round: reset acted flags; the last actor's side opens (they pick — default to their side). */
-export function nextRound(conflict) {
+/** New round: reset acted flags. Per §6, the last actor nominates the **opposing** side to open
+ *  by default; paying 2 Momentum/Threat (`keepOpener`) lets their own side open instead. */
+export function nextRound(conflict, keepOpener = false) {
   const last = conflict.combatants.find((c) => c.id === conflict.lastActorId);
+  const opener = last ? (keepOpener ? last.side : opposingSide(last.side)) : conflict.currentSide;
   return {
     ...conflict, round: conflict.round + 1, keptInitiative: false,
-    currentSide: last ? last.side : conflict.currentSide,
+    currentSide: opener,
     combatants: conflict.combatants.map((c) => ({ ...c, actedThisRound: false })),
   };
 }
@@ -402,6 +404,24 @@ export function renderConflict(onChange) {
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn small secondary', onclick: () => addCombatantDialog(side) }, '+ Add')));
 
+  /** §6 Keep-the-Initiative / round-opener cost: a PC spends 2 Momentum (or adds 2 Threat when
+   *  short); an enemy NPC spends 2 Threat. Returns false (and toasts) if an NPC can't afford it. */
+  function spendKeepCost(isNpc, label) {
+    const cost = DATA.initiative.keepInitiativeCost;   // 2
+    const pools = getPools();
+    if (isNpc) {
+      if (pools.threat < cost) { showToast(`Not enough Threat for ${label} (needs ${cost}).`); return false; }
+      savePools({ ...pools, threat: pools.threat - cost }); showToast(`${label} (−${cost} Threat)`); return true;
+    }
+    if (pools.momentum >= cost) { savePools({ ...pools, momentum: pools.momentum - cost }); showToast(`${label} (−${cost} Momentum)`); return true; }
+    savePools({ ...pools, threat: pools.threat + cost }); showToast(`${label} (+${cost} Threat)`); return true;
+  }
+  /** Take a turn, charging the Keep-the-Initiative cost first (abort if an NPC can't pay). */
+  function takeTurnWithCost(c, keep) {
+    if (keep && !conflict.keptInitiative && !spendKeepCost(c.npc, 'Keep the Initiative')) return;
+    save(takeTurn(conflict, c.id, keep));
+  }
+
   function combatantRow(c) {
     const track = c.defeatTrack || { req: 0, progress: 0 };
     const zoneSel = el('select', { 'aria-label': 'Zone' },
@@ -437,7 +457,7 @@ export function renderConflict(onChange) {
         el('button', { class: 'btn small', disabled: c.defeated ? '' : null,
           onclick: () => attackDialog(c) }, '⚔ Attack'),
         el('button', { class: 'btn small' + (isTurn ? '' : ' secondary'), disabled: c.defeated ? '' : null,
-          onclick: () => save(takeTurn(conflict, c.id, keepBox.checked)) }, 'Take turn'),
+          onclick: () => takeTurnWithCost(c, keepBox.checked) }, 'Take turn'),
         el('label', { class: 'small', for: `keep-${c.id}` }, keepBox, ` Keep initiative (2 ${typeDef.attackSkill ? 'Mom/Threat' : ''})`),
         (!c.npc && c.charId) ? el('button', { class: 'btn small secondary', disabled: c.defeated ? '' : null,
           onclick: () => extraAction(c.charId) }, 'Extra action (1 Det)') : null));
@@ -633,7 +653,13 @@ export function renderConflict(onChange) {
     sideBlock('a'),
     sideBlock('b'),
     el('div', { class: 'cta-row', style: 'margin-top:10px' },
-      el('button', { class: 'btn secondary', onclick: () => save(nextRound(conflict)) }, 'Next round'),
+      // §6: default = the opposing side opens next round; pay 2 to keep the opener on your side.
+      el('button', { class: 'btn secondary', onclick: () => save(nextRound(conflict, false)) }, 'Next round'),
+      conflict.lastActorId ? el('button', { class: 'btn secondary', onclick: () => {
+        const last = conflict.combatants.find((x) => x.id === conflict.lastActorId);
+        if (!spendKeepCost(last ? last.npc : false, 'Keep the opener')) return;
+        save(nextRound(conflict, true));
+      } }, 'Keep opener (2)') : null,
       el('button', { class: 'btn secondary danger-btn', onclick: async () => {
         if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) save(null);
       } }, 'End conflict')));

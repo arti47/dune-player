@@ -779,9 +779,12 @@ console.log('— Phase 4: local conflict helper (§3.12 initiative) —');
   check('Keep the Initiative keeps the same side + sets keptInitiative', kept.currentSide === 'b' && kept.keptInitiative === true);
   const keptAgain = takeTurn(kept, 'B1', true);   // can't keep twice in a row → passes
   check('Keep the Initiative cannot be used twice in a row (passes instead)', keptAgain.currentSide === 'a' && keptAgain.keptInitiative === false);
-  const nr = nextRound({ ...cf, lastActorId: 'A1', combatants: cf.combatants.map((c) => ({ ...c, actedThisRound: true })) });
-  check('nextRound: round+1, acted flags cleared, last actor’s side opens',
-    nr.round === 2 && nr.combatants.every((c) => c.actedThisRound === false) && nr.currentSide === 'a');
+  const acted = { ...cf, lastActorId: 'A1', combatants: cf.combatants.map((c) => ({ ...c, actedThisRound: true })) };
+  const nr = nextRound(acted);
+  check('nextRound: round+1, acted flags cleared, the OPPOSING side opens by default (§6)',
+    nr.round === 2 && nr.combatants.every((c) => c.actedThisRound === false) && nr.currentSide === 'b');
+  check('nextRound(keepOpener=true): the last actor’s own side opens (paid 2)',
+    nextRound(acted, true).currentSide === 'a');
 }
 
 console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
