@@ -298,6 +298,47 @@ console.log('— Great Game example Houses of the Landsraad (crunch-only referen
       return w && w.traits.length === 3 && w.primary[0].domain === 'Espionage' && w.primary[0].subtype === 'understanding'; })());
 }
 
+console.log('— Great Game House Management subsystem (T36) —');
+{
+  const M = GG.houseManagement.management;
+  check('Session has the 6-step yearly loop (News→…→End of Year)', M.steps.length === 6 &&
+    M.steps[0].name.startsWith('News') && M.steps[1].name === 'Income' && M.steps[5].name.startsWith('End of Year'));
+  check('Starting status by type: Nascent 15 · Minor 25 · Major 45 · Great 65',
+    M.status.startingByType.nascent === 15 && M.status.startingByType.minor === 25 &&
+    M.status.startingByType.major === 45 && M.status.startingByType.great === 65);
+  check('6 status levels, Respected has no modifier, Dangerous generates Threat',
+    M.status.levels.length === 6 && M.status.levels[2].name === 'Respected' &&
+    /2 Threat/.test(M.status.levels[5].effect));
+  check('NPC House Hatred→Drive: Ambivalent 4 … Kanly 8',
+    M.npcHouseHatredDrive[0].drive === 4 && M.npcHouseHatredDrive[4].hatred === 'Kanly' && M.npcHouseHatredDrive[4].drive === 8);
+  check('Space by type: Nascent 10 · Minor 35 · Major 60 · Great 100; primary 25 / secondary 10',
+    M.space.byType.nascent === 10 && M.space.byType.minor === 35 && M.space.byType.major === 60 &&
+    M.space.byType.great === 100 && M.space.primaryDomainSpaces === 25 && M.space.secondaryDomainSpaces === 10);
+  check('Military Power ladder 0–5 with upkeep 0/5/10/20/30/50',
+    M.militaryPower.length === 6 && M.militaryPower.map((m) => m.upkeep).join(',') === '0,5,10,20,30,50' &&
+    M.militaryPower.map((m) => m.difficulty).join(',') === '0,1,2,3,4,5');
+  check('Skill upkeep: 8→8W, 9→12W, 10→24W', (() => {
+    const by = Object.fromEntries(M.skillUpkeep.map((s) => [s.skill, s.wealth]));
+    return by['8'] === 8 && by['9'] === 12 && by['10'] === 24; })());
+  check('21 construction, 24 boon, 12 personal ventures',
+    M.constructionVentures.length === 21 && M.boonVentures.length === 24 && M.personalVentures.length === 12);
+  check('Ventures: 2/session, +3 unused, extra dice 5/10/15',
+    M.ventureRules.perSession === 2 && M.ventureRules.tradeUnused === 3 &&
+    M.ventureRules.extraDieCosts.join('/') === '5/10/15');
+  check('Events by status: Dangerous Opp 1–8 / Crisis 13–20; Respected Crisis 16–20',
+    M.eventsByStatus[4].opportunity === '1–8' && M.eventsByStatus[4].crisis === '13–20' &&
+    M.eventsByStatus[1].crisis === '16–20');
+  check('10 opportunities + ≥9 crises; Convenient Misfortune at 19–20',
+    M.opportunities.length === 10 && M.crises.length >= 9 &&
+    M.opportunities[9].name === 'Convenient Misfortune');
+  check('End-of-year Wealth theft: 1–7 none, 20 loses 20; ascension has 3 transitions',
+    M.endOfYear.wealthTheft[0].lost === 0 && M.endOfYear.wealthTheft[4].lost === 20 && M.ascension.length === 3);
+  // The management chapter corroborates the income + skill-array numbers already in the data.
+  check('Income corroborated: Machinery P 12R/32W, Expertise P 6R/44W, floor 2R/10W',
+    HM.subtypeIncome.machinery.primary.resources === 12 && HM.subtypeIncome.machinery.primary.wealth === 32 &&
+    HM.subtypeIncome.expertise.primary.wealth === 44 && HM.minimum.resources === 2 && HM.minimum.wealth === 10);
+}
+
 console.log('— Core House domain detail + starting Threat (Core Rulebook House chapter) —');
 check('Core starting Threat per player: Nascent 0 · Minor 1 · Major 2 · Great 3',
   DATA.houseStartingThreat.nascent === 0 && DATA.houseStartingThreat.minor === 1 &&

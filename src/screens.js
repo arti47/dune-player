@@ -330,6 +330,80 @@ export function renderRules(root) {
         el('p', { class: 'small muted' }, el('strong', {}, 'Banner: '), `${h.colors} · ${h.crest}`),
         el('p', { class: 'small' }, el('strong', {}, 'Primary: '), h.primary.map(domLine).join('; ')),
         el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), h.secondary.map(domLine).join('; ')))))));
+
+    // House Management subsystem (T36) — the yearly session, all greatGame-gated reference.
+    const HM = GREAT_GAME.houseManagement.management;
+
+    cards.push(ruleCard('House management — the yearly session', el('div', {},
+      el('p', { class: 'small muted' }, HM.cadence),
+      table(['Step', 'What happens'], HM.steps.map((s) => [s.name + (s.optional ? ' (optional)' : ''), s.desc])))));
+
+    cards.push(ruleCard('House skills & NPC Houses', el('div', {},
+      ...Object.entries(HM.skillMeanings).map(([k, v]) => el('p', { class: 'small' }, el('strong', {}, capitalize(k) + ': '), v)),
+      el('p', { class: 'small muted' }, `A House skill maxes at ${HM.skillMaximum}.`),
+      el('h4', {}, 'NPC House drive by Hatred'),
+      table(['Hatred', 'Drive'], HM.npcHouseHatredDrive.map((r) => [r.hatred, String(r.drive)])),
+      el('p', { class: 'small muted' }, 'Suggested statement types: ' +
+        Object.entries(HM.npcHouseDriveStatements).map(([d, list]) => `${capitalize(d)} — ${list.join(', ')}`).join(' · ')))));
+
+    cards.push(ruleCard('House status & reputation', el('div', {},
+      el('p', { class: 'small' }, HM.status.note),
+      el('p', { class: 'small muted' }, 'Starting status: ' +
+        Object.entries(HM.status.startingByType).map(([t, s]) => `${capitalize(t)} ${s}`).join(' · ')),
+      table(['Level', 'Minor', 'Major', 'Great', 'Effect'],
+        HM.status.levels.map((l) => [l.name, l.minor, l.major, l.great, l.effect])))));
+
+    cards.push(ruleCard('House domains & space', el('div', {},
+      el('p', { class: 'small' }, HM.space.note),
+      table(['House', 'Starting spaces'], Object.entries(HM.space.byType).map(([t, n]) => [capitalize(t), String(n)])),
+      el('p', { class: 'small muted' }, `A planet holds ~${HM.space.planet} spaces, a moon ~${HM.space.moon}. Each primary domain uses ${HM.space.primaryDomainSpaces} spaces, each secondary ${HM.space.secondaryDomainSpaces}. ${HM.space.domainLossNote}`))));
+
+    cards.push(ruleCard('House upkeep', el('div', {},
+      el('h4', {}, 'Military Power'),
+      table(['Level', 'War Difficulty', 'Upkeep', 'Notes'], HM.militaryPower.map((m) => [m.level, String(m.difficulty), `${m.upkeep} W`, m.desc])),
+      el('h4', {}, 'Population Loyalty'),
+      table(['Level', 'Upkeep', 'Modifier', 'Notes'], HM.populationLoyalty.map((p) => [p.level, `${p.upkeep} W`, p.modifier, p.desc])),
+      el('h4', {}, 'Lifestyle'),
+      table(['Level', 'Upkeep', 'Trait', 'Notes'], HM.lifestyle.map((l) => [l.level, `${l.upkeep} W`, l.trait || '—', l.desc])),
+      el('h4', {}, 'Skill upkeep'),
+      table(['Skill', 'Wealth'], HM.skillUpkeep.map((s) => [s.skill, String(s.wealth)])),
+      el('p', { class: 'small muted' }, HM.skillUpkeepNote),
+      el('h4', {}, 'Role upkeep (beyond the free quota)'),
+      el('p', { class: 'small muted' }, 'Free extra roles by type: ' +
+        Object.entries(HM.additionalRoles).map(([t, n]) => `${capitalize(t)} ${n}`).join(' · ')),
+      table(['Role', 'Wealth', 'Note'], HM.roleUpkeep.map((r) => [r.role, String(r.wealth), r.note || ''])))));
+
+    cards.push(ruleCard('House roles (management benefits)', el('div', {},
+      ...Object.entries(HM.roleBenefits).map(([role, benefit]) => el('p', { class: 'small' }, el('strong', {}, role + ': '), benefit)))));
+
+    cards.push(ruleCard('House ventures', el('div', {},
+      el('p', { class: 'small' }, HM.ventureRules.test),
+      el('p', { class: 'small muted' }, `${HM.ventureRules.perSession} ventures/session (+1 for ${HM.ventureRules.buyExtraCost} Wealth; unused → +${HM.ventureRules.tradeUnused} Wealth). Extra dice cost ${HM.ventureRules.extraDieCosts.join('/')} Wealth. ${HM.ventureRules.convert} ${HM.ventureRules.forcedLabor}`),
+      el('details', { class: 'tips' }, el('summary', {}, `Construction ventures (${HM.constructionVentures.length})`),
+        table(['Venture', 'Cost', 'Skill', 'Succ.', 'Effect'], HM.constructionVentures.map((v) => [v.name, v.cost, v.skill, String(v.successes), v.desc]))),
+      el('details', { class: 'tips' }, el('summary', {}, `Boon ventures (${HM.boonVentures.length})`),
+        el('p', { class: 'small muted' }, HM.boonStatusNote),
+        table(['Boon', 'Cost', 'Skill', 'Succ.', 'Effect'], HM.boonVentures.map((v) => [v.name, v.cost, v.skill, String(v.successes), v.desc])),
+        el('p', { class: 'small muted' }, 'Improve Skills: ' +
+          HM.improveSkillTable.map((r) => `${r.current}→ ${r.wealth}W/D${r.difficulty}`).join(' · '))),
+      el('details', { class: 'tips' }, el('summary', {}, `Personal ventures (${HM.personalVentures.length})`),
+        table(['Venture', 'Skill', 'Diff.', 'Effect'], HM.personalVentures.map((v) => [v.name, v.skill, String(v.difficulty), v.desc]))))));
+
+    cards.push(ruleCard('House events', el('div', {},
+      table(['Status column', 'Opportunity', 'Crisis'], HM.eventsByStatus.map((e) => [e.column, e.opportunity, e.crisis])),
+      el('details', { class: 'tips' }, el('summary', {}, 'Opportunities (d20)'),
+        table(['Roll', 'Event', 'Detail'], HM.opportunities.map((o) => [o.roll, o.name, o.desc]))),
+      el('details', { class: 'tips' }, el('summary', {}, 'Crises (d20)'),
+        table(['Roll', 'Event', 'Detail'], HM.crises.map((c) => [c.roll, c.name, c.desc])),
+        el('p', { class: 'small muted' }, HM.crisesGap)))));
+
+    cards.push(ruleCard('House ascension, end of year & warfare', el('div', {},
+      ...HM.ascension.map((a) => el('p', { class: 'small' }, el('strong', {}, a.from + ': '), a.reqs)),
+      el('h4', {}, 'End of year'),
+      el('p', { class: 'small muted' }, `Stockpile up to ${HM.endOfYear.resourceStockpile} Resources (more with Storage Facilities). ${HM.endOfYear.wealthNote}`),
+      table(['Theft roll', 'Wealth lost'], HM.endOfYear.wealthTheft.map((w) => [w.roll, String(w.lost)])),
+      el('h4', {}, 'Warfare'),
+      el('p', { class: 'small' }, HM.warfareNote))));
   }
 
   search.addEventListener('input', () => {
