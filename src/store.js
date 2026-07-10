@@ -52,6 +52,7 @@ export function setCurrentCharacterId(id) {
 // ---------- House (shared campaign entity; local mirror in local mode) ----------
 export function getHouse() { return normalizeHouse(readJSON(K_HOUSE, null)); }
 export function saveHouse(house) { writeJSON(K_HOUSE, house); notify('house'); }
+export function deleteHouse() { localStorage.removeItem(K_HOUSE); notify('house'); }
 
 // ---------- Pools (Momentum group pool, Threat mirror for local play) ----------
 export function getPools() { return readJSON(K_POOLS, { momentum: 0, threat: 0 }); }

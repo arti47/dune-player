@@ -5,7 +5,7 @@
 
 import { el, rollD20s, clamp } from './core.js';
 import { modal, showToast, confirmModal } from './ui.js';
-import { getHouse, saveHouse } from './store.js';
+import { getHouse, saveHouse, deleteHouse } from './store.js';
 import { normalizeHouse } from './derived.js';
 import { Settings } from './settings.js';
 import { EXPANSION as GG } from '../data-great-game.js';
@@ -218,7 +218,13 @@ function renderTracker(root, house, render) {
     el('div', { class: 'grid-2' },
       stepper('Wealth', () => house.wealth || 0, (v) => { house.wealth = v; }, 0),
       stepper('Resources', () => house.resources || 0, (v) => { house.resources = v; }, 0),
-      stepper('Status', () => mgmt.status, (v) => { mgmt.status = v; }, 0))));
+      stepper('Status', () => mgmt.status, (v) => { mgmt.status = v; }, 0)),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: () => openLoadExample(render) }, 'Load another House'),
+      el('button', { class: 'btn danger-btn', onclick: async () => {
+        if (!await confirmModal(`Delete ${house.name || 'this House'}? This removes the House and its management state for everyone on this device.`, { okLabel: 'Delete' })) return;
+        deleteHouse(); showToast('House deleted'); render();
+      } }, 'Delete House'))));
 
   // Domains + income
   root.append(el('section', { class: 'card' },
