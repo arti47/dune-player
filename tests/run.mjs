@@ -359,6 +359,15 @@ check('Merchant prints its assets (Information Network, Ornithopter, Warehouse) 
   (() => { const m = NPCS.archetypes.find((n) => n.id === 'merchant');
     return m.assets.length === 3 && m.assets.includes('Information Network') &&
       m.assets.includes('Ornithopter') && m.assets.includes('Warehouse'); })());
+check('T28 audit spot-checks vs owner transcriptions (2026-07-10): RevMother Understand 8/faith stmt · Water Seller Battle 2 · Fremen Warrior Battle 8/Faith 8 · Tleilaxu Master Justice 3/Understand 7 · Sardaukar Duty 8/Battle 8',
+  (() => { const get = (id) => NPCS.archetypes.find((n) => n.id === id);
+    const rm = get('beneGesseritReverendMother'), ws = get('waterSeller'),
+      fw = get('fremenWarrior'), tm = get('tleilaxuMaster'), sd = get('sardaukar');
+    return rm.skills.understand === 8 && rm.statements.faith &&
+      ws.skills.battle === 2 &&
+      fw.skills.battle === 8 && fw.drives.faith === 8 &&
+      tm.drives.justice === 3 && tm.skills.understand === 7 &&
+      sd.drives.duty === 8 && sd.skills.battle === 8; })());
 
 console.log('— Data invariants (ledger 0e: T29 iconic stat blocks) —');
 check('12 iconics (incl. Paul, owner-transcribed), unique ids', NPCS.iconics.length === 12 &&
