@@ -171,11 +171,16 @@ check('Faction mandatory talents resolve to catalog entries (Foreknowledge = kno
     DATA.talents.some((t) => n.replace(/\s*\(.*\)$/, '').toLowerCase() === t.name.toLowerCase()))));
 
 console.log('— Data invariants (ledger 0d: assets + wealth) —');
-check('85 assets (real count)', DATA.assets.length === 85);
+check('100 assets (Chapter 7 completeness pass)', DATA.assets.length === 100);
 const ASSET_CATS = DATA.assetRules.categories;
 check('Every asset: name, valid category, tangible ∈ {true,false,either}, numeric quality',
   DATA.assets.every((a) => a.name && ASSET_CATS.includes(a.category) &&
     [true, false, 'either'].includes(a.tangible) && Number.isFinite(a.quality) && a.rider));
+check('Chapter 7 additions present (Lasgun/Maula Pistol/Kindjal/Heighliner/Truthsayer Drug/…)',
+  ['Lasgun', 'Maula Pistol', 'Kindjal', 'Pulse-Sword', 'Ixian Damper', 'Maker Hooks', 'Stilltent',
+   'Naval Transport', 'Heighliner', 'Flip-Dart', 'Shigawire Garrote', 'Shere', 'Truthsayer Drug',
+   'Mentat Master of Assassins', 'Ambitious Newcomer', 'Intelligence']
+    .every((n) => DATA.assets.some((a) => a.name === n)));
 check('Troop Quality ladder: Conscript 0 · Shield Infantry 1 · Specialist 2 · Elite 3 (3–4) · Fedaykin 4 · Sardaukar 4',
   (() => { const q = (n) => DATA.assets.find((a) => a.name === n)?.quality;
     return q('Conscript') === 0 && q('Shield Infantry') === 1 && q('Specialist Troops') === 2 &&
