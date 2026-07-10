@@ -53,10 +53,11 @@ export const STATEMENT_MIN_DRIVE = Math.min(...DATA.creation.driveStatements.onD
 
 /**
  * §3.8 challenged-statement recovery via the −1/+1 route: lower the challenged drive by 1 and
- * raise the next-lowest drive by 1 (a swap that preserves the 8/7/6/5/4 array). The statement
- * survives only if the challenged drive stays ≥ 6, otherwise it's lost.
- * Returns { drives, driveStatements, kept, target } — or null when the route is unavailable
- * (the challenged drive is already the lowest, so there is nothing below it to raise).
+ * raise the next-lowest drive by 1 (a swap that preserves the 8/7/6/5/4 array). The challenged
+ * drive keeps its statement only if it stays ≥ 6, otherwise it's lost; and per the book, a drive
+ * **raised to** 6 gains a statement (the player writes it — `promotedNeedsStatement`).
+ * Returns { drives, driveStatements, kept, target, promotedNeedsStatement } — or null when the
+ * route is unavailable (the challenged drive is already the lowest, so nothing below it to raise).
  */
 export function recoverStatementByDriveShift(character, driveId) {
   const drives = { ...(character.drives || {}) };
@@ -75,7 +76,11 @@ export function recoverStatementByDriveShift(character, driveId) {
   const driveStatements = { ...(character.driveStatements || {}) };
   if (kept) driveStatements[driveId] = { ...driveStatements[driveId], challenged: false };
   else delete driveStatements[driveId];   // statement lost when the drive drops below 6
-  return { drives, driveStatements, kept, target };
+  // §3.8: "any drive increased to 6 gains a statement" — flag the promoted drive if it crossed
+  // the threshold from below and doesn't already carry a statement.
+  const promotedNeedsStatement = drives[target] >= STATEMENT_MIN_DRIVE
+    && targetVal < STATEMENT_MIN_DRIVE && !driveStatements[target];
+  return { drives, driveStatements, kept, target, promotedNeedsStatement };
 }
 
 /**

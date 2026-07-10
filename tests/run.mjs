@@ -514,13 +514,15 @@ check('STATEMENT_MIN_DRIVE is 6 (lowest statement-bearing creation rating)', STA
   // §3.8 −1/+1 route: challenged 8-drive swaps with the next-lowest (7); stays ≥6 → statement kept.
   const hi = recoverStatementByDriveShift(
     { drives: { duty: 8, faith: 7, justice: 6, power: 5, truth: 4 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');
-  check('recoverStatementByDriveShift: 8→7 swaps with 7→8, statement kept (≥6)',
-    hi && hi.drives.duty === 7 && hi.drives.faith === 8 && hi.kept === true && hi.driveStatements.duty.challenged === false);
-  // Challenged 6-drive drops to 5 → below 6 → statement lost.
+  check('recoverStatementByDriveShift: 8→7 swaps with 7→8, statement kept (≥6), no promotion',
+    hi && hi.drives.duty === 7 && hi.drives.faith === 8 && hi.kept === true &&
+    hi.driveStatements.duty.challenged === false && hi.promotedNeedsStatement === false);
+  // Challenged 6-drive drops to 5 → below 6 → statement lost; the 5→6 drive GAINS a statement (§3.8).
   const lo = recoverStatementByDriveShift(
     { drives: { duty: 6, faith: 5, justice: 4, power: 8, truth: 7 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');
-  check('recoverStatementByDriveShift: 6→5 swaps with 5→6, statement lost (<6)',
-    lo && lo.drives.duty === 5 && lo.drives.faith === 6 && lo.kept === false && !('duty' in lo.driveStatements));
+  check('recoverStatementByDriveShift: 6→5 loses its statement; the promoted 5→6 drive needs one',
+    lo && lo.drives.duty === 5 && lo.drives.faith === 6 && lo.kept === false &&
+    !('duty' in lo.driveStatements) && lo.promotedNeedsStatement === true);
   // Challenged lowest drive (4) → no lower drive → null (only "new statement" route in UI).
   const none = recoverStatementByDriveShift(
     { drives: { duty: 4, faith: 8, justice: 7, power: 6, truth: 5 }, driveStatements: { duty: { text: 'x', challenged: true } } }, 'duty');

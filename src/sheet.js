@@ -319,14 +319,31 @@ function recoverStatementDialog(c, driveId) {
 
   if (shift) {
     const label = `−1 ${driveName(driveId)} (${c.drives[driveId]}→${shift.drives[driveId]}) / +1 ${driveName(shift.target)} (${c.drives[shift.target]}→${shift.drives[shift.target]})`;
+    // §3.8: a drive raised to 6 gains a statement — the player writes it here.
+    const promotedText = shift.promotedNeedsStatement
+      ? el('textarea', { rows: '2', placeholder: `A new ${driveName(shift.target)} belief`, 'aria-label': `New ${driveName(shift.target)} statement` })
+      : null;
     options.push(el('div', { class: 'recover-opt' },
       el('h4', {}, 'Shift a drive'),
       el('p', { class: 'small muted' }, shift.kept
         ? `The drive stays ≥ ${STATEMENT_MIN_DRIVE}, so the statement is kept.`
         : `The drive drops below ${STATEMENT_MIN_DRIVE}, so this statement is lost.`),
+      shift.promotedNeedsStatement
+        ? el('p', { class: 'small muted' }, `${driveName(shift.target)} rises to ${STATEMENT_MIN_DRIVE} and gains a statement — write it:`)
+        : null,
+      promotedText,
       el('button', { class: 'btn secondary', onclick: () => {
-        saveCharacter({ ...c, drives: shift.drives, driveStatements: shift.driveStatements });
-        close(); showToast(shift.kept ? 'Recovered — drive shifted, statement kept' : 'Drive shifted — statement lost'); refresh();
+        const driveStatements = { ...shift.driveStatements };
+        if (shift.promotedNeedsStatement) {
+          const t = promotedText.value.trim();
+          if (!t) { showToast(`Write the new ${driveName(shift.target)} statement first.`); return; }
+          driveStatements[shift.target] = { text: t, challenged: false };
+        }
+        saveCharacter({ ...c, drives: shift.drives, driveStatements });
+        close(); showToast(shift.promotedNeedsStatement
+          ? `Drive shifted — new ${driveName(shift.target)} statement written`
+          : (shift.kept ? 'Recovered — drive shifted, statement kept' : 'Drive shifted — statement lost'));
+        refresh();
       } }, label)));
   } else {
     options.push(el('p', { class: 'small muted' }, `This drive is already your lowest — the −1/+1 route isn’t available, so write a new statement.`));
