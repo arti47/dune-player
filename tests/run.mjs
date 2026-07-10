@@ -277,6 +277,27 @@ check('Every asset subtype has primary + secondary income (default subtype alway
     HM.subtypeIncome[st].primary && HM.subtypeIncome[st].secondary &&
     HM.subtypeIncome[st].primary.wealth > 0 && HM.subtypeIncome[st].secondary.wealth > 0));
 
+console.log('— Great Game example Houses of the Landsraad (crunch-only reference) —');
+{
+  const LH = GG.landsraadHouses;
+  const VALID_SUBTYPES = Object.keys(HM.subtypeIncome);   // machinery/produce/expertise/workers/understanding
+  check('18 example Houses extracted', Array.isArray(LH) && LH.length === 18);
+  check('Every example House has 2–3 traits, colors, crest, ≥1 primary + ≥1 secondary domain',
+    LH.every((h) => h.traits.length >= 2 && h.traits.length <= 3 && h.colors && h.crest &&
+      h.primary.length >= 1 && h.secondary.length >= 1));
+  check('Every domain entry uses a valid subtype + has a paraphrased note',
+    LH.every((h) => [...h.primary, ...h.secondary].every((d) => VALID_SUBTYPES.includes(d.subtype) && d.domain && d.note)));
+  check('type, when set, is one of the 4 core House types',
+    LH.every((h) => h.type === null || DATA.houseTypes.some((t) => t.id === h.type)));
+  check('Spot-check: Atreides Great, Honorable/Popular, pundi-rice primary Farming(produce)',
+    (() => { const a = LH.find((h) => h.name === 'House Atreides');
+      return a && a.type === 'great' && a.traits.includes('Honorable') &&
+        a.primary[0].domain === 'Farming' && a.primary[0].subtype === 'produce'; })());
+  check('Spot-check: Wydras 3 traits, Espionage(understanding) primary',
+    (() => { const w = LH.find((h) => h.name === 'House Wydras');
+      return w && w.traits.length === 3 && w.primary[0].domain === 'Espionage' && w.primary[0].subtype === 'understanding'; })());
+}
+
 console.log('— Core House domain detail + starting Threat (Core Rulebook House chapter) —');
 check('Core starting Threat per player: Nascent 0 · Minor 1 · Major 2 · Great 3',
   DATA.houseStartingThreat.nascent === 0 && DATA.houseStartingThreat.minor === 1 &&

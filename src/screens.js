@@ -319,6 +319,19 @@ export function renderRules(root) {
       ? el('p', { class: 'small muted' }, `Great Game adds the House skill values (${GREAT_GAME.houseManagement.skillArrays.major.join('/')} for a Major) and the domain income table.`)
       : null)));
 
+  // Example Houses of the Landsraad — Great Game reference (crunch only), toggle-gated.
+  if (Settings.greatGame()) {
+    const domLine = (d) => `${d.domain} (${capitalize(d.subtype)}) — ${d.note}`;
+    cards.push(ruleCard('Houses of the Landsraad', el('div', {},
+      el('p', { class: 'small muted' }, GREAT_GAME.landsraadHousesNote),
+      ...GREAT_GAME.landsraadHouses.map((h) => el('details', { class: 'tips' },
+        el('summary', {}, `${h.name}${h.type ? ` · ${capitalize(h.type)}` : ''}`),
+        el('p', { class: 'small' }, el('strong', {}, 'Traits: '), h.traits.join(', ')),
+        el('p', { class: 'small muted' }, el('strong', {}, 'Banner: '), `${h.colors} · ${h.crest}`),
+        el('p', { class: 'small' }, el('strong', {}, 'Primary: '), h.primary.map(domLine).join('; ')),
+        el('p', { class: 'small' }, el('strong', {}, 'Secondary: '), h.secondary.map(domLine).join('; ')))))));
+  }
+
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();
     cards.forEach((c) => {
