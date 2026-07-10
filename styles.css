@@ -227,6 +227,7 @@ label.field > span { display: block; font-size: 0.8rem; color: var(--muted); mar
 
 /* ---------- Home / list ---------- */
 .cta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
 .char-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .char-list li { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .char-list li:last-child { border-bottom: none; }

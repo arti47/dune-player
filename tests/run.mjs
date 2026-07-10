@@ -22,7 +22,7 @@ const SHELL_FILES = [
   'firebase-config.js', 'database.rules.json', 'README.md', 'CLAUDE.md',
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
   'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/content.js', 'src/sheet.js',
-  'src/combat.js', 'src/gm.js', 'src/screens.js', 'src/router.js', 'src/main.js',
+  'src/combat.js', 'src/gm.js', 'src/house.js', 'src/screens.js', 'src/router.js', 'src/main.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
 
@@ -337,6 +337,42 @@ console.log('— Great Game House Management subsystem (T36) —');
   check('Income corroborated: Machinery P 12R/32W, Expertise P 6R/44W, floor 2R/10W',
     HM.subtypeIncome.machinery.primary.resources === 12 && HM.subtypeIncome.machinery.primary.wealth === 32 &&
     HM.subtypeIncome.expertise.primary.wealth === 44 && HM.minimum.resources === 2 && HM.minimum.wealth === 10);
+}
+
+console.log('— House Management tracker (src/house.js pure logic) —');
+{
+  // Minimal in-memory localStorage so instantiateExampleHouse (which saves) runs in node.
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const HOUSE = await import(join(root, 'src/house.js'));
+  check('domainIncome floors: societal secondary Understanding = 2R (3−1) / 26W (22+4)',
+    (() => { const i = HOUSE.domainIncome('understanding', 'societal', 'secondary'); return i.resources === 2 && i.wealth === 26; })());
+  check('domainIncome: tangible primary Machinery = 15R (12+3) / 26W (32−6)',
+    (() => { const i = HOUSE.domainIncome('machinery', 'tangible', 'primary'); return i.resources === 15 && i.wealth === 26; })());
+  check('resolveCategory tolerates non-canonical labels (Logistics→tangible, Farming/Industrial→tangible, Artistic→societal)',
+    HOUSE.resolveCategory('Logistics') === 'tangible' && HOUSE.resolveCategory('Farming/Industrial') === 'tangible' && HOUSE.resolveCategory('Artistic') === 'societal');
+  check('skillUpkeepFor ladder: 4→0, 6→2, 7→4, 8→8, 9→12, 10→24',
+    HOUSE.skillUpkeepFor(4) === 0 && HOUSE.skillUpkeepFor(6) === 2 && HOUSE.skillUpkeepFor(7) === 4 &&
+    HOUSE.skillUpkeepFor(8) === 8 && HOUSE.skillUpkeepFor(9) === 12 && HOUSE.skillUpkeepFor(10) === 24);
+  check('statusLevel: Major 45→Respected, Major 75→Problematic, Great 95→Dangerous, Nascent 15→Weak (Minor band)',
+    HOUSE.statusLevel('major', 45).name === 'Respected' && HOUSE.statusLevel('major', 75).name === 'Problematic' &&
+    HOUSE.statusLevel('great', 95).name === 'Dangerous' && HOUSE.statusLevel('nascent', 15).name === 'Weak');
+  check('instantiateExampleHouse(Atreides): Great, skills 9/8/7/6/5, status 65, income treats domains',
+    (() => {
+      const h = HOUSE.instantiateExampleHouse('House Atreides');
+      const inc = HOUSE.computeIncome(h);
+      return h && h.type === 'great' && h.management.active && h.management.status === 65 &&
+        h.skills.battle === 9 && h.skills.understand === 5 && inc.wealth > 0 && inc.resources > 0 &&
+        h.domains.length === 4 && h.traits.some((t) => t.name === 'Honorable');
+    })());
+  check('computeUpkeep sums skill upkeep + level costs (Atreides Great, default upkeep = 10 Life + skills)',
+    (() => {
+      const h = HOUSE.instantiateExampleHouse('House Atreides');
+      const up = HOUSE.computeUpkeep(h);
+      // skills 9/8/7/6/5 → 12+8+4+2+2 = 28; lifestyle Noble 10; military None 0; population Acceptance 10
+      return up.skills === 28 && up.lifestyle === 10 && up.population === 10 && up.total === 48;
+    })());
+  delete globalThis.localStorage;
 }
 
 console.log('— Core House domain detail + starting Threat (Core Rulebook House chapter) —');

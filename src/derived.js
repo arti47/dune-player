@@ -152,5 +152,18 @@ export function normalizeHouse(h) {
     traits: Array.isArray(h.traits) ? h.traits : [],       // [{ name, type: 'domain'|'reputation' }]
     roles: h.roles || {},                     // { roleId: characterId | npcName }
     enemies: Array.isArray(h.enemies) ? h.enemies : [],    // [{ hatred, reason }]
+    // Great Game House Management session state (T36). null until management is begun.
+    management: h.management ? {
+      active: h.management.active !== false,
+      status: Number.isFinite(h.management.status) ? h.management.status : 0,
+      year: Number.isFinite(h.management.year) ? h.management.year : 1,
+      venturesUsed: Number.isFinite(h.management.venturesUsed) ? h.management.venturesUsed : 0,
+      incomeCollected: !!h.management.incomeCollected,   // income taken this year?
+      upkeep: {
+        military: 'None', population: 'Acceptance', lifestyle: 'Noble',
+        ...(h.management.upkeep || {}),
+      },
+      log: Array.isArray(h.management.log) ? h.management.log.slice(-40) : [],   // recent session log
+    } : null,
   };
 }
