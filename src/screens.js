@@ -448,7 +448,7 @@ function dataCard() {
     showToast('Backup downloaded');
   };
 
-  const fileInput = el('input', { type: 'file', accept: 'application/json,.json', style: 'display:none' });
+  const fileInput = el('input', { type: 'file', 'aria-label': 'Choose a JSON backup file to import', accept: 'application/json,.json', style: 'display:none' });
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
     fileInput.value = '';

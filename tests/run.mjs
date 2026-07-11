@@ -41,6 +41,18 @@ const mainSrc = readFileSync(join(root, 'src/main.js'), 'utf8');
 check('main.js drives the update prompt (SKIP_WAITING message + controllerchange reload)',
   /postMessage\(\{ type: 'SKIP_WAITING' \}\)/.test(mainSrc) &&
   /controllerchange/.test(mainSrc) && /showActionToast/.test(mainSrc));
+// a11y: every modal gets an accessible name (explicit labelledBy, else derived from its heading);
+// confirm/prompt name themselves from their message; hidden file inputs carry an aria-label.
+const uiSrc = readFileSync(join(root, 'src/ui.js'), 'utf8');
+check('modal() names the dialog: role=dialog + aria-modal + aria-labelledby from heading fallback',
+  /role: 'dialog'/.test(uiSrc) && /'aria-modal': 'true'/.test(uiSrc) &&
+  /querySelector\('h1, h2, h3'\)/.test(uiSrc) && /setAttribute\('aria-labelledby'/.test(uiSrc));
+check('confirmModal + promptModal pass labelledBy from their message; prompt input is aria-labelledby',
+  (uiSrc.match(/labelledBy: msgId/g) || []).length >= 2 && /input[\s\S]*?'aria-labelledby': msgId/.test(uiSrc));
+const sheetSrc = readFileSync(join(root, 'src/sheet.js'), 'utf8');
+const screensSrc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+check('hidden file inputs carry an aria-label (MD import + JSON backup import)',
+  /type: 'file'[\s\S]*?'aria-label'/.test(sheetSrc) && /type: 'file'[\s\S]*?'aria-label'/.test(screensSrc));
 
 console.log('— Data invariants (ledger 0a) —');
 const { DATA } = await import(join(root, 'data.js'));

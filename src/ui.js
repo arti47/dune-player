@@ -3,6 +3,7 @@
 import { el, qs } from './core.js';
 
 let lastFocused = null;
+let modalTitleSeq = 0;
 
 /**
  * Open a modal. content: Node | Node[]. Returns close().
@@ -11,8 +12,18 @@ let lastFocused = null;
 export function modal(content, { labelledBy = null, onClose = null } = {}) {
   lastFocused = document.activeElement;
   const box = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' });
-  if (labelledBy) box.setAttribute('aria-labelledby', labelledBy);
   box.append(...[content].flat());
+  // Name the dialog for screen readers: explicit labelledBy wins; otherwise derive
+  // it from the first heading in the content (auto-assigning an id if it lacks one).
+  if (labelledBy) {
+    box.setAttribute('aria-labelledby', labelledBy);
+  } else {
+    const heading = box.querySelector('h1, h2, h3');
+    if (heading) {
+      if (!heading.id) heading.id = `modal-title-${++modalTitleSeq}`;
+      box.setAttribute('aria-labelledby', heading.id);
+    }
+  }
   const overlay = el('div', { class: 'modal-overlay' }, box);
 
   function close() {
@@ -68,9 +79,10 @@ export function confirmModal(message, { okLabel = 'Confirm', cancelLabel = 'Canc
     let done = false;
     const ok = el('button', { class: 'btn', onclick: () => { done = true; close(); resolve(true); } }, okLabel);
     const cancel = el('button', { class: 'btn secondary', onclick: () => { done = true; close(); resolve(false); } }, cancelLabel);
+    const msgId = `modal-msg-${++modalTitleSeq}`;
     const close = modal(
-      [el('p', {}, message), el('div', { class: 'modal-actions' }, cancel, ok)],
-      { onClose: () => { if (!done) resolve(false); } }
+      [el('p', { id: msgId }, message), el('div', { class: 'modal-actions' }, cancel, ok)],
+      { labelledBy: msgId, onClose: () => { if (!done) resolve(false); } }
     );
   });
 }
@@ -79,14 +91,15 @@ export function confirmModal(message, { okLabel = 'Confirm', cancelLabel = 'Canc
 export function promptModal(message, { placeholder = '', value = '', okLabel = 'OK' } = {}) {
   return new Promise((resolve) => {
     let done = false;
-    const input = el('input', { type: 'text', placeholder, value });
+    const msgId = `modal-msg-${++modalTitleSeq}`;
+    const input = el('input', { type: 'text', placeholder, value, 'aria-labelledby': msgId });
     const submit = () => { done = true; close(); resolve(input.value); };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
     const ok = el('button', { class: 'btn', onclick: submit }, okLabel);
     const cancel = el('button', { class: 'btn secondary', onclick: () => { done = true; close(); resolve(null); } }, 'Cancel');
     const close = modal(
-      [el('p', {}, message), input, el('div', { class: 'modal-actions' }, cancel, ok)],
-      { onClose: () => { if (!done) resolve(null); } }
+      [el('p', { id: msgId }, message), input, el('div', { class: 'modal-actions' }, cancel, ok)],
+      { labelledBy: msgId, onClose: () => { if (!done) resolve(null); } }
     );
     input.focus();
   });

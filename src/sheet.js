@@ -197,7 +197,7 @@ function chooseExportTargetDialog() {
 /** Hidden file input + button that imports a Markdown sheet, letting the user choose
  *  whether it becomes a new character or replaces an existing one. */
 function mdImportButton() {
-  const input = el('input', { type: 'file', accept: 'text/markdown,.md,.markdown,text/plain', style: 'display:none' });
+  const input = el('input', { type: 'file', 'aria-label': 'Choose a character Markdown file to import', accept: 'text/markdown,.md,.markdown,text/plain', style: 'display:none' });
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
     input.value = '';
