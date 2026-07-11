@@ -2,9 +2,10 @@
 
 import { qs } from './core.js';
 import { Settings } from './settings.js';
-import { showActionToast } from './ui.js';
+import { showActionToast, confirmModal } from './ui.js';
 import { initRouter } from './router.js';
 import { initSync } from './sync.js';
+import { listCharacters } from './store.js';
 
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -66,8 +67,19 @@ function initServiceWorker() {
   }).catch(() => { /* offline/file mode: fine */ });
 }
 
+// One-time first-launch onboarding prompt (§13 #4). Only for a genuinely new user
+// (no saved characters, tutorial never seen). Either choice marks it seen so it never nags.
+function maybeOfferTutorial() {
+  if (Settings.tutorial().seen || listCharacters().length) return;
+  Settings.setTutorial({ seen: true });
+  confirmModal('New to Dune: Adventures in the Imperium? Take a quick, hands-on tutorial that teaches the dice system in a few minutes.',
+    { okLabel: 'Learn to play', cancelLabel: 'Maybe later' })
+    .then((yes) => { if (yes) location.hash = '#/tutorial'; });
+}
+
 applyTheme();
 initThemeButton();
 initServiceWorker();
 initSync();
 initRouter();
+maybeOfferTutorial();

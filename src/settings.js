@@ -29,6 +29,14 @@ export const Settings = {
   // Surfaces
   gmScreen()           { return !!read().gmScreen; },
   advancedAutomation() { return !!read().advancedAutomation; },
+
+  // Onboarding & tutorial state (§13 sign-off): { seen, completedLessons[], pregenId }.
+  // seen gates the one-time first-launch prompt; completedLessons drives the menu ticks;
+  // pregenId remembers the learner's chosen demo character. Not a §8 feature toggle.
+  tutorial()           { return { seen: false, completedLessons: [], pregenId: null, ...(read().tutorial || {}) }; },
+  setTutorial(patch)   { const s = read(); s.tutorial = { ...this.tutorial(), ...patch }; write(s); },
+  markLessonDone(id)   { const t = this.tutorial(); if (!t.completedLessons.includes(id)) this.setTutorial({ completedLessons: [...t.completedLessons, id] }); },
+  restartTutorial()    { const s = read(); delete s.tutorial; write(s); },
 };
 
 /** Toggle metadata for the Settings screen. */

@@ -22,7 +22,7 @@ const SHELL_FILES = [
   'firebase-config.js', 'database.rules.json', 'README.md', 'CLAUDE.md',
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
   'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/content.js', 'src/sheet.js',
-  'src/combat.js', 'src/gm.js', 'src/house.js', 'src/screens.js', 'src/router.js', 'src/main.js',
+  'src/combat.js', 'src/gm.js', 'src/house.js', 'src/tutorial.js', 'src/screens.js', 'src/router.js', 'src/main.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
 
@@ -1192,6 +1192,42 @@ console.log('— Alternative drives: merge + swapped-drive character integrity �
   check('normalizeCharacter preserves a swapped drive set (no re-added Duty)',
     Object.keys(swapped.drives).length === 5 && swapped.drives.hate === 8 && swapped.drives.duty === undefined);
   check('target number works with a swapped-in drive (Battle 6 + Hate 8 = 14)', targetNumber(swapped, 'battle', 'hate') === 14);
+}
+
+console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
+{
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const { LESSONS } = await import(join(root, 'src/tutorial.js'));
+  const { PREGENS } = await import(join(root, 'data-pregens.js'));
+  const { normalizeCharacter } = await import(join(root, 'src/derived.js'));
+  const { Settings } = await import(join(root, 'src/settings.js'));
+  check('Six lessons defined; the first (Your first test) is available', LESSONS.length === 6 &&
+    LESSONS[0].id === 'first-test' && LESSONS[0].available === true);
+  check('Every lesson has id/title/summary; later five are marked coming-soon (not available yet)',
+    LESSONS.every((l) => l.id && l.title && l.summary) && LESSONS.slice(1).every((l) => !l.available));
+  check('firstTest lesson builds 5 stepped beats from a pregen sandbox, each with a title + render fn',
+    (() => {
+      const p = PREGENS[0];
+      const sb = { char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } };
+      const beats = LESSONS[0].beats(sb);
+      return Array.isArray(beats) && beats.length === 5 &&
+        beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
+    })());
+  // Tutorial state schema (§13 sign-off): settings.tutorial = { seen, completedLessons[], pregenId }.
+  check('Settings.tutorial() defaults to unseen / no lessons / no pregen',
+    (() => { const t = Settings.tutorial(); return t.seen === false && Array.isArray(t.completedLessons) && t.completedLessons.length === 0 && t.pregenId === null; })());
+  check('markLessonDone appends (dedups), setTutorial persists seen + pregenId, restartTutorial clears',
+    (() => {
+      Settings.setTutorial({ seen: true, pregenId: 'leto' });
+      Settings.markLessonDone('first-test'); Settings.markLessonDone('first-test');
+      const a = Settings.tutorial();
+      Settings.restartTutorial();
+      const b = Settings.tutorial();
+      return a.seen === true && a.pregenId === 'leto' && a.completedLessons.length === 1 &&
+        b.seen === false && b.completedLessons.length === 0 && b.pregenId === null;
+    })());
+  delete globalThis.localStorage;
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

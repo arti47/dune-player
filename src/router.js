@@ -6,6 +6,7 @@ import { renderHome, renderRules, renderSettings } from './screens.js';
 import { renderSheet } from './sheet.js';
 import { renderGM } from './gm.js';
 import { renderHouseManagement } from './house.js';
+import { renderTutorial } from './tutorial.js';
 
 const ROUTES = [
   { id: 'home',     label: 'Home',     ico: '⌂', render: renderHome },
@@ -14,15 +15,18 @@ const ROUTES = [
   { id: 'house',    label: 'House',    ico: '🏛', render: renderHouseManagement, gated: () => Settings.greatGame() },
   { id: 'settings', label: 'Settings', ico: '⚙', render: renderSettings },
   { id: 'gm',       label: 'GM',       ico: '👁', render: renderGM, gated: () => Settings.gmScreen() },
+  // Onboarding tutorial (Phase 7): routable but never in the bottom nav (§13 #4) —
+  // reached from the first-launch prompt + a Settings button only.
+  { id: 'tutorial', label: 'Learn',    ico: '🎓', render: renderTutorial, nav: false },
 ];
 
-function visibleRoutes() {
-  return ROUTES.filter((r) => !r.gated || r.gated());
-}
+// Routes that may render (gating passes). Nav shows the subset with nav !== false.
+function routableRoutes() { return ROUTES.filter((r) => !r.gated || r.gated()); }
+function visibleRoutes() { return routableRoutes().filter((r) => r.nav !== false); }
 
 export function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '') || 'home';
-  return visibleRoutes().find((r) => r.id === hash) || ROUTES[0];
+  return routableRoutes().find((r) => r.id === hash) || ROUTES[0];
 }
 
 export function navigate(id) {

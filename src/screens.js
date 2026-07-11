@@ -515,6 +515,17 @@ export function renderSettings(root) {
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel)),
     el('section', { class: 'card' }, el('h3', {}, 'Content & surfaces'), ...toggleRows),
+    el('section', { class: 'card' },
+      el('h3', {}, 'Learn to play'),
+      el('p', { class: 'small muted' }, 'A short, hands-on tutorial that teaches the 2d20 system with the app’s real dice engine.'),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn', onclick: () => { location.hash = '#/tutorial'; } }, 'Learn to play'),
+        Settings.tutorial().completedLessons.length || Settings.tutorial().pregenId
+          ? el('button', { class: 'btn secondary', onclick: async () => {
+              if (!await confirmModal('Restart the tutorial? This clears your lesson progress and chosen character.', { okLabel: 'Restart' })) return;
+              Settings.restartTutorial(); showToast('Tutorial reset'); location.hash = '#/tutorial';
+            } }, 'Restart tutorial')
+          : null)),
     dataCard(),
     el('section', { class: 'card' },
       el('h3', {}, 'About'),
