@@ -261,9 +261,10 @@ function renderTracker(root, house, render) {
     upSel('Military Power', M.militaryPower, 'military'),
     upSel('Population Loyalty', M.populationLoyalty, 'population'),
     upSel('Lifestyle', M.lifestyle, 'lifestyle'),
-    el('p', { class: 'small muted' }, `Skill upkeep ${upkeep.skills} W · Total upkeep ${upkeep.total} W.`),
-    el('button', { class: 'btn', onclick: () => {
+    el('p', { class: 'small muted' }, mgmt.upkeepPaid ? 'Upkeep already paid this year.' : `Skill upkeep ${upkeep.skills} W · Total upkeep ${upkeep.total} W.`),
+    el('button', { class: 'btn', disabled: mgmt.upkeepPaid ? '' : null, onclick: () => {
       house.wealth = Math.max(0, (house.wealth || 0) - upkeep.total);
+      mgmt.upkeepPaid = true;
       log(house, `Paid upkeep: −${upkeep.total}W (Mil ${upkeep.military}/Pop ${upkeep.population}/Life ${upkeep.lifestyle}/Skills ${upkeep.skills}).`); persist();
     } }, `Pay upkeep (${upkeep.total} W)`)));
 
@@ -357,14 +358,15 @@ function openVenture(house, v, render) {
       resultBlock,
       el('div', { class: 'modal-actions' },
         el('button', { class: 'btn secondary', onclick: () => close() }, 'Close'),
-        el('button', { class: 'btn', onclick: () => {
+        // A venture is a single test with dice bought up front — no free re-roll.
+        cfg.result ? null : el('button', { class: 'btn', onclick: () => {
           const n = 2 + cfg.bought;
           const values = rollD20s(n);
           const successes = values.reduce((a, d) => a + (d <= tn ? (d === 1 ? 2 : 1) : 0), 0);
           cfg.result = { values, successes, passed: successes >= cfg.required };
           if (buyCost) house.wealth = Math.max(0, (house.wealth || 0) - buyCost);
           draw();
-        } }, cfg.result ? 'Re-roll' : 'Roll venture'),
+        } }, 'Roll venture'),
         cfg.result ? el('button', { class: 'btn', onclick: () => {
           // Apply: pay cost, adjust status for boons, count the venture.
           if (cost) {
@@ -385,7 +387,7 @@ function endYear(house) {
   const before = house.resources || 0;
   house.resources = Math.min(M.endOfYear.resourceStockpile, before);
   const lost = before - house.resources;
-  mgmt.year += 1; mgmt.venturesUsed = 0; mgmt.incomeCollected = false;
+  mgmt.year += 1; mgmt.venturesUsed = 0; mgmt.incomeCollected = false; mgmt.upkeepPaid = false;
   log(house, `End of year ${mgmt.year - 1}${lost > 0 ? ` · lost ${lost}R over stockpile` : ''}. Year ${mgmt.year} begins.`);
 }
 

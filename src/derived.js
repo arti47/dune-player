@@ -159,6 +159,7 @@ export function normalizeHouse(h) {
       year: Number.isFinite(h.management.year) ? h.management.year : 1,
       venturesUsed: Number.isFinite(h.management.venturesUsed) ? h.management.venturesUsed : 0,
       incomeCollected: !!h.management.incomeCollected,   // income taken this year?
+      upkeepPaid: !!h.management.upkeepPaid,              // upkeep paid this year?
       upkeep: {
         military: 'None', population: 'Acceptance', lifestyle: 'Noble',
         ...(h.management.upkeep || {}),

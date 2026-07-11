@@ -384,6 +384,12 @@ console.log('— House Management tracker (src/house.js pure logic) —');
       // skills 9/8/7/6/5 → 12+8+4+2+2 = 28; lifestyle Noble 10; military None 0; population Acceptance 10
       return up.skills === 28 && up.lifestyle === 10 && up.population === 10 && up.total === 48;
     })());
+  const { normalizeHouse } = await import(join(root, 'src/derived.js'));
+  check('normalizeHouse management defaults incomeCollected + upkeepPaid to false (once-per-year guards)',
+    (() => { const h = normalizeHouse({ management: { active: true } });
+      return h.management.incomeCollected === false && h.management.upkeepPaid === false; })());
+  check('normalizeHouse preserves a set upkeepPaid flag',
+    normalizeHouse({ management: { active: true, upkeepPaid: true } }).management.upkeepPaid === true);
   delete globalThis.localStorage;
 }
 
