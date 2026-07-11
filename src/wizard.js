@@ -790,6 +790,14 @@ export function buildCharacterInPlay(state) {
   const traits = [{ name: a.name, negative: false, source: 'archetype' }];
   if (f) traits.push({ name: f.trait, negative: false, source: 'faction' });
 
+  // §3.5 Creation in Play — archetype skills start at primary 7 / secondary 6 (rest at the floor,
+  // defined in play at 4/5/6), NOT the planned-creation 6/5 base — there is no +5-point step.
+  const cip = DATA.creationInPlay.skillArray;
+  const cipSkills = {};
+  for (const s of SKILL_IDS) cipSkills[s] = cip.rest;
+  cipSkills[a.primary] = cip.primary;
+  cipSkills[a.secondary] = cip.secondary;
+
   const talents = [];
   if (f && f.mandatoryTalents.mode === 'all') {
     for (const opt of f.mandatoryTalents.options) {
@@ -806,7 +814,7 @@ export function buildCharacterInPlay(state) {
       name: state.identity.name.trim() || 'Unnamed', archetype: a.id, factionTemplate: f ? f.id : null,
       houseRole: state.houseRole || null, appearance: '', ambition: '', portraitUrl: null, relationships: '',
     },
-    skills: { ...state.skills },   // archetype base (§Q3: pre-filled)
+    skills: cipSkills,   // Creation-in-Play base: primary 7 / secondary 6 / rest 4 (no +5 step)
     // drives omitted → normalizeCharacter defaults all five standard drives to 4 (the floor)
     driveStatements: {},
     focuses: [],

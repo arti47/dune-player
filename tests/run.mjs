@@ -100,10 +100,12 @@ check('Advancement earn triggers named (Pain/Failure/Peril/Ambition/Impressing t
   ['Pain', 'Failure', 'Peril', 'Ambition', 'Impressing the Group']
     .every((t) => DATA.advancement.earn.some((e) => e.trigger === t)) &&
   DATA.advancement.earn.every((e) => typeof e.trigger === 'string' && e.trigger.length));
-// §11 audit (Core advancement, owner-pasted p.139): Peril fires at 3+ Threat spent at once, not 4+.
-check('Advancement: Peril earns at GM spending 3+ Threat at once (not 4+)',
-  DATA.advancement.earn.some((e) => e.trigger === 'Peril' && /\b3\+ Threat\b/.test(e.desc)) &&
-  !DATA.advancement.earn.some((e) => /\b4\+ Threat\b/.test(e.desc)));
+// §11 audit: Peril fires at 4+ Threat spent at once. The main chapter text (p.138 "four or
+// more") is canonical over the p.139 quick-reference sidebar ("3 or more") — the two printed
+// sources disagree; the detailed prose wins (§2 corroboration).
+check('Advancement: Peril earns at GM spending 4+ Threat at once (p.138 main text, not the p.139 sidebar)',
+  DATA.advancement.earn.some((e) => e.trigger === 'Peril' && /\b4\+ Threat\b/.test(e.desc)) &&
+  !DATA.advancement.earn.some((e) => /\b3\+ Threat\b/.test(e.desc)));
 // §11 audit (Core House chapter, owner-pasted): enemy Hatred + Reason d20 tables + starting Threat/domains.
 check('House enemy Hatred d20: Dislike 1–5 / Rival 6–10 / Loathing 11–15 / Kanly 16–20',
   DATA.houseEnemies.hatred.map((h) => `${h.range}:${h.name}`).join('|') ===
@@ -597,6 +599,11 @@ check('Define-option use counts: trait 1 · skills 3 · focuses 2 · talents 2 �
       u.drives === 4 && u.ambition === 1 && u.assets === 2; })());
 check('Drive-importance table maps 1st–5th → 8/7/6/5/4 (matches the creation array)',
   JSON.stringify(CIP.driveImportance.map((d) => d.rating)) === JSON.stringify([...DATA.creation.driveArray]));
+// §11 audit (Core Ch.3 Creation-in-Play "Step Two"): archetype skills start at primary 7 /
+// secondary 6 (rest 4), higher than planned creation's 6/5 — there is no +5-point step.
+check('Creation-in-play skill base = primary 7 / secondary 6 / rest 4 (distinct from planned 6/5)',
+  CIP.skillArray.primary === 7 && CIP.skillArray.secondary === 6 && CIP.skillArray.rest === 4 &&
+  DATA.creation.skillArray.primary === 6 && DATA.creation.skillArray.secondary === 5);
 check('Creation-in-play notes cover the Determination grant + no-challenge-until-complete rules',
   CIP.notes.some((n) => /Determination/i.test(n)) && CIP.notes.some((n) => /challenge/i.test(n)));
 
@@ -955,13 +962,16 @@ console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
     stepsFor({ mode: 'inPlay' }).length === 2 &&
     stepsFor({ mode: 'inPlay' }).map((s) => s.title).join(',') === 'Concept,Archetype');
   {
-    // A "define in play" Warrior (Battle primary) starts incomplete: tracker active,
-    // skills at the archetype base, all five drives at the floor 4, nothing else defined yet.
+    // A "define in play" Warrior (Battle primary / Discipline secondary) starts incomplete:
+    // tracker active, skills at the Creation-in-Play base (primary 7 / secondary 6 / rest 4 —
+    // NOT the planned 6/5), all five drives at the floor 4, nothing else defined yet.
     const ip = buildCharacterInPlay({ mode: 'inPlay', archetype: 'warrior', factionTemplate: null,
-      identity: { name: 'Test' }, skills: { battle: 6, communicate: 4, discipline: 4, move: 5, understand: 4 } });
+      identity: { name: 'Test' } });
     check('buildCharacterInPlay starts an incomplete, active creation-in-play character',
       ip.creationInPlay.active === true && ip.creationInPlay.complete === false &&
-      ip.identity.name === 'Test' && ip.skills.battle === 6 &&
+      ip.identity.name === 'Test' &&
+      ip.skills.battle === 7 && ip.skills.discipline === 6 &&
+      ip.skills.communicate === 4 && ip.skills.move === 4 && ip.skills.understand === 4 &&
       Object.keys(ip.drives).length === 5 && Object.values(ip.drives).every((v) => v === 4) &&
       ip.focuses.length === 0 && ip.assets.length === 0 &&
       ip.traits.some((t) => t.source === 'archetype') &&

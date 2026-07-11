@@ -781,7 +781,7 @@ export const DATA = {
       { trigger: 'Ambition', desc: 'Ambition progress — major contribution', points: 3 },
       { trigger: 'Pain', desc: 'Defeated in a conflict', points: 1 },
       { trigger: 'Failure', desc: 'Fail a Difficulty 3+ test', points: 1 },
-      { trigger: 'Peril', desc: 'GM spends 3+ Threat at once', points: 1 },
+      { trigger: 'Peril', desc: 'GM spends 4+ Threat at once', points: 1 },
       { trigger: 'Impressing the Group', desc: 'Group award for a standout plan/scene (max once per session per player)', points: 1 },
     ],
     costs: {
@@ -847,6 +847,10 @@ export const DATA = {
   // remaining choice is a limited-use "define" option ticked off until the character is complete.
   creationInPlay: {
     intro: 'You can start play with an incomplete character and reveal the rest during play. Defining an ability isn’t learning it — the character always had it; it just becomes known now. Assigning the highest option each time is tempting, but you’ll be left with your worst options, so plan what your character is good at long-term and let teammates shine at their own things.',
+    // Creation-in-Play "Step Two: Archetype" gives HIGHER starting skills than planned creation
+    // (primary 7, secondary 6) because there is no +5-point step — the other three are defined in
+    // play at 4/5/6. Distinct from creation.skillArray (planned: primary 6 / secondary 5 + 5 points).
+    skillArray: { primary: 7, secondary: 6, rest: 4 },
     // Each option = a limited number of "defines". A starting character keeps the archetype/
     // faction picks already made; these cover what remains.
     options: [
