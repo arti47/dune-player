@@ -44,13 +44,14 @@ function buyCost(n) {
 }
 
 /** Evaluate a rolled pool against a target number. Each die ≤ TN = 1 success; a natural 1, or
- *  (with an applicable focus) any die ≤ the Skill rating, crits for 2; each natural 20 = a
+ *  (with an applicable focus) any die ≤ the Skill rating, crits for 2; each die ≥ the
+ *  complication threshold (default 20 = Normal range; lower when the GM raises the range) = a
  *  complication. */
-export function evaluateDice(values, { tn, skillRating, focus }) {
+export function evaluateDice(values, { tn, skillRating, focus, complicationThreshold = 20 }) {
   return values.map((v) => {
     const success = v <= tn;
     const crit = success && (v === 1 || (focus && v <= skillRating));
-    return { value: v, success, crit, complication: v === 20, successes: crit ? 2 : success ? 1 : 0 };
+    return { value: v, success, crit, complication: v >= complicationThreshold, successes: crit ? 2 : success ? 1 : 0 };
   });
 }
 
@@ -71,6 +72,8 @@ export function openRollDialog(character, onDone = null) {
     bought: 0,
     buyWith: 'momentum',       // 'momentum' | 'threat'
     focus: false,
+    compRange: 'normal',       // GM-set complication range (Normal 20 … Treacherous 16–20)
+    succeedAtCost: false,       // after a failed roll: take a complication for a bare success
     autoOne: false,            // spend 1 Determination for one automatic 1 (crit)
     appliedTraits: new Set(),  // trait indices applied to this test (Difficulty modifiers)
     voice: 0,                  // auto-successes bought with Threat (Voice-style talent)
@@ -105,6 +108,8 @@ export function openRollDialog(character, onDone = null) {
       : targetNumber(character, cfg.skill, cfg.drive);
   }
   function render() { result ? renderResult() : renderConfig(); }
+  // GM-set complication range → the die value at/above which a complication occurs (Normal = 20).
+  function compThreshold() { return (DATA.complications.ranges.find((r) => r.id === cfg.compRange) || { threshold: 20 }).threshold; }
 
   // Calculated Prediction (§3.9): a preset Understand-D4 test that yields 1 prediction on
   // success, +1 per 2 Momentum spent afterward.
@@ -133,7 +138,7 @@ export function openRollDialog(character, onDone = null) {
       const success = v <= atn;
       const crit = success && (v === 1 || (a.focus && v <= (ch.skills[a.skill] ?? 4)));
       return { id: a.id, name: ch.identity.name || 'Unnamed', skill: a.skill, drive: a.drive,
-        value: v, success, crit, complication: v === 20, successes: crit ? 2 : success ? 1 : 0 };
+        value: v, success, crit, successes: crit ? 2 : success ? 1 : 0 };
     }).filter(Boolean);
   }
   // Talent-embedded automation, keyed off the machine-readable `auto` descriptors (§3.9).
@@ -258,6 +263,10 @@ export function openRollDialog(character, onDone = null) {
     const diffSel = el('select', { 'aria-label': 'Difficulty' },
       ...DATA.difficulty.map((d) => el('option', { value: String(d.value), selected: cfg.difficulty === d.value ? '' : null }, `${d.value} · ${d.name}`)));
     diffSel.addEventListener('change', () => { cfg.difficulty = Number(diffSel.value); render(); });
+
+    const compSel = el('select', { 'aria-label': 'Complication range' },
+      ...DATA.complications.ranges.map((r) => el('option', { value: r.id, selected: cfg.compRange === r.id ? '' : null }, `${r.name} · ${r.occursOn}`)));
+    compSel.addEventListener('change', () => { cfg.compRange = compSel.value; render(); });
 
     const cost = buyCost(cfg.bought);
     const buyDec = el('button', { class: 'step-btn', 'aria-label': 'Fewer bought dice', onclick: () => { if (cfg.bought > 0) { cfg.bought--; render(); } } }, '−');
@@ -430,6 +439,8 @@ export function openRollDialog(character, onDone = null) {
       el('div', { class: 'field' }, el('span', {}, `Buy extra dice (max ${MAX_DICE - BASE_DICE})`),
         el('div', { class: 'stepper' }, buyDec, el('span', { class: 'stat-val' }, String(cfg.bought)), buyInc)),
       cfg.bought ? el('div', { class: 'field' }, el('span', {}, `Cost: ${cost} ${cfg.buyWith === 'momentum' ? 'Momentum' : 'Threat'}`), buyWithSel) : null,
+      el('div', { class: 'field' }, el('span', {}, 'Complication range'), compSel,
+        el('span', { class: 'field-hint' }, cfg.compRange === 'normal' ? 'Complications on a natural 20 (default)' : `Complications on ${DATA.complications.ranges.find((r) => r.id === cfg.compRange).occursOn} — the GM raises this for riskier situations`)),
       el('label', { class: 'toggle-row', for: 'roll-focus' }, el('span', {}, `Applicable focus (crit on ≤ ${skillRating()})`), focusBox),
       el('label', { class: 'toggle-row', for: 'roll-auto1' },
         el('span', {}, eligible ? 'Spend 1 Determination: one automatic 1' : 'Determination: needs an unchallenged statement on this drive'),
@@ -447,6 +458,7 @@ export function openRollDialog(character, onDone = null) {
     for (let i = 0; i < values.length && forced > 0; i++, forced--) values[i] = 1;
     assistDice = cfg.assists.length ? rollAssists() : [];   // each assistant rolls a single d20 (§3.1)
     cfg.predExtra = 0;
+    cfg.succeedAtCost = false;   // fresh roll: don't carry a prior succeed-at-a-cost choice
     result = { values, reRolls: 0, talentRerolls: new Set() };   // talentRerolls: idxs of used free re-rolls
     render();
   }
@@ -454,19 +466,27 @@ export function openRollDialog(character, onDone = null) {
   // ---------- result ----------
   function renderResult() {
     if (result.auto) { renderAutoResult(); return; }
-    const dice = evaluateDice(result.values, { tn: tn(), skillRating: skillRating(), focus: cfg.focus });
+    const dice = evaluateDice(result.values, { tn: tn(), skillRating: skillRating(), focus: cfg.focus, complicationThreshold: compThreshold() });
     const diff = effDiff();
     const om = autoSuccessTalent();
     const bonusAuto = cfg.voice + (cfg.otherMemory && om ? om.auto.count : 0);   // Voice + Other Memory flat successes
     // Leader's own successes gate the assists (§3.1): assist successes count only if the leader scores ≥1.
     const leaderOwn = dice.reduce((n, d) => n + d.successes, 0) + bonusAuto;
     const assistSuccesses = leaderOwn >= 1 ? assistDice.reduce((n, a) => n + a.successes, 0) : 0;
-    const assistComplications = assistDice.filter((a) => a.complication).length;
-    const successes = leaderOwn + assistSuccesses;
-    const complications = dice.filter((d) => d.complication).length + assistComplications;
-    const passed = successes >= diff;    // tie → active wins (successes >= Difficulty)
-    const momentum = passed ? successes - diff : 0;
-    // Opposed failure banks the shortfall as defender Momentum (§3.1).
+    const assistComplications = assistDice.filter((a) => a.value >= compThreshold()).length;
+    const baseSuccesses = leaderOwn + assistSuccesses;
+    const baseComplications = dice.filter((d) => d.complication).length + assistComplications;
+    const basePassed = baseSuccesses >= diff;    // tie → active wins (successes >= Difficulty)
+    // Succeed at a cost (§Core): a failed roll may be turned into a bare success (meets the
+    // Difficulty exactly, 0 Momentum) by accepting one complication. Offered on any failure.
+    const sac = DATA.complications.succeedAtCost;
+    const sacAvailable = !basePassed && !cfg.coolAuto;
+    const sacOn = sacAvailable && cfg.succeedAtCost;
+    const successes = sacOn ? diff : baseSuccesses;
+    const complications = baseComplications + (sacOn ? sac.addsComplications : 0);
+    const passed = sacOn ? true : basePassed;
+    const momentum = passed ? successes - diff : 0;   // bare success on SAC → 0
+    // Opposed failure banks the shortfall as defender Momentum (§3.1) — negated if you succeed at a cost.
     const opposedShortfall = (cfg.opposed.on && !passed) ? diff - successes : 0;
     // Calculated Prediction: 1 base prediction on success, +1 per 2 Momentum spent afterward.
     const availMomentum = getPools().momentum + momentum
@@ -506,7 +526,7 @@ export function openRollDialog(character, onDone = null) {
       assistDice.length ? el('div', {},
         el('p', { class: 'small muted' }, leaderOwn >= 1 ? 'Assist dice' : 'Assist dice (void — you scored 0 successes)'),
         el('div', { class: 'dice-row' }, ...assistDice.map((a) => el('span', {
-          class: 'die ' + (a.complication ? 'comp' : a.crit ? 'crit' : a.success ? 'hit' : 'miss') + (leaderOwn >= 1 ? '' : ' miss'),
+          class: 'die ' + (a.value >= compThreshold() ? 'comp' : a.crit ? 'crit' : a.success ? 'hit' : 'miss') + (leaderOwn >= 1 ? '' : ' miss'),
           title: `${a.name}: ${SKILLS.find((s) => s.id === a.skill).name}+${driveName(a.drive)}` }, String(a.value)))) ) : null,
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${successes} success${successes === 1 ? '' : 'es'}`),
@@ -516,6 +536,13 @@ export function openRollDialog(character, onDone = null) {
         opposedShortfall ? el('span', { class: 'pill danger-pill' }, `defender +${opposedShortfall} Momentum`) : null,
         predictions ? el('span', { class: 'pill' }, `${predictions} prediction${predictions === 1 ? '' : 's'}`) : null),
       predStepper,
+      sacAvailable ? (() => {
+        const box = el('input', { type: 'checkbox', id: 'roll-sac' });
+        box.checked = cfg.succeedAtCost;
+        box.addEventListener('change', () => { cfg.succeedAtCost = box.checked; render(); });
+        return el('label', { class: 'toggle-row', for: 'roll-sac' },
+          el('span', {}, `Succeed at a cost: bare success for +${sac.addsComplications} complication`, cite('Skill test basics', close)), box);
+      })() : null,
       anyReroll ? el('p', { class: 'small muted' }, canReRoll
         ? `Tap dice to select, then re-roll (1 Determination each, ${detLeft} left${freeRerolls.length ? '; or a free talent re-roll' : ''}).`
         : 'Tap one die to select, then use a free talent re-roll below.') : null,
@@ -533,7 +560,7 @@ export function openRollDialog(character, onDone = null) {
           result.talentRerolls.add(idx);
           render();
         } }, `Re-roll one · ${def.name}${t.skill ? ` (${SKILLS.find((s) => s.id === t.skill)?.name})` : ''}`)),
-        el('button', { class: 'btn', onclick: () => commit({ successes, complications, passed, momentum, opposedShortfall, predictions, assistSuccesses }) }, 'Apply result')),
+        el('button', { class: 'btn', onclick: () => commit({ successes, complications, passed, momentum, opposedShortfall, predictions, assistSuccesses, succeedAtCost: sacOn }) }, 'Apply result')),
     );
   }
 
@@ -564,7 +591,7 @@ export function openRollDialog(character, onDone = null) {
     close();
   }
 
-  function commit({ successes, complications, passed, momentum, opposedShortfall = 0, predictions = 0, assistSuccesses = 0 }) {
+  function commit({ successes, complications, passed, momentum, opposedShortfall = 0, predictions = 0, assistSuccesses = 0, succeedAtCost = false }) {
     const pools = getPools();
     const cost = buyCost(cfg.bought);
     let momentumDelta = 0, threatDelta = 0;
@@ -584,6 +611,8 @@ export function openRollDialog(character, onDone = null) {
     if (detSpent) saveCharacter({ ...character, determination: clampDetermination(character.determination - detSpent) });
 
     const extras = [
+      succeedAtCost ? 'succeed at a cost' : null,
+      cfg.compRange !== 'normal' ? `${DATA.complications.ranges.find((r) => r.id === cfg.compRange).name} range` : null,
       cfg.architect ? `Architect (${house.name || 'House'} skill)` : null,
       cfg.opposed.on ? `opposed (Diff ${effDiff()})` : null,
       opposedShortfall ? `defender +${opposedShortfall} Momentum` : null,

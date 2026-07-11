@@ -793,6 +793,26 @@ const { evaluateDice } = await import(join(root, 'src/roller.js'));
   check('Success ≤ TN without focus crit is 1 success (12 ≤ 14, > skill 6)', d[3].success && !d[3].crit && d[3].successes === 1);
   check('Pool [1,20,5,12] focus tn14 skill6 → 5 successes, 1 complication', succ === 5 && comps === 1);
   check('Without focus, a die ≤ skill but > … only crits on nat 1', evaluateDice([5], { tn: 14, skillRating: 6, focus: false })[0].successes === 1);
+  // Adjustable complication range: a die ≥ the threshold = a complication (default 20 = Normal).
+  check('Complication range: default (no threshold) fires only on 20',
+    evaluateDice([19, 20], { tn: 14, skillRating: 6, focus: false }).filter((x) => x.complication).length === 1);
+  check('Complication range: Risky (threshold 19) fires on 19 and 20',
+    evaluateDice([18, 19, 20], { tn: 14, skillRating: 6, focus: false, complicationThreshold: 19 }).filter((x) => x.complication).length === 2);
+  check('Complication range: Treacherous (threshold 16) fires on 16–20',
+    evaluateDice([15, 16, 17], { tn: 14, skillRating: 6, focus: false, complicationThreshold: 16 }).filter((x) => x.complication).length === 2);
+}
+// §Core complication data: the 5-step range table + succeed-at-a-cost.
+check('DATA.complications.ranges: Normal 20 … Treacherous 16, thresholds 20/19/18/17/16',
+  DATA.complications.ranges.length === 5 &&
+  JSON.stringify(DATA.complications.ranges.map((r) => r.threshold)) === JSON.stringify([20, 19, 18, 17, 16]) &&
+  DATA.complications.ranges[0].id === 'normal' && DATA.complications.ranges[4].id === 'treacherous');
+check('DATA.complications.succeedAtCost: +1 complication for a 0-Momentum bare success',
+  DATA.complications.succeedAtCost.addsComplications === 1 && DATA.complications.succeedAtCost.momentumGenerated === 0);
+{
+  const roller2 = readFileSync(join(root, 'src/roller.js'), 'utf8');
+  check('Roller wires complication range (compThreshold → evaluateDice) + succeed-at-a-cost (bare success = diff, 0 Momentum)',
+    /complicationThreshold:\s*compThreshold\(\)/.test(roller2) &&
+    /sacOn\s*\?\s*diff\s*:\s*baseSuccesses/.test(roller2));
 }
 
 console.log('— Talent automation descriptors (roller: difficultyDelta + rerollOne) —');
@@ -817,7 +837,7 @@ console.log('— Phase 3 remaining: Architect mode, opposed/assist, T38 citation
   check('cite slug: title → stable rule id', slug('Skill test basics') === 'rule-skill-test-basics' && slug('Opposed tests') === 'rule-opposed-tests');
   const roller = readFileSync(join(root, 'src/roller.js'), 'utf8');
   check('Roller: Architect mode uses House skill + personal drive', /house\.skills\[cfg\.skill\]\s*\+\s*character\.drives\[cfg\.drive\]/.test(roller));
-  check('Roller: opposed tie goes to active (successes >= Difficulty)', /successes\s*>=\s*diff/.test(roller));
+  check('Roller: opposed tie goes to active (successes >= Difficulty)', /[Ss]uccesses\s*>=\s*diff/.test(roller));
   check('Roller: assist successes gated on leader ≥1 (leaderOwn)', /leaderOwn\s*>=\s*1/.test(roller));
   check('Roller: opposed failure banks shortfall as defender Momentum', /opposedShortfall/.test(roller) && /momentumDelta \+= opposedShortfall/.test(roller));
   check('Roller: cites the rules library (T38)', /cite\('Skill test basics'/.test(roller) && /cite\('Opposed tests'/.test(roller));

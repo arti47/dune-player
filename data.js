@@ -198,6 +198,18 @@ export const DATA = {
 
   // ---------- T08 · Complications ----------
   complications: {
+    // Complication range (GM-set per situation): a die at or above `threshold` causes a
+    // complication. Normal is the default (only a natural 20). §Core "Complications" table.
+    ranges: [
+      { id: 'normal',      name: 'Normal',      occursOn: '20',    threshold: 20 },
+      { id: 'risky',       name: 'Risky',       occursOn: '19–20', threshold: 19 },
+      { id: 'perilous',    name: 'Perilous',    occursOn: '18–20', threshold: 18 },
+      { id: 'precarious',  name: 'Precarious',  occursOn: '17–20', threshold: 17 },
+      { id: 'treacherous', name: 'Treacherous', occursOn: '16–20', threshold: 16 },
+    ],
+    // "Succeed at a cost": a failed roll may be changed to a bare success (meets the Difficulty
+    // exactly, generates no Momentum) if the character accepts one complication.
+    succeedAtCost: { addsComplications: 1, momentumGenerated: 0 },
     effects: [
       'Create a negative trait that limits your options',
       'The action takes 50% longer',

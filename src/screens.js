@@ -170,7 +170,12 @@ export function renderRules(root) {
       Object.entries(DATA.complications.examplesBySkill)
         .filter(([, list]) => list && list.length)
         .map(([skill, list]) => `${capitalize(skill)}: ${list.join(', ')}`)
-        .join(' — ')))));
+        .join(' — ')),
+    el('p', { class: 'small' }, el('strong', {}, 'Complication range. '),
+      'The GM raises the range in riskier situations; a die at or above the shown value causes a complication:'),
+    table(['Range', 'Complication on'], DATA.complications.ranges.map((r) => [r.name, r.occursOn])),
+    el('p', { class: 'small' }, el('strong', {}, 'Succeed at a cost. '),
+      `A failed roll may be changed to a bare success (meets the Difficulty exactly, generates no Momentum) if the character accepts ${DATA.complications.succeedAtCost.addsComplications} complication.`))));
 
   cards.push(ruleCard('Traits', el('div', {},
     el('p', { class: 'small' }, DATA.traitRule),
