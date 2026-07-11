@@ -304,26 +304,42 @@ function drivesBeats(sb) {
   const challengeWidget = () => {
     const wrap = el('div', {});
     const work = { drives: { ...c.drives }, driveStatements: JSON.parse(JSON.stringify(c.driveStatements || {})) };
-    const demo = rank(work.drives).find((d) => work.driveStatements[d] && work.driveStatements[d].text);
+    let note = '';   // transient feedback after a recover-by-shift
+    // The focus drive is recomputed every render (the ranking shifts as you recover): keep a
+    // crossed-out drive focused so Recover applies to it; otherwise focus the CURRENT
+    // highest-ranked drive that still carries a statement, so the next Challenge hits the top.
+    const focusDrive = () => {
+      const ranked = rank(work.drives);
+      return ranked.find((d) => work.driveStatements[d]?.text && work.driveStatements[d].challenged)
+        || ranked.find((d) => work.driveStatements[d]?.text);
+    };
     const draw = () => {
+      const demo = focusDrive();
       const st = demo ? work.driveStatements[demo] : null;
       let controls;
       if (!demo) {
-        controls = el('p', { class: 'small muted' }, 'This character has no statement to demonstrate.');
-      } else if (!st) {
-        controls = el('p', { class: 'small ok-banner' }, `Recovered by shifting the ranking — and because ${DRIVE_NAME[demo]} fell below ${STATEMENT_MIN_DRIVE}, its statement was lost.`);
+        controls = el('p', { class: 'small muted' }, 'No drive has a statement left to challenge — recover one to continue.');
       } else if (!st.challenged) {
         controls = el('div', { class: 'cta-row' },
-          el('button', { class: 'btn secondary', onclick: () => { st.challenged = true; draw(); } }, `Challenge the ${DRIVE_NAME[demo]} statement`));
+          el('button', { class: 'btn secondary', onclick: () => { note = ''; st.challenged = true; draw(); } }, `Challenge the ${DRIVE_NAME[demo]} statement`));
       } else {
         controls = el('div', {},
           el('p', { class: 'small' }, 'It’s crossed out — that drive is spent until you recover it, at the end of a scene or between adventures, one of two ways:'),
           el('div', { class: 'cta-row' },
-            el('button', { class: 'btn secondary', onclick: () => { st.challenged = false; draw(); } }, 'Write a new statement (rating unchanged)'),
-            el('button', { class: 'btn secondary', onclick: () => { const r = recoverStatementByDriveShift(work, demo); if (r) { work.drives = r.drives; work.driveStatements = r.driveStatements; draw(); } } },
-              `−1 ${DRIVE_NAME[demo]} / +1 the next-lowest`)));
+            el('button', { class: 'btn secondary', onclick: () => { note = `Recovered — you wrote a new ${DRIVE_NAME[demo]} statement; its rating is unchanged.`; st.challenged = false; draw(); } }, 'Write a new statement (rating unchanged)'),
+            el('button', { class: 'btn secondary', onclick: () => {
+              const r = recoverStatementByDriveShift(work, demo);
+              if (r) {
+                work.drives = r.drives; work.driveStatements = r.driveStatements;
+                note = r.kept
+                  ? `Recovered by shifting — ${DRIVE_NAME[demo]} dropped to ${r.drives[demo]} (still ≥ ${STATEMENT_MIN_DRIVE}), so it keeps its statement; ${DRIVE_NAME[r.target]} rose to ${r.drives[r.target]}.`
+                  : `Recovered by shifting — ${DRIVE_NAME[demo]} fell below ${STATEMENT_MIN_DRIVE}, so its statement was lost; ${DRIVE_NAME[r.target]} rose to ${r.drives[r.target]}.`;
+                draw();
+              }
+            } }, `−1 ${DRIVE_NAME[demo]} / +1 the next-lowest`)));
       }
-      setKids(wrap, driveList(work.drives, work.driveStatements), controls);
+      setKids(wrap, driveList(work.drives, work.driveStatements),
+        note ? el('p', { class: 'small ok-banner' }, note) : null, controls);
     };
     draw(); return wrap;
   };
