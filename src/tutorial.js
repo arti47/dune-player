@@ -9,7 +9,7 @@ import { el, clamp } from './core.js';
 import { showToast } from './ui.js';
 import { Settings } from './settings.js';
 import { evaluateDice } from './roller.js';
-import { targetNumber, normalizeCharacter, clampMomentum, clampDetermination } from './derived.js';
+import { targetNumber, normalizeCharacter, clampMomentum, clampDetermination, recoverStatementByDriveShift, STATEMENT_MIN_DRIVE } from './derived.js';
 import { startCharacterWizard } from './wizard.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
@@ -37,8 +37,8 @@ export const LESSONS = [
   },
   { id: 'pools', title: 'Momentum, Threat & Determination', available: true,
     summary: 'The three shared/personal resources that power the game.', beats: poolsBeats },
-  { id: 'drives', title: 'Drives & statements', available: false,
-    summary: 'Why your drives and their statements matter — and how they earn Determination.' },
+  { id: 'drives', title: 'Drives & statements', available: true,
+    summary: 'Why your drives and their statements matter — and how they earn Determination.', beats: drivesBeats },
   { id: 'create', title: 'Create your character', available: false,
     summary: 'Hand off to the real 8-step wizard and build a keeper.' },
   { id: 'conflict', title: 'Conflict & defeat', available: false,
@@ -278,6 +278,76 @@ function poolsBeats(sb) {
       b.append(
         el('p', { class: 'small' }, 'Momentum fuels the players, Threat fuels the GM, and Determination is your personal reserve. On a real sheet these live in the header bar above every in-play screen.'),
         el('p', { class: 'small muted' }, 'Next up: Drives & statements — where Determination comes from.'));
+    } },
+  ];
+}
+
+// ---------- Lesson 7d: Drives & statements ----------
+function drivesBeats(sb) {
+  const c = sb.char;
+  const rank = (drives) => Object.keys(drives).sort((a, b) => drives[b] - drives[a]);
+
+  // A read-only list of the demo character's drives, statements shown for 6+ drives.
+  const driveList = (drives, statements) => el('div', {}, ...rank(drives).map((d) => {
+    const st = statements[d];
+    return el('p', { class: 'small' }, el('strong', {}, `${DRIVE_NAME[d] || d} ${drives[d]}`),
+      st && st.text ? el('span', { class: 'small muted', style: st.challenged ? 'text-decoration:line-through' : '' }, ` — “${st.text}”`) : null);
+  }));
+
+  // Interactive challenge → recover widget on a LOCAL working copy (never the shared sandbox).
+  const challengeWidget = () => {
+    const wrap = el('div', {});
+    const work = { drives: { ...c.drives }, driveStatements: JSON.parse(JSON.stringify(c.driveStatements || {})) };
+    const demo = rank(work.drives).find((d) => work.driveStatements[d] && work.driveStatements[d].text);
+    const draw = () => {
+      const st = demo ? work.driveStatements[demo] : null;
+      let controls;
+      if (!demo) {
+        controls = el('p', { class: 'small muted' }, 'This character has no statement to demonstrate.');
+      } else if (!st) {
+        controls = el('p', { class: 'small ok-banner' }, `Recovered by shifting the ranking — and because ${DRIVE_NAME[demo]} fell below ${STATEMENT_MIN_DRIVE}, its statement was lost.`);
+      } else if (!st.challenged) {
+        controls = el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary', onclick: () => { st.challenged = true; draw(); } }, `Challenge the ${DRIVE_NAME[demo]} statement`));
+      } else {
+        controls = el('div', {},
+          el('p', { class: 'small' }, 'It’s crossed out — that drive is spent until you recover it, at the end of a scene or between adventures, one of two ways:'),
+          el('div', { class: 'cta-row' },
+            el('button', { class: 'btn secondary', onclick: () => { st.challenged = false; draw(); } }, 'Write a new statement (rating unchanged)'),
+            el('button', { class: 'btn secondary', onclick: () => { const r = recoverStatementByDriveShift(work, demo); if (r) { work.drives = r.drives; work.driveStatements = r.driveStatements; draw(); } } },
+              `−1 ${DRIVE_NAME[demo]} / +1 the next-lowest`)));
+      }
+      wrap.replaceChildren(driveList(work.drives, work.driveStatements), controls);
+    };
+    draw(); return wrap;
+  };
+
+  return [
+    { title: 'What drives are', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Your five drives — Duty, Faith, Justice, Power, Truth — are ranked 8 / 7 / 6 / 5 / 4 at creation. A drive is the second half of every Target Number, so a high drive makes tests in its cause easier.', cite('Drives')),
+        el('p', { class: 'small' }, `Each drive rated ${STATEMENT_MIN_DRIVE} or higher carries a written statement — a short belief that says what that drive means to you.`, cite('Drive statements')));
+    } },
+    { title: `${c.identity.name}’s drives`, render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Here’s how they line up — the top three each carry a statement:'),
+        driveList(c.drives, c.driveStatements || {}));
+    } },
+    { title: 'Statements unlock Determination', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'A statement is what lets you spend Determination: it must support the thing you’re trying to do. No supporting statement, no spend — the gate you met last lesson.'),
+        el('p', { class: 'small muted' }, 'And writing a brand-new statement in play earns you 1 Determination on the spot.'));
+    } },
+    { title: 'Challenge & recover', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'When a statement gets in the way, the GM can offer you Determination to act against it. Take it and you challenge the statement: cross it out (that drive is spent) for the reward. Recover it later by writing a new statement, or by dropping that drive 1 and raising the next-lowest.', cite('Drive statements')),
+        challengeWidget(),
+        el('p', { class: 'small muted' }, 'Try challenging, then recover both ways — nothing here changes your real character.'));
+    } },
+    { title: 'Drives drive the story', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Drives set your Target Numbers, statements gate Determination, and challenging them is how your character grows and earns grit.'),
+        el('p', { class: 'small muted' }, 'Next up: Create your character — the real thing.'));
     } },
   ];
 }
