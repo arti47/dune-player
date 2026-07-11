@@ -178,6 +178,19 @@ export const DATA = {
   ],
   threatNote: 'NPC actions that would hand a player character Threat instead spend it from the pool.',
 
+  // Starting Threat + how the pool is GENERATED (the spends above are how it's used).
+  threat: {
+    perPlayer: 2,   // the GM begins an adventure with 2 Threat per player (baseline)
+    startNote: 'The GM begins an adventure with about 2 Threat per player, adjusted for the stakes or the players’ power. A player-character House also sets a starting Threat by its type (Nascent 0 / Minor 1 / Major 2 / Great 3) — see House type & Threat.',
+    generation: [
+      { source: 'Player buys dice',              by: 'Player', amount: '1 / 2 / 3', desc: 'Lacking Momentum, a player may buy up to 3 extra d20s by adding 1, then 2, then 3 Threat.' },
+      { source: 'Player buys off a complication', by: 'Player', amount: '2',        desc: 'Ignore a complication (a rolled 20) by adding 2 Threat instead of suffering it.' },
+      { source: 'Escalating the situation',       by: 'Player', amount: '1',        desc: 'Taking an action that makes things significantly more dangerous or unpredictable adds 1 Threat.' },
+      { source: 'Threatening circumstances',      by: 'GM',     amount: '1–2',      desc: 'A perilous environment, a triggered alarm, or the arrival of dangerous NPCs generates 1–2 Threat.' },
+      { source: 'Unspent NPC Momentum',           by: 'GM',     amount: 'varies',   desc: 'NPCs have no shared pool — any Momentum an NPC doesn’t immediately spend is added to Threat.' },
+    ],
+  },
+
   // ---------- T07 · Determination ----------
   determination: {
     startPerAdventure: 1,

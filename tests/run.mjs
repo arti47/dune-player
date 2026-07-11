@@ -80,6 +80,12 @@ check('Momentum cap 6, decay 1/scene',
   DATA.momentumRules.cap === 6 && DATA.momentumRules.sceneDecay === 1);
 check('Momentum spends ≥ 9', DATA.momentumSpends.length >= 9);
 check('Threat spends ≥ 7', DATA.threatSpends.length >= 7);
+check('Threat: starts at 2 per player + 5 generation rules (3 player, 2 GM), each well-formed',
+  DATA.threat.perPlayer === 2 && Array.isArray(DATA.threat.generation) && DATA.threat.generation.length === 5 &&
+  DATA.threat.generation.filter((g) => g.by === 'Player').length === 3 &&
+  DATA.threat.generation.filter((g) => g.by === 'GM').length === 2 &&
+  DATA.threat.generation.every((g) => g.source && g.amount && g.desc) &&
+  typeof DATA.threat.startNote === 'string' && DATA.threat.startNote.length > 20);
 check('Determination: start 1, cap 3, 4 spends',
   DATA.determination.startPerAdventure === 1 && DATA.determination.cap === 3 &&
   DATA.determination.spends.length === 4);

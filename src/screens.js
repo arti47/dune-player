@@ -148,8 +148,13 @@ export function renderRules(root) {
   cards.push(ruleCard('Momentum spends', table(['Spend', 'Cost', 'Effect'],
     DATA.momentumSpends.map((s) => [s.name, s.cost, s.desc]))));
 
-  cards.push(ruleCard('Threat spends (GM)', table(['Spend', 'Cost', 'Effect'],
-    DATA.threatSpends.map((s) => [s.name, s.cost, s.desc]))));
+  cards.push(ruleCard('Threat spends (GM)', el('div', {},
+    el('p', { class: 'small muted' }, DATA.threat.startNote),
+    el('h4', {}, 'How Threat is generated'),
+    table(['Source', 'By', 'Adds', 'When'], DATA.threat.generation.map((g) => [g.source, g.by, g.amount, g.desc])),
+    el('p', { class: 'small muted' }, DATA.threatNote),
+    el('h4', {}, 'How the GM spends Threat'),
+    table(['Spend', 'Cost', 'Effect'], DATA.threatSpends.map((s) => [s.name, s.cost, s.desc])))));
 
   cards.push(ruleCard('Determination', el('div', {},
     el('p', { class: 'small' }, `Start each adventure with ${DATA.determination.startPerAdventure}; pool cap ${DATA.determination.cap}. A drive statement must support the action to spend.`),

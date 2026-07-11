@@ -5,6 +5,7 @@
 import { el, capitalize, d20 } from './core.js';
 import { Settings } from './settings.js';
 import { getPools, savePools, listCharacters } from './store.js';
+import { confirmModal, showToast } from './ui.js';
 import { DATA } from '../data.js';
 import { NPCS } from '../data-npcs.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
@@ -67,13 +68,22 @@ function planetCard() {
 // ---------- Threat pool ----------
 function threatCard() {
   const pools = getPools();
+  const players = Math.max(1, listCharacters().length);
+  const seed = players * DATA.threat.perPlayer;
   return el('section', { class: 'card' },
     el('h3', {}, 'Pools'),
     el('div', { class: 'pools-bar' },
       el('div', { class: 'pool-cell' }, el('span', { class: 'pool-name' }, 'Threat'),
         stepper(pools.threat, (v) => { savePools({ ...pools, threat: v }); refresh(); }, { min: 0, label: 'Threat' })),
       el('div', { class: 'pool-cell' }, el('span', { class: 'pool-name' }, 'Momentum'),
-        stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: Math.min(DATA.momentumRules.cap, v) }); refresh(); }, { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' }))));
+        stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: Math.min(DATA.momentumRules.cap, v) }); refresh(); }, { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' }))),
+    // Seed the adventure's starting Threat (§3.1: ~2 per player; House type may override).
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: async () => {
+        if (!await confirmModal(`Set Threat to ${seed} (${DATA.threat.perPlayer} × ${players} player${players === 1 ? '' : 's'})? This replaces the current Threat.`, { okLabel: 'Set' })) return;
+        savePools({ ...getPools(), threat: seed }); showToast(`Threat set to ${seed}`); refresh();
+      } }, `Start adventure Threat (${seed})`)),
+    el('p', { class: 'small muted' }, DATA.threat.startNote));
 }
 
 // ---------- Party peek ----------
