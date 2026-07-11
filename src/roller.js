@@ -315,7 +315,8 @@ export function openRollDialog(character, onDone = null) {
         el('span', {}, `${ch.identity.name || 'Unnamed'} — TN ${(ch.skills[a.skill] ?? 4) + (ch.drives[a.drive] ?? 4)}`,
           el('button', { class: 'chip-x', 'aria-label': 'Remove assistant', onclick: () => { cfg.assists.splice(i, 1); render(); } }, '×')),
         el('div', { class: 'focus-row' }, sSel, dSel,
-          el('label', { class: 'small', for: `assist-f-${i}` }, fBox, ' focus')));
+          el('label', { class: 'small', for: `assist-f-${i}` }, fBox, ' focus')),
+        el('span', { class: 'field-hint' }, `${skillTag(a.skill)} · ${driveTag(a.drive)}`));
     });
     const addAssistSel = available.length ? (() => {
       const sel = el('select', { 'aria-label': 'Add assistant' },
@@ -376,6 +377,7 @@ export function openRollDialog(character, onDone = null) {
           render();
         } }, cfg.opposed.successes == null ? 'Roll defender first' : 'Re-roll defender');
         defenderCtl = el('div', {}, el('div', { class: 'focus-row' }, dSkillSel, dDriveSel),
+          el('span', { class: 'field-hint' }, `${skillTag(cfg.opposed.dSkill)} · ${driveTag(cfg.opposed.dDrive)}`),
           el('label', { class: 'small', for: 'opp-focus' }, dfBox, ' defender focus'), el('div', {}, rollBtn));
       } else {
         defenderCtl = el('div', { class: 'field' }, el('span', {}, 'Defender successes'),
