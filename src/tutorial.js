@@ -11,6 +11,7 @@ import { Settings } from './settings.js';
 import { evaluateDice } from './roller.js';
 import { targetNumber, normalizeCharacter, clampMomentum, clampDetermination, recoverStatementByDriveShift, STATEMENT_MIN_DRIVE } from './derived.js';
 import { startCharacterWizard } from './wizard.js';
+import { listCharacters } from './store.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
 import { PREGENS } from '../data-pregens.js';
@@ -41,8 +42,12 @@ export const LESSONS = [
     summary: 'The three shared/personal resources that power the game.', beats: poolsBeats },
   { id: 'drives', title: 'Drives & statements', available: true,
     summary: 'Why your drives and their statements matter — and how they earn Determination.', beats: drivesBeats },
-  { id: 'create', title: 'Create your character', available: false,
-    summary: 'Hand off to the real 8-step wizard and build a keeper.' },
+  { id: 'create', title: 'Create your character', available: true,
+    summary: 'Hand off to the real 8-step wizard and build a keeper.', beats: createBeats,
+    finishLabel: 'Open the character wizard',
+    // The graduation: launch the REAL wizard. Record the baseline character count so build()
+    // can tick this lesson only once a new character actually exists (§7e acceptance).
+    onFinish: () => { Settings.setTutorial({ createBaseline: listCharacters().length }); startCharacterWizard(); } },
   { id: 'conflict', title: 'Conflict & defeat', available: false,
     summary: 'Opposed tests, defeat tracks, and staying in the fight.' },
   { id: 'lifecycle', title: 'Scene lifecycle & advancement', available: false,
@@ -56,6 +61,13 @@ export function renderTutorial(root) {
 }
 
 function build(root, render) {
+  // 7e completion: if the Create lesson launched the real wizard and a new character now exists,
+  // tick it (and clear the marker). This is the only lesson that completes via real data.
+  const t = Settings.tutorial();
+  if (t.createBaseline != null && listCharacters().length > t.createBaseline) {
+    Settings.markLessonDone('create');
+    Settings.setTutorial({ createBaseline: null });
+  }
   // Restore the demo character from the remembered pregen (§13 #8) if one was chosen before.
   if (!sandbox) {
     const saved = pregenById(Settings.tutorial().pregenId);
@@ -123,7 +135,10 @@ function runLesson(root, lesson, backToMenu) {
         el('button', { class: 'btn secondary', onclick: () => { i > 0 ? (i--, draw()) : backToMenu(); } }, i > 0 ? 'Back' : 'Menu'),
         i < beats.length - 1
           ? el('button', { class: 'btn', onclick: () => { i++; draw(); } }, 'Next')
-          : el('button', { class: 'btn', onclick: () => { Settings.markLessonDone(lesson.id); showToast('Lesson complete'); backToMenu(); } }, 'Finish'))));
+          : (lesson.onFinish
+            // Hand-off lessons (e.g. Create your character) launch elsewhere and tick on real completion.
+            ? el('button', { class: 'btn', onclick: () => lesson.onFinish() }, lesson.finishLabel || 'Finish')
+            : el('button', { class: 'btn', onclick: () => { Settings.markLessonDone(lesson.id); showToast('Lesson complete'); backToMenu(); } }, 'Finish')))));
   };
   draw();
 }
@@ -370,6 +385,42 @@ function drivesBeats(sb) {
       b.append(
         el('p', { class: 'small' }, 'Drives set your Target Numbers, statements gate Determination, and challenging them is how your character grows and earns grit.'),
         el('p', { class: 'small muted' }, 'Next up: Create your character — the real thing.'));
+    } },
+  ];
+}
+
+// ---------- Lesson 7e: Create your character (real hand-off, §13 #3) ----------
+// The graduation lesson — the ONLY one that writes real data. It teaches the 8 steps, then the
+// Finish button (relabelled) opens the REAL wizard. Completion is detected in build() when a new
+// character exists after launch, so the lesson ticks only if you actually built one.
+const CREATION_STEPS = [
+  ['Concept', 'The big idea: who are they? Optionally add a faction (Bene Gesserit, Mentat, Fremen, Spacing Guild, Suk) for extra training.'],
+  ['Archetype', 'A template like Duelist, Envoy, or Spy that sets your two strongest skills and suggests focuses/talents.'],
+  ['Skills', 'Rate your five skills — your archetype gives a 6 and a 5, then you spend 5 more points (cap 8).'],
+  ['Focuses', 'Pick four specialties. A focus widens your critical range, so pick things you want to be great at.'],
+  ['Talents', 'Pick three special abilities (powers, Mentat tricks, combat edges). Faction training forces some.'],
+  ['Drives', 'Rank Duty / Faith / Justice / Power / Truth as 8 / 7 / 6 / 5 / 4, and write a statement for the top three.'],
+  ['Assets', 'Choose three useful things — gear, allies, favours — at least one of them physical.'],
+  ['Finishing', 'Add a reputation trait, an ambition tied to your highest drive, and your name and details.'],
+];
+function createBeats(sandbox) {
+  const c = sandbox.char;
+  return [
+    { title: 'From demo to keeper', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `Everything so far ran on ${c.identity.name} in a sandbox — nothing you did was saved. This lesson is different: it opens the app’s real 8-step wizard and builds a character you keep.`),
+        el('p', { class: 'small muted' }, 'You can lean on what you learned here, or try something completely new.'));
+    } },
+    { title: 'The eight steps', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'The wizard walks these in order, checking the rules as you go so you can’t build something illegal:', cite('Building a character')),
+        el('ol', { class: 'small' }, ...CREATION_STEPS.map(([name, desc]) =>
+          el('li', {}, el('strong', {}, name + ': '), desc))));
+    } },
+    { title: 'Build yours', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Ready? The button below opens the real wizard. Finish it and you’ll have a saved character on your sheet — and this lesson ticks as complete.'),
+        el('p', { class: 'small muted' }, 'If you close the wizard without finishing, nothing is saved and the lesson stays open.'));
     } },
   ];
 }

@@ -1211,10 +1211,15 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
   const mkSandbox = (p = PREGENS[0]) => ({ char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } });
   const beatsOk = (beats) => Array.isArray(beats) && beats.length === 5 && beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
   check('Six lessons defined; every one has id/title/summary', LESSONS.length === 6 && LESSONS.every((l) => l.id && l.title && l.summary));
-  check('Available lessons (with beats) = first-test + pools + drives; the remaining three are coming-soon',
-    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives' &&
+  check('Available lessons (with beats) = first-test + pools + drives + create; conflict & lifecycle are coming-soon',
+    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives,create' &&
     LESSONS.filter((l) => l.available).every((l) => typeof l.beats === 'function') &&
     LESSONS.filter((l) => !l.available).every((l) => !l.beats));
+  check('create lesson: 3 well-formed beats + hand-off finish (onFinish launches the real wizard, finishLabel set)',
+    (() => { const cr = LESSONS.find((l) => l.id === 'create'); const beats = cr.beats(mkSandbox());
+      return Array.isArray(beats) && beats.length === 3 &&
+        beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function') &&
+        typeof cr.onFinish === 'function' && typeof cr.finishLabel === 'string' && cr.finishLabel.length > 0; })());
   check('firstTest lesson builds 5 stepped beats from a pregen sandbox, each with a title + render fn',
     beatsOk(LESSONS.find((l) => l.id === 'first-test').beats(mkSandbox())));
   check('pools lesson builds 5 stepped beats (Momentum/Threat/Determination widgets)',
