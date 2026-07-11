@@ -22,11 +22,15 @@ import { modal, showToast } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacters } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
-import { findTalent, driveName } from './content.js';
+import { findTalent, driveName, allDrives } from './content.js';
 import { DATA } from '../data.js';
 
 /** A character's drive ids, highest-rated first (drives may be standard or swapped-in). */
 function charDriveIds(ch) { return Object.keys(ch.drives || {}).sort((a, b) => ch.drives[b] - ch.drives[a]); }
+
+/** Short "what is this?" hint for the roll dropdowns (the GM-screen one-liners). */
+function skillTag(id) { const s = DATA.skills.find((x) => x.id === id); return s ? s.tag : ''; }
+function driveTag(id) { const d = allDrives().find((x) => x.id === id); return d ? (d.tag || d.desc || '') : ''; }
 
 const SKILLS = DATA.skills;
 const DRIVES = DATA.drives;
@@ -403,8 +407,10 @@ export function openRollDialog(character, onDone = null) {
 
     setUI(
       el('h2', { id: 'roll-title' }, 'Roll a test', cite('Skill test basics', close)),
-      el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel),
-      el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel),
+      el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel,
+        el('span', { class: 'field-hint' }, skillTag(cfg.skill))),
+      el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel,
+        el('span', { class: 'field-hint' }, driveTag(cfg.drive))),
       el('p', {}, el('span', { class: 'pill' }, `Target number ${tn()}`),
         el('span', { class: 'pill' }, `${BASE_DICE + cfg.bought} dice`)),
       architectSection,
