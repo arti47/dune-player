@@ -1202,18 +1202,17 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
   const { PREGENS } = await import(join(root, 'data-pregens.js'));
   const { normalizeCharacter } = await import(join(root, 'src/derived.js'));
   const { Settings } = await import(join(root, 'src/settings.js'));
-  check('Six lessons defined; the first (Your first test) is available', LESSONS.length === 6 &&
-    LESSONS[0].id === 'first-test' && LESSONS[0].available === true);
-  check('Every lesson has id/title/summary; later five are marked coming-soon (not available yet)',
-    LESSONS.every((l) => l.id && l.title && l.summary) && LESSONS.slice(1).every((l) => !l.available));
+  const mkSandbox = (p = PREGENS[0]) => ({ char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } });
+  const beatsOk = (beats) => Array.isArray(beats) && beats.length === 5 && beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
+  check('Six lessons defined; every one has id/title/summary', LESSONS.length === 6 && LESSONS.every((l) => l.id && l.title && l.summary));
+  check('Available lessons (with beats) = first-test + pools; the remaining four are coming-soon',
+    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools' &&
+    LESSONS.filter((l) => l.available).every((l) => typeof l.beats === 'function') &&
+    LESSONS.filter((l) => !l.available).every((l) => !l.beats));
   check('firstTest lesson builds 5 stepped beats from a pregen sandbox, each with a title + render fn',
-    (() => {
-      const p = PREGENS[0];
-      const sb = { char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } };
-      const beats = LESSONS[0].beats(sb);
-      return Array.isArray(beats) && beats.length === 5 &&
-        beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
-    })());
+    beatsOk(LESSONS.find((l) => l.id === 'first-test').beats(mkSandbox())));
+  check('pools lesson builds 5 stepped beats (Momentum/Threat/Determination widgets)',
+    beatsOk(LESSONS.find((l) => l.id === 'pools').beats(mkSandbox())));
   // Tutorial state schema (§13 sign-off): settings.tutorial = { seen, completedLessons[], pregenId }.
   check('Settings.tutorial() defaults to unseen / no lessons / no pregen',
     (() => { const t = Settings.tutorial(); return t.seen === false && Array.isArray(t.completedLessons) && t.completedLessons.length === 0 && t.pregenId === null; })());

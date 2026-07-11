@@ -9,7 +9,7 @@ import { el, clamp } from './core.js';
 import { showToast } from './ui.js';
 import { Settings } from './settings.js';
 import { evaluateDice } from './roller.js';
-import { targetNumber, normalizeCharacter } from './derived.js';
+import { targetNumber, normalizeCharacter, clampMomentum, clampDetermination } from './derived.js';
 import { startCharacterWizard } from './wizard.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
@@ -35,8 +35,8 @@ export const LESSONS = [
     summary: 'Roll 2d20 against Skill + Drive — successes, crits, and complications.',
     beats: firstTestBeats,
   },
-  { id: 'pools', title: 'Momentum, Threat & Determination', available: false,
-    summary: 'The three shared/personal resources that power the game.' },
+  { id: 'pools', title: 'Momentum, Threat & Determination', available: true,
+    summary: 'The three shared/personal resources that power the game.', beats: poolsBeats },
   { id: 'drives', title: 'Drives & statements', available: false,
     summary: 'Why your drives and their statements matter — and how they earn Determination.' },
   { id: 'create', title: 'Create your character', available: false,
@@ -203,6 +203,81 @@ function firstTestBeats(sb) {
         el('p', { class: 'small' }, 'That’s the core loop: pick Skill + Drive, roll 2d20, count successes at/under the Target Number, beat the Difficulty.'),
         el('p', { class: 'small' }, 'On your real characters, the sheet’s “⚂ Roll a test” button does all this for you — buying dice, focuses, Determination, and talents included.'),
         el('p', { class: 'small muted' }, 'Next up: Momentum, Threat & Determination.'));
+    } },
+  ];
+}
+
+// ---------- Lesson 7c: Momentum, Threat & Determination ----------
+function poolsBeats(sb) {
+  const c = sb.char;
+  const MOM_CAP = clampMomentum(99);           // read the real caps from the engine (data-driven)
+  const DET_CAP = clampDetermination(99);
+  const hasStatement = Object.values(c.driveStatements || {}).some((s) => s && s.text && !s.challenged);
+  const pill = (label, cls) => el('span', { class: 'pill' + (cls ? ' ' + cls : '') }, label);
+
+  // A live, self-contained resource widget over the disposable sandbox pools (never persisted).
+  const momentumWidget = () => {
+    const wrap = el('div', {});
+    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+      el('p', {}, pill(`Momentum ${p.momentum}/${MOM_CAP}`)),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => { p.momentum = clampMomentum(p.momentum + 2); draw(); } }, '+2 from extra successes'),
+        el('button', { class: 'btn secondary', disabled: p.momentum < 1 ? '' : null, onclick: () => { p.momentum = clampMomentum(p.momentum - 1); draw(); } }, 'Obtain Information (−1)'),
+        el('button', { class: 'btn secondary', disabled: p.momentum < 3 ? '' : null, onclick: () => { p.momentum = clampMomentum(p.momentum - 3); draw(); } }, 'Buy a 3rd die (−3)'))); };
+    draw(); return wrap;
+  };
+  const threatWidget = () => {
+    const wrap = el('div', {});
+    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+      el('p', {}, pill(`Threat ${p.threat}`, 'danger-pill')),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => { p.threat += 1; draw(); } }, 'Give the GM 1 Threat (skip spending Momentum)'),
+        el('button', { class: 'btn secondary', disabled: p.threat < 2 ? '' : null, onclick: () => { p.threat = Math.max(0, p.threat - 2); draw(); } }, 'GM raises a Difficulty (−2)'))); };
+    draw(); return wrap;
+  };
+  const detWidget = () => {
+    const wrap = el('div', {});
+    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+      el('p', {}, pill(`Determination ${p.determination}/${DET_CAP}`)),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', disabled: (p.determination < 1 || !hasStatement) ? '' : null, onclick: () => { p.determination = clampDetermination(p.determination - 1); draw(); } }, 'Spend 1 to re-roll'),
+        el('button', { class: 'btn secondary', onclick: () => { p.determination = clampDetermination(p.determination + 1); draw(); } }, 'Earn 1 (new statement)')),
+      hasStatement ? null : el('p', { class: 'small muted' }, `${c.identity.name} has no unchallenged drive statement, so Determination can’t be spent — that’s the gate.`)); };
+    draw(); return wrap;
+  };
+
+  return [
+    { title: 'Three resources', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Three pools flow around the table: '),
+        el('ul', {},
+          el('li', { class: 'small' }, el('strong', {}, 'Momentum'), ' — the players’ shared pool of extra successes.'),
+          el('li', { class: 'small' }, el('strong', {}, 'Threat'), ' — the GM’s mirror pool, spent to make life harder.'),
+          el('li', { class: 'small' }, el('strong', {}, 'Determination'), ' — your character’s personal grit.')),
+        el('p', { class: 'small muted' }, 'These are the demo pools — nothing here changes your real game.'));
+    } },
+    { title: 'Momentum — the shared pool', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `Beat a test with successes to spare and the extras become Momentum, shared by the whole group. Spend it to buy dice, obtain information, create assets, and more.`, cite('Momentum spends')),
+        momentumWidget(),
+        el('p', { class: 'small muted' }, `It caps at ${MOM_CAP}, and it drops by 1 at the end of every scene — so use it or lose it.`));
+    } },
+    { title: 'Threat — the GM’s mirror', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Any time you could spend Momentum, you can instead hand the GM that much Threat. The GM banks it, then spends it to buy NPC dice, raise your Difficulty, or bring a rival onto the scene.', cite('Threat spends (GM)')),
+        threatWidget(),
+        el('p', { class: 'small muted' }, 'Threat is the price of pushing your luck — every point you give now can bite later.'));
+    } },
+    { title: 'Determination — personal grit', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `Determination is yours alone (cap ${DET_CAP}). Spend 1 to re-roll dice, or to turn one die into a guaranteed success — but only when a drive statement supports what you’re doing.`, cite('Determination')),
+        detWidget(),
+        el('p', { class: 'small muted' }, 'You earn it back by writing new drive statements or when your drives are challenged — the next lesson.'));
+    } },
+    { title: 'That’s the economy', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Momentum fuels the players, Threat fuels the GM, and Determination is your personal reserve. On a real sheet these live in the header bar above every in-play screen.'),
+        el('p', { class: 'small muted' }, 'Next up: Drives & statements — where Determination comes from.'));
     } },
   ];
 }
