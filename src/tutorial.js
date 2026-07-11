@@ -18,6 +18,8 @@ import { PREGENS } from '../data-pregens.js';
 const SKILLS = DATA.skills;
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 const goto = (id) => { location.hash = `#/${id}`; };
+// Native replaceChildren stringifies a null arg into a "null" text node — filter nullish kids.
+const setKids = (node, ...kids) => node.replaceChildren(...kids.filter((k) => k != null));
 
 // Disposable teaching state — a pregen clone + a local Momentum/Threat pool. Never persisted.
 let sandbox = null;
@@ -218,7 +220,7 @@ function poolsBeats(sb) {
   // A live, self-contained resource widget over the disposable sandbox pools (never persisted).
   const momentumWidget = () => {
     const wrap = el('div', {});
-    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+    const draw = () => { const p = sb.pools; setKids(wrap, 
       el('p', {}, pill(`Momentum ${p.momentum}/${MOM_CAP}`)),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn secondary', onclick: () => { p.momentum = clampMomentum(p.momentum + 2); draw(); } }, '+2 from extra successes'),
@@ -228,7 +230,7 @@ function poolsBeats(sb) {
   };
   const threatWidget = () => {
     const wrap = el('div', {});
-    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+    const draw = () => { const p = sb.pools; setKids(wrap, 
       el('p', {}, pill(`Threat ${p.threat}`, 'danger-pill')),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn secondary', onclick: () => { p.threat += 1; draw(); } }, 'Give the GM 1 Threat (skip spending Momentum)'),
@@ -237,7 +239,7 @@ function poolsBeats(sb) {
   };
   const detWidget = () => {
     const wrap = el('div', {});
-    const draw = () => { const p = sb.pools; wrap.replaceChildren(
+    const draw = () => { const p = sb.pools; setKids(wrap, 
       el('p', {}, pill(`Determination ${p.determination}/${DET_CAP}`)),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn secondary', disabled: (p.determination < 1 || !hasStatement) ? '' : null, onclick: () => { p.determination = clampDetermination(p.determination - 1); draw(); } }, 'Spend 1 to re-roll'),
@@ -317,7 +319,7 @@ function drivesBeats(sb) {
             el('button', { class: 'btn secondary', onclick: () => { const r = recoverStatementByDriveShift(work, demo); if (r) { work.drives = r.drives; work.driveStatements = r.driveStatements; draw(); } } },
               `−1 ${DRIVE_NAME[demo]} / +1 the next-lowest`)));
       }
-      wrap.replaceChildren(driveList(work.drives, work.driveStatements), controls);
+      setKids(wrap, driveList(work.drives, work.driveStatements), controls);
     };
     draw(); return wrap;
   };

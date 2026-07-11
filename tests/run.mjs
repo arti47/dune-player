@@ -1221,6 +1221,10 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
     beatsOk(LESSONS.find((l) => l.id === 'pools').beats(mkSandbox())));
   check('drives lesson builds 5 stepped beats (challenge/recover widget)',
     beatsOk(LESSONS.find((l) => l.id === 'drives').beats(mkSandbox())));
+  // Guard the "null" text-node bug: tutorial widgets must filter nullish children (setKids), never raw replaceChildren.
+  check('tutorial.js uses the null-filtering setKids helper, not raw wrap.replaceChildren',
+    (() => { const src = readFileSync(join(root, 'src/tutorial.js'), 'utf8');
+      return /const setKids = \(node, \.\.\.kids\)/.test(src) && !/wrap\.replaceChildren\(/.test(src); })());
   // Tutorial state schema (§13 sign-off): settings.tutorial = { seen, completedLessons[], pregenId }.
   check('Settings.tutorial() defaults to unseen / no lessons / no pregen',
     (() => { const t = Settings.tutorial(); return t.seen === false && Array.isArray(t.completedLessons) && t.completedLessons.length === 0 && t.pregenId === null; })());
