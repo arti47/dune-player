@@ -528,6 +528,20 @@ check('Feyd owner-transcribed stats differ from Rabban (conflation resolved): Mo
 check('Merchant assets present (owner-confirmed): Information Network, Ornithopter, Warehouse',
   (() => { const m = NPCS.archetypes.find((a) => a.id === 'merchant');
     return JSON.stringify(m.assets) === JSON.stringify(['Information Network', 'Ornithopter', 'Warehouse']); })());
+// §11 audit (T29 iconic stat blocks vs owner-pasted Ch.9, 2026-07-11): full skills+drives+talents
+// spot-check across the range — verified all 12 match; pin representative values against regressions.
+check('T29 iconic audit spot-checks: Leto/Gurney/Thufir/Duncan/Feyd/Fenring/Stilgar/Liet skills+drives+talents',
+  (() => { const g = (id) => NPCS.iconics.find((i) => i.id === id);
+    const leto = g('letoAtreides'), gur = g('gurneyHalleck'), thu = g('thufirHawat'),
+      dun = g('duncanIdaho'), fen = g('hasimirFenring'), sti = g('stilgar'), lie = g('lietKynes');
+    return leto.drives.duty === 8 && leto.drives.justice === 7 && leto.drives.power === 4 &&
+      leto.skills.communicate === 7 && leto.talents.includes('Stirring Rhetoric') &&
+      gur.skills.battle === 8 && gur.drives.duty === 8 && gur.talents.includes('Unquestionable Loyalty (House Atreides)') &&
+      thu.skills.understand === 8 && thu.talents.includes('Mentat Discipline') && thu.talents.includes('Mind Palace') &&
+      dun.skills.battle === 8 && dun.skills.discipline === 8 &&
+      fen.skills.move === 8 && fen.drives.power === 8 && fen.talents.length === 6 &&
+      sti.drives.faith === 8 && sti.skills.discipline === 7 &&
+      lie.drives.faith === 8 && lie.skills.understand === 7; })());
 check('Iconic statements/focuses reference valid drive/skill ids',
   NPCS.iconics.every((i) =>
     Object.keys(i.statements || {}).every((d) => DRIVE_IDS.includes(d)) &&
