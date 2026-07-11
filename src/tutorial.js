@@ -233,7 +233,7 @@ function poolsBeats(sb) {
     const draw = () => { const p = sb.pools; setKids(wrap, 
       el('p', {}, pill(`Threat ${p.threat}`, 'danger-pill')),
       el('div', { class: 'cta-row' },
-        el('button', { class: 'btn secondary', onclick: () => { p.threat += 1; draw(); } }, 'Give the GM 1 Threat (skip spending Momentum)'),
+        el('button', { class: 'btn secondary', onclick: () => { p.threat += 1; draw(); } }, 'Add 1 Threat (e.g. buy a bonus die)'),
         el('button', { class: 'btn secondary', disabled: p.threat < 2 ? '' : null, onclick: () => { p.threat = Math.max(0, p.threat - 2); draw(); } }, 'GM raises a Difficulty (−2)'))); };
     draw(); return wrap;
   };
@@ -265,10 +265,14 @@ function poolsBeats(sb) {
         el('p', { class: 'small muted' }, `It caps at ${MOM_CAP}, and it drops by 1 at the end of every scene — so use it or lose it.`));
     } },
     { title: 'Threat — the GM’s mirror', render: (b) => {
+      const playerGen = DATA.threat.generation.filter((g) => g.by === 'Player');
       b.append(
-        el('p', { class: 'small' }, 'Any time you could spend Momentum, you can instead hand the GM that much Threat. The GM banks it, then spends it to buy NPC dice, raise your Difficulty, or bring a rival onto the scene.', cite('Threat spends (GM)')),
+        el('p', { class: 'small' }, 'Threat is the GM’s pool — the price of pushing your luck. You don’t pay every Momentum cost with it; instead you add Threat in a few specific ways:', cite('Threat spends (GM)')),
+        el('ul', {}, ...playerGen.map((g) => el('li', { class: 'small' },
+          el('strong', {}, `${g.source} (${g.amount}): `), g.desc))),
+        el('p', { class: 'small' }, 'The GM banks it, then spends it to buy NPC dice, raise your Difficulty, or bring a rival onto the scene.'),
         threatWidget(),
-        el('p', { class: 'small muted' }, 'Threat is the price of pushing your luck — every point you give now can bite later.'));
+        el('p', { class: 'small muted' }, 'Every point you hand over now can bite later.'));
     } },
     { title: 'Determination — personal grit', render: (b) => {
       b.append(
