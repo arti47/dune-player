@@ -11,6 +11,7 @@ import { Settings } from './settings.js';
 import { evaluateDice } from './roller.js';
 import { targetNumber, normalizeCharacter, clampMomentum, clampDetermination, recoverStatementByDriveShift, STATEMENT_MIN_DRIVE } from './derived.js';
 import { startCharacterWizard } from './wizard.js';
+import { startAdventureDetermination } from './combat.js';
 import { listCharacters } from './store.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
@@ -48,10 +49,10 @@ export const LESSONS = [
     // The graduation: launch the REAL wizard. Record the baseline character count so build()
     // can tick this lesson only once a new character actually exists (§7e acceptance).
     onFinish: () => { Settings.setTutorial({ createBaseline: listCharacters().length }); startCharacterWizard(); } },
-  { id: 'conflict', title: 'Conflict & defeat', available: false,
-    summary: 'Opposed tests, defeat tracks, and staying in the fight.' },
-  { id: 'lifecycle', title: 'Scene lifecycle & advancement', available: false,
-    summary: 'Ending scenes/adventures and spending advancement.' },
+  { id: 'conflict', title: 'Conflict & defeat', available: true,
+    summary: 'Opposed tests, defeat tracks, and staying in the fight.', beats: conflictBeats },
+  { id: 'lifecycle', title: 'Scene lifecycle & advancement', available: true,
+    summary: 'Ending scenes/adventures and spending advancement.', beats: lifecycleBeats },
 ];
 
 // ---------- screen ----------
@@ -422,5 +423,121 @@ function createBeats(sandbox) {
         el('p', { class: 'small' }, 'Ready? The button below opens the real wizard. Finish it and you’ll have a saved character on your sheet — and this lesson ticks as complete.'),
         el('p', { class: 'small muted' }, 'If you close the wizard without finishing, nothing is saved and the lesson stays open.'));
     } },
+  ];
+}
+
+// ---------- Lesson 7f: Conflict & defeat (scripted, §3.7/§3.12) ----------
+function conflictBeats(sb) {
+  const c = sb.char;
+  const HIT = DATA.defeat.pointsPerHitBase;         // 2 points per successful attack
+  const QUALITY = 1;                                // demo weapon Quality
+  // Interactive demo defeat track — local state only, never real conflict state.
+  const trackWidget = () => {
+    const wrap = el('div', {});
+    const st = { req: 5, progress: 0, defeated: false, resisted: false };
+    const draw = () => {
+      const gain = HIT + QUALITY;
+      let controls;
+      if (st.resisted) {
+        controls = el('p', { class: 'small ok-banner' }, `Resisted — ${c.identity.name} stays in the fight but takes the complication “Winded.” You can only do this once per scene.`);
+      } else if (!st.defeated) {
+        controls = el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary', onclick: () => { st.progress = Math.min(st.req, st.progress + gain); if (st.progress >= st.req) st.defeated = true; draw(); } },
+            `Land a hit (+${gain})`));
+      } else {
+        controls = el('div', {},
+          el('p', { class: 'small danger-pill', style: 'display:inline-block' }, 'DEFEATED'),
+          el('p', { class: 'small' }, 'Out of the fight — but defeat isn’t death. Once per scene you can Resist Defeat: stay in, at the cost of Momentum and a complication.'),
+          el('div', { class: 'cta-row' },
+            el('button', { class: 'btn secondary', onclick: () => { st.resisted = true; st.defeated = false; st.progress = st.req - 1; draw(); } },
+              `Resist Defeat (−${DATA.defeat.resistDefeat.momentumCost} Momentum + a complication)`)));
+      }
+      setKids(wrap,
+        el('p', {}, el('span', { class: 'pill' }, `Defeat track ${st.progress} / ${st.req}`),
+          st.defeated ? el('span', { class: 'pill danger-pill' }, 'full') : null),
+        controls);
+    };
+    draw(); return wrap;
+  };
+  // Scripted contest: defender rolls first (2 successes → your Difficulty 2), then you roll and win.
+  const defSkill = c.skills.discipline ?? 5, atkSkill = c.skills.battle ?? 6;
+  return [
+    { title: 'A fight is just tests', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Conflict uses the same dice you already know — a series of contested skill tests across zones (places, or even social circles). There are five kinds: dueling, skirmish, warfare, espionage, and intrigue.', cite('Conflict types')),
+        el('p', { class: 'small muted' }, 'The rules are identical; only the skills, scale, and stakes change.')); } },
+    { title: 'Defender rolls first', render: (b) => {
+      const d = scriptedRoll([Math.max(2, defSkill - 1), 20], { tn: defSkill + 5, skillRating: defSkill, difficulty: 0 });
+      const a = scriptedRoll([1, Math.max(2, atkSkill - 1)], { tn: atkSkill + 6, skillRating: atkSkill, difficulty: 2 });
+      b.append(
+        el('p', { class: 'small' }, 'To attack, the defender rolls first. Their successes set your Difficulty (+1 per defensive asset they have). Then you roll — and a tie goes to the attacker.', cite('Conflict turn order')),
+        el('p', { class: 'small muted' }, 'Defender’s roll → 2 successes, so your Difficulty is 2:'), d.node,
+        el('p', { class: 'small muted' }, 'Your attack → you beat it, so the hit lands:'), a.node); } },
+    { title: 'The defeat track', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `Player characters and important foes aren’t dropped in one blow — they have a defeat track (its size is a relevant skill). Each hit scores ${HIT} + your weapon’s Quality; fill the track and they’re defeated.`, cite('Defeat & recovery')),
+        el('p', { class: 'small muted' }, 'Land hits until the track fills, then try Resist Defeat:'),
+        trackWidget()); } },
+    { title: 'Defeat isn’t death', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Being defeated means out of the scene — yielded, captured, disgraced, knocked out — not killed. The winner must spend extra to make a defeat lasting (death, ruin, dismemberment).', cite('Defeat & recovery')),
+        el('p', { class: 'small muted' }, 'Next up: Scene lifecycle & advancement — how the game breathes and how you grow.')); } },
+  ];
+}
+
+// ---------- Lesson 7g: Scene lifecycle & advancement (scripted, §3.10/§3.17) ----------
+function lifecycleBeats(sb) {
+  const c = sb.char;
+  const SKILL_COST = DATA.advancement.calc.skill.base;   // first skill advance = 10 points
+  // Demo scene/adventure widget over local pools (never the real ones).
+  const lifeWidget = () => {
+    const wrap = el('div', {});
+    const st = { momentum: 4, determination: 0 };
+    const draw = () => setKids(wrap,
+      el('p', {}, el('span', { class: 'pill' }, `Momentum ${st.momentum}/${DATA.momentumRules.cap}`),
+        el('span', { class: 'pill' }, `Determination ${st.determination}/${DATA.determination.cap}`)),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => { st.momentum = clampMomentum(st.momentum - DATA.momentumRules.sceneDecay); draw(); } }, `End the scene (Momentum −${DATA.momentumRules.sceneDecay})`),
+        el('button', { class: 'btn secondary', onclick: () => { st.determination = startAdventureDetermination(c); draw(); } }, 'End the adventure (reset Determination)')),
+      el('p', { class: 'small muted' }, 'Ending a scene also expires single-scene assets and resets Resist-Defeat; ending an adventure recovers challenged statements and lets you buy one advance.'));
+    draw(); return wrap;
+  };
+  // Demo advancement: earn points, then buy exactly one advance per adventure.
+  const advWidget = () => {
+    const wrap = el('div', {});
+    const st = { points: 0, bought: false };
+    const draw = () => {
+      const canBuy = !st.bought && st.points >= SKILL_COST;
+      setKids(wrap,
+        el('p', {}, el('span', { class: 'pill' }, `Advancement points ${st.points}`),
+          st.bought ? el('span', { class: 'pill ok-banner' }, 'advance purchased' ) : null),
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary', onclick: () => { st.points += 1; draw(); } }, 'Fail a hard test (+1)'),
+          el('button', { class: 'btn secondary', onclick: () => { st.points += 3; draw(); } }, 'Advance your ambition (+3)')),
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn', disabled: canBuy ? null : '', onclick: () => { if (!canBuy) return; st.points -= SKILL_COST; st.bought = true; draw(); } }, `Buy: Skill +1 (${SKILL_COST} pts)`)),
+        st.bought ? el('p', { class: 'small muted' }, 'That’s your one advance for this adventure — the rest wait for the next one.')
+                  : el('p', { class: 'small muted' }, `Costs scale: a first skill bump is ${SKILL_COST}, a new focus costs the focuses you own, a new talent costs 3× the talents you own. You may buy just one advance per adventure.`));
+    };
+    draw(); return wrap;
+  };
+  return [
+    { title: 'Scenes inside adventures', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Play is organised into scenes (one place and time) grouped into adventures. The app tracks the bookkeeping when each ends.', cite('Scene & adventure lifecycle')),
+        el('p', { class: 'small muted' }, `${c.identity.name} will walk you through both.`)); } },
+    { title: 'Ending scenes & adventures', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `End of scene: the shared Momentum pool drops by ${DATA.momentumRules.sceneDecay} (it never lingers) and temporary assets fade. End of adventure: your Determination resets to its start (${DATA.determination.startPerAdventure} + any talent bonuses).`, cite('Scene & adventure lifecycle')),
+        lifeWidget()); } },
+    { title: 'How you grow', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Between adventures you spend advancement points. You earn them from adversity — being defeated (Pain), failing hard tests (Failure), the GM spending big Threat (Peril) — and from chasing your ambition.', cite('Advancement')),
+        el('p', { class: 'small muted' }, 'Earn some points, then buy your one advance:'),
+        advWidget()); } },
+    { title: 'That’s the whole loop', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Roll tests · spend the pools · lean on your drives · fight when you must · end the scene, end the adventure, and grow. You now know how to play.'),
+        el('p', { class: 'small muted' }, 'Head back and try “Create your character” to make a keeper of your own.')); } },
   ];
 }

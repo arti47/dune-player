@@ -1211,10 +1211,14 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
   const mkSandbox = (p = PREGENS[0]) => ({ char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } });
   const beatsOk = (beats) => Array.isArray(beats) && beats.length === 5 && beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
   check('Six lessons defined; every one has id/title/summary', LESSONS.length === 6 && LESSONS.every((l) => l.id && l.title && l.summary));
-  check('Available lessons (with beats) = first-test + pools + drives + create; conflict & lifecycle are coming-soon',
-    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives,create' &&
-    LESSONS.filter((l) => l.available).every((l) => typeof l.beats === 'function') &&
-    LESSONS.filter((l) => !l.available).every((l) => !l.beats));
+  check('All six lessons available with beats (full core: first-test/pools/drives/create/conflict/lifecycle)',
+    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives,create,conflict,lifecycle' &&
+    LESSONS.every((l) => typeof l.beats === 'function'));
+  check('conflict + lifecycle lessons build well-formed beats (title + render fn each)',
+    (() => { const shape = (beats) => Array.isArray(beats) && beats.length >= 3 &&
+        beats.every((x) => typeof x.title === 'string' && typeof x.render === 'function');
+      return shape(LESSONS.find((l) => l.id === 'conflict').beats(mkSandbox())) &&
+        shape(LESSONS.find((l) => l.id === 'lifecycle').beats(mkSandbox())); })());
   check('create lesson: 3 well-formed beats + hand-off finish (onFinish launches the real wizard, finishLabel set)',
     (() => { const cr = LESSONS.find((l) => l.id === 'create'); const beats = cr.beats(mkSandbox());
       return Array.isArray(beats) && beats.length === 3 &&
