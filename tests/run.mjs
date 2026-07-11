@@ -100,6 +100,18 @@ check('Advancement earn triggers named (Pain/Failure/Peril/Ambition/Impressing t
   ['Pain', 'Failure', 'Peril', 'Ambition', 'Impressing the Group']
     .every((t) => DATA.advancement.earn.some((e) => e.trigger === t)) &&
   DATA.advancement.earn.every((e) => typeof e.trigger === 'string' && e.trigger.length));
+// §11 audit (Core advancement, owner-pasted p.139): Peril fires at 3+ Threat spent at once, not 4+.
+check('Advancement: Peril earns at GM spending 3+ Threat at once (not 4+)',
+  DATA.advancement.earn.some((e) => e.trigger === 'Peril' && /\b3\+ Threat\b/.test(e.desc)) &&
+  !DATA.advancement.earn.some((e) => /\b4\+ Threat\b/.test(e.desc)));
+// §11 audit (Core House chapter, owner-pasted): enemy Hatred + Reason d20 tables + starting Threat/domains.
+check('House enemy Hatred d20: Dislike 1–5 / Rival 6–10 / Loathing 11–15 / Kanly 16–20',
+  DATA.houseEnemies.hatred.map((h) => `${h.range}:${h.name}`).join('|') ===
+    '1–5:Dislike|6–10:Rival|11–15:Loathing|16–20:Kanly');
+check('House enemy Reason d20: 10 rows Competition→No Reason on 2-wide ranges',
+  DATA.houseEnemies.reasons.length === 10 &&
+  DATA.houseEnemies.reasons[0].name === 'Competition' && DATA.houseEnemies.reasons[0].range === '1–2' &&
+  DATA.houseEnemies.reasons[9].name === 'No Reason' && DATA.houseEnemies.reasons[9].range === '19–20');
 check('Supporting characters: minor skills 6/5/5/4/4, drive 4–8 typ 5; notable skills 7/6/5/5/4, drives 7&6',
   (() => {
     const sc = DATA.supportingCharacters;
