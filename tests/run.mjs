@@ -799,6 +799,16 @@ check('initSync() is a no-op returning false in local mode (FIREBASE_ENABLED=fal
     /await import\(['"]\.\/cloud\.js['"]\)/.test(syncSrc) && !/^import .*cloud\.js/m.test(syncSrc));
   check('cloud.js exports initCloud + joinByCode (the adapter surface)',
     /export async function initCloud/.test(cloudSrc) && /export async function joinByCode/.test(cloudSrc));
+  // Join-by-code must resolve via the joinCodes/{code} index (readable without membership), NOT by
+  // querying the member-gated campaigns collection (which the rules deny to a non-member).
+  check('joinByCode resolves via the joinCodes index (not a campaigns-collection query)',
+    /joinCodeRef\(code\)/.test(cloudSrc) && /joinCodes\//.test(cloudSrc) && !/orderByChild\(['"]meta\/joinCode/.test(cloudSrc));
+  check('cloud.js migrates a pre-auth campaign uid (device id → auth uid) on connect',
+    /function migrateLocalUid/.test(cloudSrc) && /migrateLocalUid\(uid\)/.test(cloudSrc));
+  const rules = JSON.parse(readFileSync(join(root, 'database.rules.json'), 'utf8'));
+  check('database.rules.json exposes joinCodes/{code} (authed read+write) for join lookup',
+    !!rules.rules.joinCodes && !!rules.rules.joinCodes.$code &&
+    /auth != null/.test(rules.rules.joinCodes.$code['.read']) && /auth != null/.test(rules.rules.joinCodes.$code['.write']));
 }
 
 console.log('— Roll log: delete one / clear all —');

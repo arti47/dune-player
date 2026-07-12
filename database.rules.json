@@ -2,6 +2,12 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "joinCodes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
     "campaigns": {
       "$campaignId": {
         ".read": "auth != null && data.child('members').child(auth.uid).exists()",

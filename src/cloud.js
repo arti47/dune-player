@@ -37,6 +37,7 @@ export async function initCloud() {
     auth.signInAnonymously(a).catch(reject);
   });
   setAuthUid(uid);
+  migrateLocalUid(uid);   // fix a campaign created before auth resolved (device id → auth uid)
 
   // Push local campaign/pool changes up as they happen.
   store.subscribe((what) => {
@@ -50,13 +51,33 @@ export async function initCloud() {
   return uid;
 }
 
+// If the local campaign was created before anonymous auth resolved, its ownerUid + member key are
+// the local device id — which the security rules (auth.uid === $uid) reject. Rewrite them to the
+// auth uid so the owner's own writes/reads are permitted.
+function migrateLocalUid(authUid) {
+  const c = store.getCampaign();
+  if (!c) return;
+  const dev = store.deviceUid();
+  if (authUid === dev) return;
+  let changed = false;
+  if (c.meta && c.meta.ownerUid === dev) { c.meta.ownerUid = authUid; changed = true; }
+  if (c.members && c.members[dev] && !c.members[authUid]) {
+    c.members[authUid] = c.members[dev]; delete c.members[dev]; changed = true;
+  }
+  if (changed) { applyingRemote = true; try { store.saveCampaign(c); } finally { applyingRemote = false; } }
+}
+
 const campaignRef = (id) => fns.ref(db, `campaigns/${id}`);
+const joinCodeRef = (code) => fns.ref(db, `joinCodes/${code}`);
 
 function pushCampaign() {
   const c = store.getCampaign();
   if (!c) return;
   currentCampaignId = c.id;
-  fns.update(campaignRef(c.id), { meta: c.meta, members: c.members }).catch(() => {});
+  // Mirror the campaign, and publish a joinCodes/{code} → id index so others can resolve the code
+  // WITHOUT reading the whole (member-gated) campaigns collection.
+  fns.update(campaignRef(c.id), { meta: c.meta, members: c.members }).catch((e) => console.error('push campaign failed:', e));
+  if (c.meta && c.meta.joinCode) fns.set(joinCodeRef(c.meta.joinCode), c.id).catch((e) => console.error('push joinCode failed:', e));
   watchCampaign(c.id);
 }
 
@@ -85,20 +106,23 @@ function watchCampaign(id) {
   });
 }
 
-/** Join an existing campaign by its join code: find it, add me as a member, then mirror it down. */
+/** Join an existing campaign by its join code: resolve the code → id via the joinCodes index (no
+ *  membership needed), add myself as a member, then read + mirror the campaign down. */
 export async function joinByCode(code, member) {
-  const q = fns.query(fns.ref(db, 'campaigns'), fns.orderByChild('meta/joinCode'), fns.equalTo(code));
-  const snap = await fns.get(q);
-  const val = snap.val();
-  if (!val) throw new Error('No campaign found for that join code.');
-  const id = Object.keys(val)[0];
+  // 1. Resolve the code to a campaign id (a single-node read anyone authed can do).
+  const idSnap = await fns.get(joinCodeRef(code));
+  const id = idSnap.val();
+  if (!id) throw new Error('No campaign found for that join code.');
+  // 2. Write my own member node (the rules allow auth.uid === $uid to self-add).
   const me = myUid();
-  await fns.update(fns.ref(db, `campaigns/${id}/members/${me}`),
+  await fns.set(fns.ref(db, `campaigns/${id}/members/${me}`),
     { displayName: 'Player', characterId: null, role: 'player', ...member });
-  const full = (await fns.get(campaignRef(id))).val();
+  // 3. Now that I'm a member, I can read the full campaign and start mirroring.
+  const full = (await fns.get(campaignRef(id))).val() || {};
   applyingRemote = true;
-  try { store.saveCampaign({ id, meta: full.meta, members: full.members }); }
-  finally { applyingRemote = false; }
+  try {
+    store.saveCampaign({ id, meta: full.meta || { name: 'Campaign', joinCode: code, ownerUid: null }, members: full.members || {} });
+  } finally { applyingRemote = false; }
   watchCampaign(id);
   return id;
 }
