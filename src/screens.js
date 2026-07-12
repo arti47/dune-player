@@ -511,6 +511,22 @@ function campaignCard() {
           } }, 'Join by code')));
     } else {
       const me = myMember();
+      if (!me) {
+        // A campaign exists but I'm not yet a resolved member — this happens at boot in cloud mode
+        // while anonymous auth is still resolving (myUid() returns the device id until then, which
+        // may not match the stored member keys). Show a safe minimal state; the watcher re-draws.
+        kids.push(
+          el('p', {}, el('strong', {}, c.meta?.name || 'Campaign')),
+          el('p', { class: 'small' }, 'Join code: ', el('code', {}, c.meta?.joinCode || '—')),
+          el('p', { class: 'small muted' }, 'Connecting to the campaign…'),
+          el('div', { class: 'cta-row' },
+            el('button', { class: 'btn secondary', onclick: async () => {
+              if (!await confirmModal('Leave this campaign? On this device that dissolves it.', { okLabel: 'Leave' })) return;
+              leaveCampaign(); showToast('Left campaign'); draw();
+            } }, 'Leave campaign')));
+        card.replaceChildren(...kids.filter((k) => k != null));
+        return;
+      }
       const roleSel = el('select', { 'aria-label': 'Your role' },
         el('option', { value: 'player', selected: me.role === 'player' ? '' : null }, 'Player'),
         el('option', { value: 'gm', selected: me.role === 'gm' ? '' : null }, 'Gamemaster'));
