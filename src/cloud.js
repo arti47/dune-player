@@ -69,22 +69,38 @@ function migrateLocalUid(authUid) {
 
 const campaignRef = (id) => fns.ref(db, `campaigns/${id}`);
 const joinCodeRef = (code) => fns.ref(db, `joinCodes/${code}`);
+const nodeRef = (id, path) => fns.ref(db, `campaigns/${id}/${path}`);
 
+/** Am I the campaign owner / a GM? (Determines which nodes the rules let me write.) */
+function iAmOwner(c) { return !!(c && c.meta && c.meta.ownerUid === myUid()); }
+function iAmGM(c) { const m = c && c.members && c.members[myUid()]; return !!(m && m.role === 'gm'); }
+
+// Mirror the local campaign up, writing each node at the granularity the security rules permit:
+//   • meta + joinCodes index → owner only
+//   • members/{myUid}        → me only (never the whole members node — that would be denied)
+// A single atomic update() of {meta, members} fails because the members-object write isn't allowed.
 function pushCampaign() {
   const c = store.getCampaign();
   if (!c) return;
   currentCampaignId = c.id;
-  // Mirror the campaign, and publish a joinCodes/{code} → id index so others can resolve the code
-  // WITHOUT reading the whole (member-gated) campaigns collection.
-  fns.update(campaignRef(c.id), { meta: c.meta, members: c.members }).catch((e) => console.error('push campaign failed:', e));
-  if (c.meta && c.meta.joinCode) fns.set(joinCodeRef(c.meta.joinCode), c.id).catch((e) => console.error('push joinCode failed:', e));
-  watchCampaign(c.id);
+  const me = myUid();
+  if (iAmOwner(c)) {
+    fns.set(nodeRef(c.id, 'meta'), c.meta).catch((e) => console.error('push meta failed:', e));
+    if (c.meta && c.meta.joinCode) fns.set(joinCodeRef(c.meta.joinCode), c.id).catch((e) => console.error('push joinCode failed:', e));
+  }
+  const myMem = c.members && c.members[me];
+  const memberWrite = myMem ? fns.set(nodeRef(c.id, `members/${me}`), myMem) : Promise.resolve();
+  // Attach the watcher only after my member node exists, so the (membership-gated) read is allowed.
+  memberWrite.then(() => watchCampaign(c.id)).catch((e) => console.error('push member failed:', e));
 }
 
+// Shared pools: any member may write Momentum; only the GM may write Threat (per the rules).
 function pushPools() {
   if (!currentCampaignId) return;
+  const c = store.getCampaign();
   const p = store.getPools();
-  fns.update(campaignRef(currentCampaignId), { momentum: p.momentum, threat: p.threat }).catch(() => {});
+  fns.set(nodeRef(currentCampaignId, 'momentum'), p.momentum ?? 0).catch((e) => console.error('push momentum failed:', e));
+  if (iAmGM(c)) fns.set(nodeRef(currentCampaignId, 'threat'), p.threat ?? 0).catch((e) => console.error('push threat failed:', e));
 }
 
 /** Subscribe to a campaign's remote state and mirror it into the local store (echo-guarded). */
@@ -100,10 +116,14 @@ function watchCampaign(id) {
       const local = store.getCampaign() || { id };
       store.saveCampaign({ id, meta: remote.meta || local.meta, members: remote.members || (local.members || {}) });
       if (remote.momentum != null || remote.threat != null) {
-        store.savePools({ momentum: remote.momentum ?? 0, threat: remote.threat ?? 0 });
+        // Merge so a member's momentum update never clobbers the GM-only threat and vice-versa.
+        const pools = store.getPools();
+        if (remote.momentum != null) pools.momentum = remote.momentum;
+        if (remote.threat != null) pools.threat = remote.threat;
+        store.savePools(pools);
       }
     } finally { applyingRemote = false; }
-  });
+  }, (err) => { watchingId = null; console.error('watch campaign failed (retrying on next change):', err); });
 }
 
 /** Join an existing campaign by its join code: resolve the code → id via the joinCodes index (no
