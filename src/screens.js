@@ -5,7 +5,7 @@ import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
 import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
 import { confirmModal, promptModal } from './ui.js';
-import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, party, leaveCampaign, joinCampaign } from './sync.js';
+import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
@@ -527,10 +527,37 @@ function campaignCard() {
         card.replaceChildren(...kids.filter((k) => k != null));
         return;
       }
-      const roleSel = el('select', { 'aria-label': 'Your role' },
+      const roleSel = el('select', { id: 'camp-role', 'aria-label': 'Your role' },
         el('option', { value: 'player', selected: me.role === 'player' ? '' : null }, 'Player'),
         el('option', { value: 'gm', selected: me.role === 'gm' ? '' : null }, 'Gamemaster'));
       roleSel.addEventListener('change', () => { setMyRole(roleSel.value); showToast(`Role: ${roleSel.value === 'gm' ? 'Gamemaster' : 'Player'}`); draw(); });
+
+      // Which of my saved characters I play in this campaign (§7 members.characterId).
+      const myChars = listCharacters();
+      const charSel = el('select', { id: 'camp-char', 'aria-label': 'Your character' },
+        el('option', { value: '', selected: !me.characterId ? '' : null }, '— none —'),
+        ...myChars.map((ch) => el('option', { value: ch.id, selected: me.characterId === ch.id ? '' : null }, ch.identity?.name || 'Unnamed')));
+      charSel.addEventListener('change', () => {
+        const ch = myChars.find((x) => x.id === charSel.value);
+        setMyCharacter(charSel.value || null, ch ? (ch.identity?.name || 'Unnamed') : null);
+        showToast(ch ? `Playing ${ch.identity?.name || 'Unnamed'}` : 'Character cleared'); draw();
+      });
+
+      const manage = canManageParty();
+      const partyRow = (m) => el('li', { class: 'party-row' },
+        el('div', {},
+          el('span', {}, m.displayName || 'Player'),
+          el('span', { class: 'small muted' }, ` · ${m.role === 'gm' ? 'GM' : 'Player'}${m.characterName ? ' · ' + m.characterName : ''}${m.isOwner ? ' · owner' : ''}${m.isMe ? ' · you' : ''}`)),
+        (manage && !m.isMe) ? el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary small', onclick: async () => {
+            const n = await promptModal(`Rename ${m.displayName || 'member'}`, { value: m.displayName || 'Player', okLabel: 'Save' });
+            if (n == null) return; await renameMember(m.uid, n); showToast('Member renamed'); draw();
+          } }, 'Rename'),
+          el('button', { class: 'btn secondary small', onclick: async () => {
+            if (!await confirmModal(`Remove ${m.displayName || 'this member'} from the party?`, { okLabel: 'Remove' })) return;
+            await removeMember(m.uid); showToast('Member removed'); draw();
+          } }, 'Remove')) : null);
+
       kids.push(
         el('p', {}, el('strong', {}, c.meta.name)),
         el('p', { class: 'small' }, 'Join code: ', el('code', {}, c.meta.joinCode),
@@ -539,11 +566,13 @@ function campaignCard() {
         el('p', { class: 'small muted' }, 'Share this code so teammates can join once cloud sync is enabled.'),
         el('div', { class: 'toggle-row' },
           el('label', { for: 'camp-role' }, el('div', {}, 'Your role'),
-            el('div', { class: 'small muted' }, 'GM will gate the GM screen + shared-pool controls in cloud play.')), roleSel),
+            el('div', { class: 'small muted' }, 'GM gates the GM screen + shared-pool controls in cloud play.')), roleSel),
+        el('div', { class: 'toggle-row' },
+          el('label', { for: 'camp-char' }, el('div', {}, 'Your character'),
+            el('div', { class: 'small muted' }, 'Which of your characters you play in this campaign.')), charSel),
         el('h4', {}, `Party (${party().length})`),
-        el('ul', { class: 'char-list' }, ...party().map((m) => el('li', {},
-          el('span', {}, m.displayName || 'Player'),
-          el('span', { class: 'small muted' }, ` · ${m.role === 'gm' ? 'GM' : 'Player'}${m.isOwner ? ' · owner' : ''}${m.isMe ? ' · you' : ''}`)))),
+        manage ? el('p', { class: 'small muted' }, 'As owner/GM you can rename or remove any member.') : null,
+        el('ul', { class: 'char-list' }, ...party().map(partyRow)),
         el('div', { class: 'cta-row' },
           el('button', { class: 'btn secondary', onclick: async () => {
             const n = await promptModal('Your display name', { value: me.displayName || 'Player', okLabel: 'Save' });

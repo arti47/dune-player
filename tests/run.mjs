@@ -768,10 +768,21 @@ check('deviceUid is stable across calls', store.deviceUid() === store.deviceUid(
   check('party() lists members with isMe/isOwner flags', (() => {
     const p = sync.party(); return p.length === 1 && p[0].isMe && p[0].isOwner && p[0].displayName === 'Otto';
   })());
-  sync.setMyRole('player'); sync.setMyDisplayName('Renamed'); sync.setMyCharacter('char-9');
-  check('setMyRole/DisplayName/Character patch my member', (() => {
-    const m = sync.myMember(); return m.role === 'player' && m.displayName === 'Renamed' && m.characterId === 'char-9' && !sync.isGM();
+  sync.setMyRole('player'); sync.setMyDisplayName('Renamed'); sync.setMyCharacter('char-9', 'Kara');
+  check('setMyRole/DisplayName/Character patch my member (character name stored)', (() => {
+    const m = sync.myMember(); return m.role === 'player' && m.displayName === 'Renamed' && m.characterId === 'char-9' && m.characterName === 'Kara' && !sync.isGM();
   })());
+  // Roster management: the owner (me, now a player) may rename/remove another member.
+  {
+    const cc = store.getCampaign();
+    cc.members['other-uid'] = { displayName: 'Bob', characterId: null, characterName: null, role: 'player' };
+    store.saveCampaign(cc);
+    check('canManageParty true for the owner even as a player; party lists 2', sync.canManageParty() === true && sync.party().length === 2);
+    await sync.renameMember('other-uid', 'Robert');
+    check('renameMember (owner → other) updates the member', store.getCampaign().members['other-uid'].displayName === 'Robert');
+    await sync.removeMember('other-uid');
+    check('removeMember (owner → other) drops the member', !store.getCampaign().members['other-uid'] && sync.party().length === 1);
+  }
   check('exportAll carries the campaign; importAll restores it', (() => {
     const b = store.exportAll();
     if (!b.campaign || b.campaign.meta.name !== 'Test Campaign') return false;

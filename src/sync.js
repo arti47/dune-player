@@ -79,12 +79,41 @@ function patchMe(patch) {
   const c = getCampaign();
   if (!c) return null;
   const me = myUid();
-  c.members[me] = { displayName: 'Player', characterId: null, role: 'player', ...c.members[me], ...patch };
+  c.members[me] = { displayName: 'Player', characterId: null, characterName: null, role: 'player', ...c.members[me], ...patch };
   return saveCampaign(c);
 }
 export function setMyRole(role) { return patchMe({ role: asRole(role) }); }
 export function setMyDisplayName(name) { return patchMe({ displayName: (name || '').trim() || 'Player' }); }
-export function setMyCharacter(characterId) { return patchMe({ characterId: characterId || null }); }
+/** Assign which of my saved characters I play; store the name too (denormalized) so the party
+ *  list can show it without needing cross-device character sync. */
+export function setMyCharacter(characterId, characterName = null) {
+  return patchMe({ characterId: characterId || null, characterName: characterName || null });
+}
+
+// ---------- Roster management (owner/GM may edit other members; the RTDB rules enforce this too) ----------
+export function canManageParty() { return isGM() || isOwner(); }
+
+/** Rename a member. Renaming yourself always works; renaming others needs owner/GM. */
+export async function renameMember(memberUid, name) {
+  const c = getCampaign(); if (!c || !c.members[memberUid]) return null;
+  const nm = (name || '').trim() || 'Player';
+  if (memberUid === myUid()) return setMyDisplayName(nm);
+  if (!canManageParty()) return null;
+  c.members[memberUid] = { ...c.members[memberUid], displayName: nm };
+  saveCampaign(c);
+  if (cloudEnabled()) { try { (await import('./cloud.js')).writeMember(memberUid, c.members[memberUid]); } catch (e) { console.error(e); } }
+  return c;
+}
+
+/** Remove a member from the party. Removing yourself leaves/dissolves; removing others needs owner/GM. */
+export async function removeMember(memberUid) {
+  const c = getCampaign(); if (!c || !c.members[memberUid]) return null;
+  if (memberUid === myUid()) { leaveCampaign(); return null; }
+  if (!canManageParty()) return null;
+  delete c.members[memberUid]; saveCampaign(c);
+  if (cloudEnabled()) { try { (await import('./cloud.js')).removeMemberNode(memberUid); } catch (e) { console.error(e); } }
+  return c;
+}
 
 /** Leave/dissolve the local campaign. (Cloud mode will detach the member instead of deleting.) */
 export function leaveCampaign() { deleteCampaign(); }

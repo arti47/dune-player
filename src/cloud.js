@@ -94,6 +94,16 @@ function pushCampaign() {
   memberWrite.then(() => watchCampaign(c.id)).catch((e) => console.error('push member failed:', e));
 }
 
+// Owner/GM roster edits (the RTDB rules allow a GM to write/remove any member node).
+export function writeMember(memberUid, data) {
+  if (!currentCampaignId || !fns) return;
+  fns.set(nodeRef(currentCampaignId, `members/${memberUid}`), data).catch((e) => console.error('write member failed:', e));
+}
+export function removeMemberNode(memberUid) {
+  if (!currentCampaignId || !fns) return;
+  fns.remove(nodeRef(currentCampaignId, `members/${memberUid}`)).catch((e) => console.error('remove member failed:', e));
+}
+
 // Shared pools: any member may write Momentum; only the GM may write Threat (per the rules).
 function pushPools() {
   if (!currentCampaignId) return;
