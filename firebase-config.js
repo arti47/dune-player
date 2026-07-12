@@ -12,6 +12,9 @@ export const FIREBASE_ENABLED = true;
 export const firebaseConfig = {
   apiKey: "AIzaSyBciI9cH19KrD4ntKgbZsvembbwAubM2Ko",
   authDomain: "imperium-player.firebaseapp.com",
+  // Must match your database's REGION exactly. Only US (us-central1) databases use the
+  // ...firebaseio.com form; every other region uses ...<region>.firebasedatabase.app.
+  databaseURL: "https://imperium-player-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "imperium-player",
   storageBucket: "imperium-player.firebasestorage.app",
   messagingSenderId: "560274847711",

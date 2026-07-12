@@ -782,10 +782,18 @@ check('deviceUid is stable across calls', store.deviceUid() === store.deviceUid(
   sync.leaveCampaign();
   check('leaveCampaign clears the local campaign + membership', sync.getActiveCampaign() === null && sync.myMember() === null && sync.party().length === 0);
 }
-check('joinCampaign rejects with a helpful cloud-required error in local mode',
-  await (async () => { try { await sync.joinCampaign('spice-falcon-blade'); return false; } catch (e) { return /cloud|firebase/i.test(e.message); } })());
-check('initSync() is a no-op returning false in local mode (FIREBASE_ENABLED=false — stays keyless)',
-  (await sync.initSync()) === false);
+const fbcfg = await import(join(root, 'firebase-config.js'));
+check('cloudEnabled() reflects the FIREBASE_ENABLED flag', sync.cloudEnabled() === !!fbcfg.FIREBASE_ENABLED);
+if (!fbcfg.FIREBASE_ENABLED) {
+  check('local mode: joinCampaign rejects with a helpful cloud-required error',
+    await (async () => { try { await sync.joinCampaign('spice-falcon-blade'); return false; } catch (e) { return /cloud|firebase/i.test(e.message); } })());
+  check('local mode: initSync() returns false (stays keyless)', (await sync.initSync()) === false);
+} else {
+  // Cloud mode: the #1 setup gotcha is a missing/region-wrong databaseURL (the SDK silently uses
+  // the wrong US endpoint). Require it to be present so a bad config can't ship green.
+  check('cloud mode: firebaseConfig includes a non-empty databaseURL',
+    typeof fbcfg.firebaseConfig.databaseURL === 'string' && /^https:\/\/.+/.test(fbcfg.firebaseConfig.databaseURL));
+}
 // Firebase must be isolated to cloud.js: no other src file imports the SDK, and sync.js loads
 // cloud.js only via dynamic import() so local mode never pulls Firebase in.
 {
