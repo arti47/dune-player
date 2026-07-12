@@ -10,9 +10,18 @@ import { getCampaign, saveCampaign, deleteCampaign, deviceUid } from './store.js
 
 export function cloudEnabled() { return !!FIREBASE_ENABLED; }
 
-export function initSync() {
-  // No-op in local mode. Cloud mode will init the Firebase app + anonymous auth here.
-  return cloudEnabled();
+// Local mode: no-op. Cloud mode: dynamically load the isolated Firebase adapter (so local mode
+// never imports Firebase), init the app + anonymous auth, and start mirroring the campaign/pools.
+export async function initSync() {
+  if (!cloudEnabled()) return false;
+  try {
+    const cloud = await import('./cloud.js');
+    await cloud.initCloud();
+    return true;
+  } catch (e) {
+    console.error('Cloud sync failed to start:', e);
+    return false;
+  }
 }
 
 // ---------- Memorable join codes (app flavor — not rules; original word set) ----------
@@ -80,10 +89,12 @@ export function setMyCharacter(characterId) { return patchMe({ characterId: char
 /** Leave/dissolve the local campaign. (Cloud mode will detach the member instead of deleting.) */
 export function leaveCampaign() { deleteCampaign(); }
 
-/** Join by code — cloud-only: on one device there is no other campaign to join. */
-export function joinCampaign(/* code, { displayName } */) {
+/** Join by code — cloud-only (on one device there is no other campaign to join). Async in cloud
+ *  mode: finds the campaign in RTDB, adds me as a member, and starts mirroring it locally. */
+export async function joinCampaign(code, { displayName = 'Player' } = {}) {
   if (!cloudEnabled()) {
     throw new Error('Joining someone else’s campaign needs cloud sync — enable Firebase in firebase-config.js. Share your join code so others can join once cloud is on.');
   }
-  throw new Error('Cloud join not yet wired.');   // Phase 5 cloud step
+  const cloud = await import('./cloud.js');
+  return cloud.joinByCode((code || '').trim(), { displayName: (displayName || 'Player').trim() || 'Player', characterId: null, role: 'player' });
 }

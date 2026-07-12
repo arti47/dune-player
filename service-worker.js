@@ -1,6 +1,6 @@
 // service-worker.js — network-first PWA cache. Bump CACHE_VERSION on ANY shipped-file change.
 
-const CACHE_VERSION = 'imperium-v0.80.0';
+const CACHE_VERSION = 'imperium-v0.81.0';
 
 const APP_SHELL = [
   './',
@@ -24,6 +24,7 @@ const APP_SHELL = [
   './src/settings.js',
   './src/store.js',
   './src/sync.js',
+  './src/cloud.js',
   './src/wizard.js',
   './src/roller.js',
   './src/cite.js',

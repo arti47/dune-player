@@ -782,8 +782,24 @@ check('deviceUid is stable across calls', store.deviceUid() === store.deviceUid(
   sync.leaveCampaign();
   check('leaveCampaign clears the local campaign + membership', sync.getActiveCampaign() === null && sync.myMember() === null && sync.party().length === 0);
 }
-check('joinCampaign throws a helpful error in local mode (cloud required)',
-  (() => { try { sync.joinCampaign('spice-falcon-blade'); return false; } catch (e) { return /cloud/i.test(e.message); } })());
+check('joinCampaign rejects with a helpful cloud-required error in local mode',
+  await (async () => { try { await sync.joinCampaign('spice-falcon-blade'); return false; } catch (e) { return /cloud|firebase/i.test(e.message); } })());
+check('initSync() is a no-op returning false in local mode (FIREBASE_ENABLED=false — stays keyless)',
+  (await sync.initSync()) === false);
+// Firebase must be isolated to cloud.js: no other src file imports the SDK, and sync.js loads
+// cloud.js only via dynamic import() so local mode never pulls Firebase in.
+{
+  const cloudSrc = readFileSync(join(root, 'src/cloud.js'), 'utf8');
+  const syncSrc = readFileSync(join(root, 'src/sync.js'), 'utf8');
+  const srcFiles = ['core', 'store', 'sync', 'derived', 'roller', 'combat', 'sheet', 'screens', 'wizard', 'gm', 'house', 'content', 'main', 'router', 'ui', 'settings', 'tutorial']
+    .map((f) => readFileSync(join(root, `src/${f}.js`), 'utf8'));
+  check('Firebase SDK is referenced only in cloud.js (isolated adapter)',
+    /firebasejs/.test(cloudSrc) && srcFiles.every((s) => !/firebasejs/.test(s)));
+  check('sync.js loads cloud.js via dynamic import (local mode never statically imports Firebase)',
+    /await import\(['"]\.\/cloud\.js['"]\)/.test(syncSrc) && !/^import .*cloud\.js/m.test(syncSrc));
+  check('cloud.js exports initCloud + joinByCode (the adapter surface)',
+    /export async function initCloud/.test(cloudSrc) && /export async function joinByCode/.test(cloudSrc));
+}
 
 console.log('— Roll log: delete one / clear all —');
 _mem.clear();

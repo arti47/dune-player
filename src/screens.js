@@ -5,7 +5,7 @@ import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
 import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
 import { confirmModal, promptModal } from './ui.js';
-import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, party, leaveCampaign } from './sync.js';
+import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, party, leaveCampaign, joinCampaign } from './sync.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
@@ -502,7 +502,13 @@ function campaignCard() {
             if (name == null) return;
             createCampaign({ name, displayName: 'Player' });
             showToast('Campaign created'); draw();
-          } }, 'Create a campaign')));
+          } }, 'Create a campaign'),
+          el('button', { class: 'btn secondary', onclick: async () => {
+            const code = await promptModal('Enter a join code', { placeholder: 'word-word-word', okLabel: 'Join' });
+            if (!code) return;
+            try { await joinCampaign(code); showToast('Joined campaign'); draw(); }
+            catch (e) { showToast(e.message || 'Could not join'); }
+          } }, 'Join by code')));
     } else {
       const me = myMember();
       const roleSel = el('select', { 'aria-label': 'Your role' },
