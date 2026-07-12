@@ -748,6 +748,43 @@ check('importAll round-trips characters + pools + normalizes',
   store.listCharacters()[0].skills.communicate === 4 &&   // back-filled by normalizeCharacter
   store.getPools().momentum === 4);
 
+console.log('— Phase 5 foundation: campaigns, roles, join codes (local-first) —');
+_mem.clear();
+const sync = await import(join(root, 'src/sync.js'));
+check('makeJoinCode → 3 distinct hyphenated words', (() => {
+  const code = sync.makeJoinCode();
+  const parts = code.split('-');
+  return parts.length === 3 && new Set(parts).size === 3 && parts.every((w) => /^[a-z]+$/.test(w));
+})());
+check('deviceUid is stable across calls', store.deviceUid() === store.deviceUid() && store.deviceUid().startsWith('u-'));
+{
+  const c = sync.createCampaign({ name: 'Test Campaign', displayName: 'Otto', role: 'gm' });
+  const me = sync.myUid();
+  check('createCampaign builds §7 shape (meta + members) with me as owner + GM',
+    c.id && c.meta.name === 'Test Campaign' && /^[a-z]+-[a-z]+-[a-z]+$/.test(c.meta.joinCode) &&
+    c.meta.ownerUid === me && c.members[me].role === 'gm' && c.members[me].displayName === 'Otto' &&
+    c.members[me].characterId === null);
+  check('myRole/isGM/isOwner reflect membership', sync.myRole() === 'gm' && sync.isGM() === true && sync.isOwner() === true);
+  check('party() lists members with isMe/isOwner flags', (() => {
+    const p = sync.party(); return p.length === 1 && p[0].isMe && p[0].isOwner && p[0].displayName === 'Otto';
+  })());
+  sync.setMyRole('player'); sync.setMyDisplayName('Renamed'); sync.setMyCharacter('char-9');
+  check('setMyRole/DisplayName/Character patch my member', (() => {
+    const m = sync.myMember(); return m.role === 'player' && m.displayName === 'Renamed' && m.characterId === 'char-9' && !sync.isGM();
+  })());
+  check('exportAll carries the campaign; importAll restores it', (() => {
+    const b = store.exportAll();
+    if (!b.campaign || b.campaign.meta.name !== 'Test Campaign') return false;
+    _mem.clear();
+    store.importAll(b);
+    return !!store.getCampaign() && store.getCampaign().meta.name === 'Test Campaign';
+  })());
+  sync.leaveCampaign();
+  check('leaveCampaign clears the local campaign + membership', sync.getActiveCampaign() === null && sync.myMember() === null && sync.party().length === 0);
+}
+check('joinCampaign throws a helpful error in local mode (cloud required)',
+  (() => { try { sync.joinCampaign('spice-falcon-blade'); return false; } catch (e) { return /cloud/i.test(e.message); } })());
+
 console.log('— Roll log: delete one / clear all —');
 _mem.clear();
 store.appendRoll({ skill: 'battle', drive: 'duty', tn: 14, dice: [3], successes: 1 });

@@ -4,7 +4,8 @@ import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
 import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
-import { confirmModal } from './ui.js';
+import { confirmModal, promptModal } from './ui.js';
+import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, party, leaveCampaign } from './sync.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
@@ -485,6 +486,58 @@ function dataCard() {
       fileInput));
 }
 
+// ---------- Campaign & party (Phase 5 foundation: local-first campaigns + roles) ----------
+function campaignCard() {
+  const card = el('section', { class: 'card' });
+  const draw = () => {
+    const c = getActiveCampaign();
+    const kids = [el('h3', {}, 'Campaign & party')];
+    if (!c) {
+      kids.push(
+        el('p', { class: 'small muted' },
+          'Group your table under a shared campaign with a memorable join code. It works on this device now; real-time sync across devices arrives with cloud mode.'),
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn', onclick: async () => {
+            const name = await promptModal('Name your campaign', { placeholder: 'e.g. The Spice Must Flow', okLabel: 'Create' });
+            if (name == null) return;
+            createCampaign({ name, displayName: 'Player' });
+            showToast('Campaign created'); draw();
+          } }, 'Create a campaign')));
+    } else {
+      const me = myMember();
+      const roleSel = el('select', { 'aria-label': 'Your role' },
+        el('option', { value: 'player', selected: me.role === 'player' ? '' : null }, 'Player'),
+        el('option', { value: 'gm', selected: me.role === 'gm' ? '' : null }, 'Gamemaster'));
+      roleSel.addEventListener('change', () => { setMyRole(roleSel.value); showToast(`Role: ${roleSel.value === 'gm' ? 'Gamemaster' : 'Player'}`); draw(); });
+      kids.push(
+        el('p', {}, el('strong', {}, c.meta.name)),
+        el('p', { class: 'small' }, 'Join code: ', el('code', {}, c.meta.joinCode),
+          el('button', { class: 'btn secondary', style: 'margin-left:8px', 'aria-label': 'Copy join code',
+            onclick: () => { try { navigator.clipboard?.writeText(c.meta.joinCode); } catch {} showToast('Join code copied'); } }, 'Copy')),
+        el('p', { class: 'small muted' }, 'Share this code so teammates can join once cloud sync is enabled.'),
+        el('div', { class: 'toggle-row' },
+          el('label', { for: 'camp-role' }, el('div', {}, 'Your role'),
+            el('div', { class: 'small muted' }, 'GM will gate the GM screen + shared-pool controls in cloud play.')), roleSel),
+        el('h4', {}, `Party (${party().length})`),
+        el('ul', { class: 'char-list' }, ...party().map((m) => el('li', {},
+          el('span', {}, m.displayName || 'Player'),
+          el('span', { class: 'small muted' }, ` · ${m.role === 'gm' ? 'GM' : 'Player'}${m.isOwner ? ' · owner' : ''}${m.isMe ? ' · you' : ''}`)))),
+        el('div', { class: 'cta-row' },
+          el('button', { class: 'btn secondary', onclick: async () => {
+            const n = await promptModal('Your display name', { value: me.displayName || 'Player', okLabel: 'Save' });
+            if (n == null) return; setMyDisplayName(n); showToast('Name updated'); draw();
+          } }, 'Rename me'),
+          el('button', { class: 'btn secondary', onclick: async () => {
+            if (!await confirmModal('Leave this campaign? On this device that dissolves it.', { okLabel: 'Leave' })) return;
+            leaveCampaign(); showToast('Left campaign'); draw();
+          } }, 'Leave campaign')));
+    }
+    card.replaceChildren(...kids.filter((k) => k != null));
+  };
+  draw();
+  return card;
+}
+
 // ---------- Settings / About ----------
 export function renderSettings(root) {
   // Theme picker
@@ -531,6 +584,7 @@ export function renderSettings(root) {
               Settings.restartTutorial(); showToast('Tutorial reset'); location.hash = '#/tutorial';
             } }, 'Restart tutorial')
           : null)),
+    campaignCard(),
     dataCard(),
     el('section', { class: 'card' },
       el('h3', {}, 'About'),

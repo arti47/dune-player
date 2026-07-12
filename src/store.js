@@ -11,6 +11,8 @@ const K_CURRENT = 'imperium.currentCharacterId';
 const K_HOUSE = 'imperium.house';
 const K_POOLS = 'imperium.pools';
 const K_ROLLLOG = 'imperium.rollLog';
+const K_DEVICE = 'imperium.deviceUid';
+const K_CAMPAIGN = 'imperium.campaign';
 const ROLL_LOG_CAP = 100;
 
 const listeners = new Set();
@@ -58,6 +60,21 @@ export function deleteHouse() { localStorage.removeItem(K_HOUSE); notify('house'
 export function getPools() { return readJSON(K_POOLS, { momentum: 0, threat: 0 }); }
 export function savePools(pools) { writeJSON(K_POOLS, pools); notify('pools'); }
 
+// ---------- Campaign & device identity (Phase 5 foundation; local-first) ----------
+// A stable per-device id that stands in for "me" as a member. In cloud mode the Firebase
+// anonymous-auth uid takes over (sync.js), but the local id keeps membership working offline.
+export function deviceUid() {
+  let id = localStorage.getItem(K_DEVICE);
+  if (!id) { id = 'u-' + uid(); localStorage.setItem(K_DEVICE, id); }
+  return id;
+}
+// The campaign is the group container (§7): { id, meta{name,joinCode,createdAt,ownerUid},
+// members{ uid:{displayName,characterId,role} } }. Locally the House/pools/conflict keep their
+// own keys; cloud sync (later) makes this object the sync root.
+export function getCampaign() { return readJSON(K_CAMPAIGN, null); }
+export function saveCampaign(c) { writeJSON(K_CAMPAIGN, c); notify('campaign'); return c; }
+export function deleteCampaign() { localStorage.removeItem(K_CAMPAIGN); notify('campaign'); }
+
 // ---------- JSON export / import (local-mode backup & device transfer) ----------
 export function exportAll() {
   return {
@@ -66,6 +83,7 @@ export function exportAll() {
     house: readJSON(K_HOUSE, null),
     pools: getPools(),
     tasks: readJSON(K_TASKS, []),
+    campaign: getCampaign(),
     currentCharacterId: currentCharacterId(),
   };
 }
@@ -79,6 +97,7 @@ export function importAll(data) {
   writeJSON(K_HOUSE, data.house ? normalizeHouse(data.house) : null);
   writeJSON(K_POOLS, data.pools && typeof data.pools === 'object' ? data.pools : { momentum: 0, threat: 0 });
   writeJSON(K_TASKS, Array.isArray(data.tasks) ? data.tasks : []);
+  if (data.campaign && data.campaign.meta) writeJSON(K_CAMPAIGN, data.campaign); else localStorage.removeItem(K_CAMPAIGN);
   if (data.currentCharacterId && characters.some((c) => c.id === data.currentCharacterId)) {
     localStorage.setItem(K_CURRENT, data.currentCharacterId);
   } else localStorage.removeItem(K_CURRENT);
