@@ -7,11 +7,13 @@ import { renderSheet } from './sheet.js';
 import { renderGM } from './gm.js';
 import { renderHouseManagement } from './house.js';
 import { renderTutorial } from './tutorial.js';
+import { renderJournal } from './journal.js';
 
 const ROUTES = [
   { id: 'home',     label: 'Home',     ico: '⌂', render: renderHome },
   { id: 'sheet',    label: 'Sheet',    ico: '☰', render: renderSheet },
   { id: 'rules',    label: 'Rules',    ico: '❖', render: renderRules },
+  { id: 'journal',  label: 'Journal',  ico: '✒', render: renderJournal, gated: () => Settings.journal() },
   { id: 'house',    label: 'House',    ico: '🏛', render: renderHouseManagement, gated: () => Settings.greatGame() },
   { id: 'settings', label: 'Settings', ico: '⚙', render: renderSettings },
   { id: 'gm',       label: 'GM',       ico: '👁', render: renderGM, gated: () => Settings.gmScreen() },

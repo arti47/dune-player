@@ -481,6 +481,7 @@ regardless of toggle.
 | `data.js` | Core rules library — every §3 list/table/formula from the core book |
 | `data-sand-and-dust.js` … `data-fall-of-imperium.js` | Expansion crunch behind toggles (§4) |
 | `data-oracle.js` | Homebrew GM/solo oracle word tables (4×d100; **not** official rules — labeled in-UI) |
+| `src/journal.js` | Solo-play journal tab (entries · threads · NPCs/places · scene pad; gated by `Settings.journal()`) |
 | `data-npcs.js` | All NPC stat blocks: 25 generic archetypes + iconic characters |
 | `data-pregens.js` | Iconic characters as one-tap PC pregens |
 | `firebase-config.js` | Placeholder config + `FIREBASE_ENABLED` flag |
@@ -516,7 +517,8 @@ sandworms are unstatted forces of nature. `data-solo.js` omitted per §3.15.)*
 | `content.js` | The effective content set: core data + any **enabled expansion** crunch (§4/§8). `allTalents`/`findTalent`/`allFactionTemplates`/`allArchetypes`/`focusExamplesFor`/`expansionNpcs` + `allDrives`/`driveName`/`driveStatementExamplesFor` (alternative drives) — every talent/faction/focus/drive/NPC surface reads through here so expansion content appears only when its toggle is on. No rules data lives here. |
 | `tutorial.js` | Phase 7 onboarding (§13): modular, opt-in guided lessons over a **disposable pregen sandbox** (never persisted). `renderTutorial` = pregen picker → lesson menu → stepped `runLesson`; `LESSONS[]` catalogue (six full-core lessons). Lesson widgets reuse the real engine (`evaluateDice`/`targetNumber`) with **scripted dice**; the "Create your character" lesson hands off to the real `startCharacterWizard`. Reached from the first-launch prompt + Settings only (route `#/tutorial`, `nav:false`). |
 | `router.js` | Bottom-nav routing + conditional tab gating. `routableRoutes()` (gating passes) vs `visibleRoutes()` (nav, `nav !== false`) — a route can be routable but hidden from the nav (the tutorial). |
-| `oracle.js` | Homebrew idea generator (gated by `Settings.oracle()`): a global FAB (`initOracle`/`syncOracleFab`) opening a `modal()` that rolls a d100 on each `data-oracle.js` table → 4-word spark, with Reroll / Copy / Add-to-notes (appends a labeled line to the last-opened character's `notes` via `currentCharacterId`). The **Lore** result is a button that shows a tap-dismissed translucent popover with its `ORACLE.loreDefs` gloss (<14 words). |
+| `oracle.js` | Homebrew idea generator (gated by `Settings.oracle()`): a global FAB (`initOracle`/`syncOracleFab`) opening a `modal()` that rolls a d100 on each `data-oracle.js` table → 4-word spark, with Reroll / Copy / **Add to journal** (`store.addJournalEntry`, title "Oracle"). The **Lore** result is a button that shows a tap-dismissed translucent popover with its `ORACLE.loreDefs` gloss (<14 words). |
+| `journal.js` | Solo-play **Journal** tab (gated by `Settings.journal()`, `#/journal`): `renderJournal` over the global `store.getJournal()` — a **current-scene pad** (setup+notes, log-to-entry), dated **entries** (title + optional thread link), **threads** (open/resolved plot questions), and an **NPCs & places** roster. Everything persists immediately + rides the JSON backup. |
 | `main.js` | Entry point / boot. Fires the one-time first-launch tutorial prompt (`maybeOfferTutorial`, §13 #4). |
 
 *(`power-automation.js` and `solo.js` omitted per §3.9/§3.15 resolutions.)*
@@ -561,6 +563,13 @@ campaigns/{campaignId}
                       complications, momentumDelta, threatDelta, note, ts }  // capped ~100
   broadcast/{pushId}: { text, ts, from }
 
+// Journal (§ solo play) — global/device-wide, local-only (localStorage `imperium.journal`), in the JSON backup.
+// NOT part of the campaign sync tree. Shape:
+//   { entries[{ id, ts, title, body, threadId }],   // newest-first; threadId links to a thread (optional)
+//     threads[{ id, title, status: "open"|"resolved", note }],
+//     contacts[{ id, name, type: "npc"|"place", note }],
+//     scene{ setup, notes } }                        // one editable current-scene pad
+
 characters/{characterId}
   owner, campaignId
   identity:  { name, archetype, factionTemplate, houseRole, appearance,
@@ -594,7 +603,7 @@ Explicit user choice beats role-based defaults (store `true`/`false` distinctly 
 unset).
 
 Toggles: `sandAndDust` · `greatGame` · `powerAndPawns` · `mastersOfDune` ·
-`fallOfImperium` · `gmScreen` · `oracle` · `advancedAutomation` (if built).
+`fallOfImperium` · `gmScreen` · `oracle` · `journal` · `advancedAutomation` (if built).
 
 ---
 
@@ -746,6 +755,7 @@ a11y (§5); 0px overflow at 360px; teaching lessons must not mutate real charact
 
 | Date | Change | Why | Root cause (fixes) | Verification | Cache ver |
 |---|---|---|---|---|---|
+| 2026-07-16 | **Journal tab (solo-play log, gated).** New `src/journal.js` + a **Journal** bottom-nav tab gated by a new `Settings.journal()` toggle (off by default). Four sections over a global/device-wide `store.getJournal()` object (`imperium.journal`, in the JSON backup): a **current-scene pad** (setup+notes → "Log scene → entry"), dated **entries** (optional title + optional link to an open thread; newest-first, deletable), **threads** (open/resolved plot questions with notes), and an **NPCs & places** roster. `store` gains `getJournal`/`saveJournal`/`addJournalEntry` + journal in `exportAll`/`importAll`. **Oracle "Add to notes" → "Add to journal"** (per user): the 4-word spark now logs as a journal entry (title "Oracle") via `addJournalEntry`, dropping the character/`currentCharacterId` dependency. Schema §7 + module map §6.1 + file table §6 updated. `journal.js` added to SW app shell. | User: build a global solo-play journal tab (entries/threads/NPCs/scene), toggle-gated; oracle logs to it | — | npm test **410 green** (+6: 4-section journal shape, newest-first add, JSON-backup round-trip, importAll restore, tab gated by `Settings.journal()`, oracle uses addJournalEntry). **Browser-verified at 360px:** Journal in nav → scene pad "Log scene → entry" (scene cleared, Entries (1)) → New entry (Entries (2)) → oracle "Add to journal" (Entries → 3); 0px overflow, 0 console errors. | imperium-v0.88.0 |
 | 2026-07-16 | **Oracle — tappable Lore glosses.** The **Lore** result in the oracle modal is now a button; tapping it shows a semi-translucent **popover** (`.oracle-pop`, backdrop-blur) with a short reminder of the term, dismissed by tapping anywhere (and on Reroll). Added `ORACLE.loreDefs` — a **<14-word gloss for all 100** lore words (homebrew paraphrase of general Herbert canon, not rulebook prose, §10.8/§12). Only the Lore column is glossable. | User: click a lore result → short definition popup | — | npm test **404 green** (+2: all 100 lore words have a gloss, every gloss <14 words). **Browser-verified at 360px:** tap Lore "Arrakis" → popover "The desert planet Dune, sole source of spice melange." → tap-away closes; 0px overflow, 0 console errors. | imperium-v0.87.0 |
 | 2026-07-16 | **Oracle idea generator (homebrew, gated).** New `data-oracle.js` (4 word tables of 100 each — Action/Descriptor/Event/Lore, 400 distinct, user-supplied) + `src/oracle.js` — a global **FAB** (`✦`, above the nav) gated by a new `Settings.oracle()` toggle, opening a `modal()` that rolls a d100 per table → a **4-word spark** for solo play / GM prep. **Reroll all**, **Copy** (labeled line to clipboard), and **Add to notes** (appends `Oracle — Action: … · Descriptor: … · Event: … · Lore: …` to the **last-opened** character's `notes` via `currentCharacterId`; toasts if none open). Added `dN(n)` to `core.js` (raw d100). Labeled **not official rules** in-UI + spec (§10.8). New Settings toggle row; FAB visibility syncs on the toggle's `hashchange`. Files added to SW app shell. | User: build a 4×d100 oracle roller for solo/GM idea generation → notes | — | npm test **402 green** (+5: 4×100-word tables, 400 distinct, labels, FAB toggle-gated, appends via currentCharacterId). **Browser-verified at 360px:** oracle-on → FAB visible → modal rolls 4 words → Reroll changes them → Add-to-notes appends the labeled line to Paul's notes; toggle-off hides the FAB; 0px overflow, 0 console errors. | imperium-v0.86.0 |
 | 2026-07-12 | **Fix — Settings "Campaign & party" card crashed at boot in cloud mode (`screens.js:515 Cannot read properties of null`).** The campaign card's "campaign exists" branch did `const me = myMember(); … me.role` — but in cloud mode `myUid()` returns the local device id until anonymous auth resolves async, so at boot the stored member key may not match and `myMember()` returns **null**, throwing before the card (and the whole Settings screen after it) could render. Added a `if (!me)` guard that renders a safe minimal "Connecting to the campaign…" state (name + join code + Leave) and returns; the cloud watcher's re-draw (and `migrateLocalUid`) then fills in the full card once auth resolves and membership matches. | User pasted the crash console (`TypeError … reading 'role' at draw (screens.js:515)`) alongside the cloud permission_denied | `campaignCard`'s else-branch assumed `myMember()` is non-null, but the device-id→auth-uid handoff leaves a window where it isn't | npm test **397 green** (unchanged — UI guard). **Browser-verified at 360px:** seeded a campaign whose member key ≠ `myUid()` → Settings renders the "Connecting…" state (name + join code + Leave) with **no crash**, 0px overflow, 0 console errors. | imperium-v0.85.0 |

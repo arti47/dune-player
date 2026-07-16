@@ -1347,7 +1347,26 @@ console.log('— Oracle idea generator (data-oracle.js) —');
     Object.values(ORACLE.loreDefs).every((d) => d.trim().split(/\s+/).length < 14));
   const oracleSrc = readFileSync(join(root, 'src/oracle.js'), 'utf8');
   check('oracle FAB gated by Settings.oracle()', /Settings\.oracle\(\)/.test(oracleSrc));
-  check('oracle appends to last-opened character via currentCharacterId', /currentCharacterId\(\)/.test(oracleSrc));
+  check('oracle logs the spark to the journal (addJournalEntry)', /addJournalEntry\(/.test(oracleSrc));
+}
+
+console.log('— Journal (solo-play log; store + gating) —');
+{
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const store = await import(join(root, 'src/store.js') + '?journal');
+  const j0 = store.getJournal();
+  check('empty journal has the four sections', Array.isArray(j0.entries) && Array.isArray(j0.threads) &&
+    Array.isArray(j0.contacts) && j0.scene && typeof j0.scene === 'object');
+  const e = store.addJournalEntry({ title: 'Oracle', body: 'a · b' });
+  check('addJournalEntry prepends newest-first with id+ts', store.getJournal().entries[0].id === e.id && e.ts > 0);
+  const exp = store.exportAll();
+  check('journal rides the JSON backup', exp.journal && exp.journal.entries.length === 1);
+  store.importAll({ app: 'imperium-player', characters: [], journal: { entries: [], threads: [{ id: 't1', title: 'X', status: 'open' }], contacts: [], scene: { setup: '', notes: '' } } });
+  check('importAll restores the journal', store.getJournal().threads.length === 1 && store.getJournal().entries.length === 0);
+  const routerSrc = readFileSync(join(root, 'src/router.js'), 'utf8');
+  check('journal tab gated by Settings.journal()', /id: 'journal'[\s\S]*Settings\.journal\(\)/.test(routerSrc));
+  delete globalThis.localStorage;
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

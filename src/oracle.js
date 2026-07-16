@@ -8,7 +8,7 @@ import { el, dN } from './core.js';
 import { ORACLE } from '../data-oracle.js';
 import { Settings } from './settings.js';
 import { modal, showToast } from './ui.js';
-import { getCharacter, saveCharacter, currentCharacterId } from './store.js';
+import { addJournalEntry } from './store.js';
 
 function rollTable(t) { return t.words[dN(100) - 1]; }
 function rollAll() { return ORACLE.tables.map((t) => ({ id: t.id, label: t.label, word: rollTable(t) })); }
@@ -21,13 +21,9 @@ function openOracle() {
   let rolls = rollAll();
   const box = el('div', { class: 'oracle-modal' });
 
-  function appendToNotes() {
-    const id = currentCharacterId();
-    const c = id && getCharacter(id);
-    if (!c) { showToast('Open a character first'); return; }
-    c.notes = (c.notes ? c.notes.replace(/\s*$/, '') + '\n' : '') + labeledLine(rolls);
-    saveCharacter(c);
-    showToast(`Added to ${c.identity?.name || 'character'} notes`);
+  function addToJournal() {
+    addJournalEntry({ title: 'Oracle', body: labeledLine(rolls) });
+    showToast('Added to journal');
   }
   function copy() {
     try { navigator.clipboard?.writeText(labeledLine(rolls)); } catch {}
@@ -73,7 +69,7 @@ function openOracle() {
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { rolls = rollAll(); draw(); } }, 'Reroll'),
         el('button', { class: 'btn secondary', onclick: copy }, 'Copy'),
-        el('button', { class: 'btn secondary', onclick: appendToNotes }, 'Add to notes')));
+        el('button', { class: 'btn secondary', onclick: addToJournal }, 'Add to journal')));
   }
   draw();
   modal(box);

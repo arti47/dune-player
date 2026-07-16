@@ -84,6 +84,7 @@ export function exportAll() {
     pools: getPools(),
     tasks: readJSON(K_TASKS, []),
     campaign: getCampaign(),
+    journal: getJournal(),
     currentCharacterId: currentCharacterId(),
   };
 }
@@ -98,10 +99,11 @@ export function importAll(data) {
   writeJSON(K_POOLS, data.pools && typeof data.pools === 'object' ? data.pools : { momentum: 0, threat: 0 });
   writeJSON(K_TASKS, Array.isArray(data.tasks) ? data.tasks : []);
   if (data.campaign && data.campaign.meta) writeJSON(K_CAMPAIGN, data.campaign); else localStorage.removeItem(K_CAMPAIGN);
+  if (data.journal && typeof data.journal === 'object') writeJSON(K_JOURNAL, data.journal); else localStorage.removeItem(K_JOURNAL);
   if (data.currentCharacterId && characters.some((c) => c.id === data.currentCharacterId)) {
     localStorage.setItem(K_CURRENT, data.currentCharacterId);
   } else localStorage.removeItem(K_CURRENT);
-  notify('characters'); notify('house'); notify('pools'); notify('current');
+  notify('characters'); notify('house'); notify('pools'); notify('current'); notify('journal');
   return { characters: characters.length, house: !!data.house };
 }
 
@@ -180,6 +182,29 @@ export function getConflict() { return readJSON(K_CONFLICT, null); }
 export function saveConflict(conflict) {
   if (conflict) writeJSON(K_CONFLICT, conflict); else localStorage.removeItem(K_CONFLICT);
   notify('conflict');
+}
+
+// ---------- Journal (global/device-wide solo-play log; in the JSON backup) ----------
+const K_JOURNAL = 'imperium.journal';
+const EMPTY_JOURNAL = { entries: [], threads: [], contacts: [], scene: { setup: '', notes: '' } };
+export function getJournal() {
+  const j = readJSON(K_JOURNAL, null);
+  if (!j) return { ...EMPTY_JOURNAL, scene: { ...EMPTY_JOURNAL.scene } };
+  return {
+    entries: Array.isArray(j.entries) ? j.entries : [],
+    threads: Array.isArray(j.threads) ? j.threads : [],
+    contacts: Array.isArray(j.contacts) ? j.contacts : [],
+    scene: j.scene && typeof j.scene === 'object' ? { setup: '', notes: '', ...j.scene } : { setup: '', notes: '' },
+  };
+}
+export function saveJournal(j) { writeJSON(K_JOURNAL, j); notify('journal'); }
+/** Prepend a new entry (newest-first). Returns the created entry. */
+export function addJournalEntry({ title = '', body = '', threadId = null } = {}) {
+  const j = getJournal();
+  const entry = { id: uid(), ts: Date.now(), title, body, threadId };
+  j.entries.unshift(entry);
+  saveJournal(j);
+  return entry;
 }
 
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------

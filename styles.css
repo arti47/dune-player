@@ -400,3 +400,17 @@ img, svg, table, pre { max-width: 100%; }
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
 }
 .oracle-modal { position: relative; }
+
+/* ---------- Journal (solo-play log) ---------- */
+.journal-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.journal-entry, .journal-row {
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+}
+.journal-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.journal-row.resolved .journal-title { text-decoration: line-through; opacity: 0.6; }
+.journal-row-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.journal-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.journal-title { font-weight: 600; }
+.journal-body { white-space: pre-wrap; font-size: 0.9rem; margin-top: 2px; }
+.link-btn { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
+.link-btn.small { font-size: 0.8rem; }
