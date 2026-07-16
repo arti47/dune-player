@@ -52,6 +52,11 @@ export function d20() {
   return Math.floor(Math.random() * 20) + 1;
 }
 
+/** Roll a single die with n faces → 1..n. */
+export function dN(n) {
+  return Math.floor(Math.random() * n) + 1;
+}
+
 /** Roll n d20s → array of face values. */
 export function rollD20s(n) {
   return Array.from({ length: n }, d20);

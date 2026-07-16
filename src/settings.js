@@ -28,6 +28,7 @@ export const Settings = {
 
   // Surfaces
   gmScreen()           { return !!read().gmScreen; },
+  oracle()             { return !!read().oracle; },
   advancedAutomation() { return !!read().advancedAutomation; },
 
   // Onboarding & tutorial state (§13 sign-off): { seen, completedLessons[], pregenId }.
@@ -47,4 +48,5 @@ export const TOGGLE_DEFS = [
   { flag: 'mastersOfDune',  label: 'Masters of Dune',      desc: 'Campaign sourcebook rules content (stretch).' },
   { flag: 'fallOfImperium', label: 'Fall of the Imperium', desc: 'Campaign sourcebook rules content (stretch).' },
   { flag: 'gmScreen',       label: 'GM screen',            desc: 'Gamemaster dashboard: Threat pool, NPCs, rollable tables.' },
+  { flag: 'oracle',         label: 'Oracle button',        desc: 'Floating idea generator (homebrew, not official rules) for solo/GM prep — rolls a 4-word spark.' },
 ];

@@ -5,6 +5,7 @@ import { Settings } from './settings.js';
 import { showActionToast, confirmModal } from './ui.js';
 import { initRouter } from './router.js';
 import { initSync } from './sync.js';
+import { initOracle } from './oracle.js';
 import { listCharacters } from './store.js';
 
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -81,5 +82,6 @@ applyTheme();
 initThemeButton();
 initServiceWorker();
 initSync();
+initOracle();
 initRouter();
 maybeOfferTutorial();

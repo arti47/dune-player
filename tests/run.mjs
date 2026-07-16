@@ -1332,5 +1332,18 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
   delete globalThis.localStorage;
 }
 
+console.log('— Oracle idea generator (data-oracle.js) —');
+{
+  const { ORACLE } = await import(join(root, 'data-oracle.js'));
+  check('4 tables, each 100 words', ORACLE.tables.length === 4 && ORACLE.tables.every((t) => t.words.length === 100));
+  const all = ORACLE.tables.flatMap((t) => t.words);
+  check('400 words all distinct across tables', new Set(all).size === 400);
+  check('tables labeled Action/Descriptor/Event/Lore',
+    ORACLE.tables.map((t) => t.label).join(',') === 'Action,Descriptor,Event,Lore');
+  const oracleSrc = readFileSync(join(root, 'src/oracle.js'), 'utf8');
+  check('oracle FAB gated by Settings.oracle()', /Settings\.oracle\(\)/.test(oracleSrc));
+  check('oracle appends to last-opened character via currentCharacterId', /currentCharacterId\(\)/.test(oracleSrc));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

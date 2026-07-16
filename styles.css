@@ -368,3 +368,22 @@ h4 { margin: 14px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-sp
 
 /* Zero horizontal overflow guard at narrow widths */
 img, svg, table, pre { max-width: 100%; }
+
+/* ---------- Oracle FAB + modal (homebrew idea generator) ---------- */
+.oracle-fab {
+  position: fixed; right: 16px; z-index: 25;
+  bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-contrast);
+  border: none; font-size: 1.4rem; line-height: 1; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.oracle-fab[hidden] { display: none; }
+.oracle-fab:hover { filter: brightness(1.08); }
+.oracle-words {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0;
+}
+.oracle-word {
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;
+}
+.oracle-word-val { font-size: 1.15rem; font-weight: 600; margin-top: 2px; }
