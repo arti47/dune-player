@@ -1366,6 +1366,14 @@ console.log('— Journal (solo-play log; store + gating) —');
   check('importAll restores the journal', store.getJournal().threads.length === 1 && store.getJournal().entries.length === 0);
   const routerSrc = readFileSync(join(root, 'src/router.js'), 'utf8');
   check('journal tab gated by Settings.journal()', /id: 'journal'[\s\S]*Settings\.journal\(\)/.test(routerSrc));
+  const { ORACLE } = await import(join(root, 'data-oracle.js'));
+  check('yes/no oracle has 3 likelihood tiers with ascending Yes chance',
+    ORACLE.yesNo.tiers.length === 3 &&
+    ORACLE.yesNo.tiers.map((t) => t.yes).join(',') === '35,50,65');
+  const jsrc = readFileSync(join(root, 'src/journal.js'), 'utf8');
+  check('journal oracle: doubles (incl. 00/100) flagged as complication',
+    /roll === 100 \|\| \(roll >= 11 && roll <= 99 && roll % 11 === 0\)/.test(jsrc));
+  check('journal oracle offers Add-to-scene + Log-as-entry', /Add to scene/.test(jsrc) && /Log as entry/.test(jsrc));
   delete globalThis.localStorage;
 }
 

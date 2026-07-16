@@ -70,6 +70,17 @@ export const ORACLE = {
       ],
     },
   ],
+  // Yes/No oracle (homebrew, Mythic-style): pick a likelihood, roll d100, answer Yes if roll ≤ its
+  // chance; doubles (11,22,…,99,00) add a complication ("but…"). Numbers live here, not in the module.
+  yesNo: {
+    note: 'Ask a yes/no question, pick how likely, and roll. Doubles add a complication.',
+    doublesNote: 'Doubles (11, 22, … 00) = the answer comes with a complication.',
+    tiers: [
+      { id: 'unlikely', label: 'Unlikely', yes: 35 },
+      { id: 'even', label: 'Even', yes: 50 },
+      { id: 'likely', label: 'Likely', yes: 65 },
+    ],
+  },
   // Short glosses (<14 words) for the Lore table — tap a lore result for a reminder.
   // Homebrew paraphrase of general Herbert canon, not rulebook prose (§10.8/§12).
   loreDefs: {

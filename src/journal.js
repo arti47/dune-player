@@ -7,9 +7,10 @@
 //   • NPCs & places  — a roster of who/what you've met
 // Not rules content — a play aid. Everything persists immediately + rides the JSON backup.
 
-import { el, uid } from './core.js';
+import { el, uid, dN } from './core.js';
 import { getJournal, saveJournal, addJournalEntry } from './store.js';
 import { confirmModal, promptModal, showToast } from './ui.js';
+import { ORACLE } from '../data-oracle.js';
 
 function fmtDate(ts) {
   try { return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
@@ -26,6 +27,7 @@ export function renderJournal(root) {
         el('p', { class: 'small muted' },
           'Your solo-play log: keep the running story, chase plot threads, and remember who you’ve met. Saved on this device and in the JSON backup.')),
       sceneCard(j, draw),
+      consultCard(draw),
       newEntryCard(j, draw),
       entriesCard(j, draw),
       threadsCard(j, draw),
@@ -61,6 +63,60 @@ function sceneCard(j, draw) {
         if (!await confirmModal('Clear the current scene pad?', { okLabel: 'Clear' })) return;
         const cur = getJournal(); cur.scene = { setup: '', notes: '' }; saveJournal(cur); draw();
       } }, 'Clear scene')));
+}
+
+// ---------- Consult the Oracle (yes/no; doubles = complication) ----------
+function isDouble(roll) { return roll === 100 || (roll >= 11 && roll <= 99 && roll % 11 === 0); }
+
+function askOracle(tier) {
+  const roll = dN(100);
+  const yes = roll <= tier.yes;
+  const complication = isDouble(roll);
+  return { roll, yes, complication, tierLabel: tier.label };
+}
+function answerText(r) {
+  return (r.yes ? 'Yes' : 'No') + (r.complication ? ', but… (complication)' : '');
+}
+function oracleLine(question, r) {
+  const q = question.trim() ? `Q: ${question.trim()} → ` : '';
+  return `Oracle — ${q}${answerText(r)} [${r.tierLabel}, rolled ${r.roll}]`;
+}
+
+function consultCard(draw) {
+  const { yesNo } = ORACLE;
+  const question = el('input', { type: 'text', placeholder: 'Ask a yes/no question…', 'aria-label': 'Oracle question' });
+  const tierSel = el('select', { 'aria-label': 'Likelihood' },
+    ...yesNo.tiers.map((t) => el('option', { value: t.id, selected: t.id === 'even' ? '' : null }, t.label)));
+  const out = el('div', { class: 'oracle-answer', 'aria-live': 'polite' });
+  let last = null;
+  const tierById = (id) => yesNo.tiers.find((t) => t.id === id);
+
+  function roll() {
+    last = askOracle(tierById(tierSel.value));
+    out.replaceChildren(
+      el('div', { class: 'oracle-answer-val' + (last.yes ? ' yes' : ' no') }, answerText(last)),
+      el('div', { class: 'small muted' }, `${last.tierLabel} · rolled ${last.roll}${last.complication ? ' · doubles' : ''}`),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => {
+          const cur = getJournal();
+          const sep = cur.scene.notes && !cur.scene.notes.endsWith('\n') ? '\n' : '';
+          cur.scene.notes = (cur.scene.notes || '') + sep + oracleLine(question.value, last);
+          saveJournal(cur); showToast('Added to scene'); draw();
+        } }, 'Add to scene'),
+        el('button', { class: 'btn secondary', onclick: () => {
+          addJournalEntry({ title: 'Oracle', body: oracleLine(question.value, last) });
+          showToast('Logged as entry'); draw();
+        } }, 'Log as entry')));
+  }
+
+  return el('section', { class: 'card' },
+    el('h3', {}, 'Consult the Oracle'),
+    el('p', { class: 'small muted' }, yesNo.note),
+    question,
+    el('div', { class: 'grid-2' },
+      el('label', { class: 'small muted' }, 'Likelihood', tierSel),
+      el('button', { class: 'btn', onclick: roll }, 'Consult')),
+    out);
 }
 
 // ---------- New entry composer ----------

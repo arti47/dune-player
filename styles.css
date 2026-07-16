@@ -414,3 +414,7 @@ img, svg, table, pre { max-width: 100%; }
 .journal-body { white-space: pre-wrap; font-size: 0.9rem; margin-top: 2px; }
 .link-btn { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
 .link-btn.small { font-size: 0.8rem; }
+.oracle-answer { margin-top: 10px; }
+.oracle-answer-val { font-size: 1.15rem; font-weight: 700; }
+.oracle-answer-val.yes { color: var(--accent); }
+.oracle-answer-val.no { color: var(--muted); }
