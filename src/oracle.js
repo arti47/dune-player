@@ -8,7 +8,7 @@ import { el, dN } from './core.js';
 import { ORACLE } from '../data-oracle.js';
 import { Settings } from './settings.js';
 import { modal, showToast } from './ui.js';
-import { appendToLatestEntry } from './store.js';
+import { appendToSceneNotes } from './store.js';
 
 function rollTable(t) { return t.words[dN(100) - 1]; }
 function rollAll() { return ORACLE.tables.map((t) => ({ id: t.id, label: t.label, word: rollTable(t) })); }
@@ -21,9 +21,11 @@ function openOracle() {
   let rolls = rollAll();
   const box = el('div', { class: 'oracle-modal' });
 
-  function addToJournal() {
-    const e = appendToLatestEntry(labeledLine(rolls), { newTitle: 'Meaning Tables' });
-    showToast(e.body.includes('\n') ? 'Added to latest entry' : 'Logged as entry');
+  function addToScene() {
+    appendToSceneNotes(labeledLine(rolls));
+    // Refresh the current screen so the Journal's scene pad shows the new line if it's open.
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    showToast('Added to scene notes');
   }
   function copy() {
     try { navigator.clipboard?.writeText(labeledLine(rolls)); } catch {}
@@ -69,7 +71,7 @@ function openOracle() {
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { rolls = rollAll(); draw(); } }, 'Reroll'),
         el('button', { class: 'btn secondary', onclick: copy }, 'Copy'),
-        el('button', { class: 'btn secondary', onclick: addToJournal }, 'Add to latest entry')));
+        el('button', { class: 'btn secondary', onclick: addToScene }, 'Add to scene')));
   }
   draw();
   modal(box);

@@ -8,7 +8,7 @@
 // Not rules content — a play aid. Everything persists immediately + rides the JSON backup.
 
 import { el, uid, dN } from './core.js';
-import { getJournal, saveJournal, addJournalEntry } from './store.js';
+import { getJournal, saveJournal, addJournalEntry, appendToSceneNotes } from './store.js';
 import { confirmModal, promptModal, showToast } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
 
@@ -98,10 +98,7 @@ function consultCard(draw) {
       el('div', { class: 'small muted' }, `${last.tierLabel} · rolled ${last.roll}${last.complication ? ' · doubles' : ''}`),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn secondary', onclick: () => {
-          const cur = getJournal();
-          const sep = cur.scene.notes && !cur.scene.notes.endsWith('\n') ? '\n' : '';
-          cur.scene.notes = (cur.scene.notes || '') + sep + oracleLine(question.value, last);
-          saveJournal(cur); showToast('Added to scene'); draw();
+          appendToSceneNotes(oracleLine(question.value, last)); showToast('Added to scene'); draw();
         } }, 'Add to scene'),
         el('button', { class: 'btn secondary', onclick: () => {
           addJournalEntry({ title: 'Oracle', body: oracleLine(question.value, last) });

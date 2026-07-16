@@ -206,15 +206,13 @@ export function addJournalEntry({ title = '', body = '', threadId = null } = {})
   saveJournal(j);
   return entry;
 }
-/** Append a line to the most recent entry's body; if there are none, start a fresh one. */
-export function appendToLatestEntry(text, { newTitle = '' } = {}) {
+/** Append a line to the current-scene notes pad. */
+export function appendToSceneNotes(text) {
   const j = getJournal();
-  if (!j.entries.length) return addJournalEntry({ title: newTitle, body: text });
-  const e = j.entries[0];
-  const sep = e.body && !e.body.endsWith('\n') ? '\n' : '';
-  e.body = (e.body || '') + sep + text;
+  const sep = j.scene.notes && !j.scene.notes.endsWith('\n') ? '\n' : '';
+  j.scene.notes = (j.scene.notes || '') + sep + text;
   saveJournal(j);
-  return e;
+  return j.scene.notes;
 }
 
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------
