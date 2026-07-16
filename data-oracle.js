@@ -7,7 +7,7 @@
 // Index 0 = roll 1 … index 99 = roll 100.
 
 export const ORACLE = {
-  note: 'Homebrew idea generator — not official rules. Roll for a spark, then write it into your notes.',
+  note: 'Homebrew idea generator — not official rules. Roll for a spark, then add it to your journal.',
   tables: [
     {
       id: 'action', label: 'Action',

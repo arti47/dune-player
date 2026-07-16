@@ -206,6 +206,16 @@ export function addJournalEntry({ title = '', body = '', threadId = null } = {})
   saveJournal(j);
   return entry;
 }
+/** Append a line to the most recent entry's body; if there are none, start a fresh one. */
+export function appendToLatestEntry(text, { newTitle = '' } = {}) {
+  const j = getJournal();
+  if (!j.entries.length) return addJournalEntry({ title: newTitle, body: text });
+  const e = j.entries[0];
+  const sep = e.body && !e.body.endsWith('\n') ? '\n' : '';
+  e.body = (e.body || '') + sep + text;
+  saveJournal(j);
+  return e;
+}
 
 // ---------- Roll log (local, capped; synced copy arrives in Phase 5) ----------
 export function getRollLog() { return readJSON(K_ROLLLOG, []); }

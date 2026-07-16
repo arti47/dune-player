@@ -49,6 +49,6 @@ export const TOGGLE_DEFS = [
   { flag: 'mastersOfDune',  label: 'Masters of Dune',      desc: 'Campaign sourcebook rules content (stretch).' },
   { flag: 'fallOfImperium', label: 'Fall of the Imperium', desc: 'Campaign sourcebook rules content (stretch).' },
   { flag: 'gmScreen',       label: 'GM screen',            desc: 'Gamemaster dashboard: Threat pool, NPCs, rollable tables.' },
-  { flag: 'oracle',         label: 'Oracle button',        desc: 'Floating idea generator (homebrew, not official rules) for solo/GM prep — rolls a 4-word spark.' },
+  { flag: 'oracle',         label: 'Meaning Tables',       desc: 'Floating idea generator (homebrew, not official rules) for solo/GM prep — rolls a 4-word spark.' },
   { flag: 'journal',        label: 'Journal',              desc: 'Solo-play journal tab: dated entries, plot threads, NPCs/places, and a current-scene pad.' },
 ];

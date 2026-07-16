@@ -1347,7 +1347,7 @@ console.log('— Oracle idea generator (data-oracle.js) —');
     Object.values(ORACLE.loreDefs).every((d) => d.trim().split(/\s+/).length < 14));
   const oracleSrc = readFileSync(join(root, 'src/oracle.js'), 'utf8');
   check('oracle FAB gated by Settings.oracle()', /Settings\.oracle\(\)/.test(oracleSrc));
-  check('oracle logs the spark to the journal (addJournalEntry)', /addJournalEntry\(/.test(oracleSrc));
+  check('meaning tables append the spark to the latest journal entry', /appendToLatestEntry\(/.test(oracleSrc));
 }
 
 console.log('— Journal (solo-play log; store + gating) —');
@@ -1360,6 +1360,8 @@ console.log('— Journal (solo-play log; store + gating) —');
     Array.isArray(j0.contacts) && j0.scene && typeof j0.scene === 'object');
   const e = store.addJournalEntry({ title: 'Oracle', body: 'a · b' });
   check('addJournalEntry prepends newest-first with id+ts', store.getJournal().entries[0].id === e.id && e.ts > 0);
+  store.appendToLatestEntry('spark line');
+  check('appendToLatestEntry appends to the newest entry body', store.getJournal().entries[0].body.endsWith('spark line') && store.getJournal().entries.length === 1);
   const exp = store.exportAll();
   check('journal rides the JSON backup', exp.journal && exp.journal.entries.length === 1);
   store.importAll({ app: 'imperium-player', characters: [], journal: { entries: [], threads: [{ id: 't1', title: 'X', status: 'open' }], contacts: [], scene: { setup: '', notes: '' } } });

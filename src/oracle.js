@@ -8,7 +8,7 @@ import { el, dN } from './core.js';
 import { ORACLE } from '../data-oracle.js';
 import { Settings } from './settings.js';
 import { modal, showToast } from './ui.js';
-import { addJournalEntry } from './store.js';
+import { appendToLatestEntry } from './store.js';
 
 function rollTable(t) { return t.words[dN(100) - 1]; }
 function rollAll() { return ORACLE.tables.map((t) => ({ id: t.id, label: t.label, word: rollTable(t) })); }
@@ -22,8 +22,8 @@ function openOracle() {
   const box = el('div', { class: 'oracle-modal' });
 
   function addToJournal() {
-    addJournalEntry({ title: 'Oracle', body: labeledLine(rolls) });
-    showToast('Added to journal');
+    const e = appendToLatestEntry(labeledLine(rolls), { newTitle: 'Meaning Tables' });
+    showToast(e.body.includes('\n') ? 'Added to latest entry' : 'Logged as entry');
   }
   function copy() {
     try { navigator.clipboard?.writeText(labeledLine(rolls)); } catch {}
@@ -60,7 +60,7 @@ function openOracle() {
   function draw() {
     closePop();
     box.replaceChildren(
-      el('h3', {}, 'Oracle'),
+      el('h3', {}, 'Meaning Tables'),
       el('p', { class: 'small muted' }, ORACLE.note),
       el('div', { class: 'oracle-words' },
         ...rolls.map((r) => el('div', { class: 'oracle-word' },
@@ -69,7 +69,7 @@ function openOracle() {
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { rolls = rollAll(); draw(); } }, 'Reroll'),
         el('button', { class: 'btn secondary', onclick: copy }, 'Copy'),
-        el('button', { class: 'btn secondary', onclick: addToJournal }, 'Add to journal')));
+        el('button', { class: 'btn secondary', onclick: addToJournal }, 'Add to latest entry')));
   }
   draw();
   modal(box);
@@ -80,7 +80,7 @@ let fab = null;
 /** Create the FAB (once) and keep its visibility in sync with the oracle toggle. */
 export function initOracle() {
   fab = el('button', {
-    class: 'oracle-fab', 'aria-label': 'Open the oracle idea generator', title: 'Oracle',
+    class: 'oracle-fab', 'aria-label': 'Open the Meaning Tables idea generator', title: 'Meaning Tables',
     onclick: openOracle,
   }, '✦');
   document.body.append(fab);
