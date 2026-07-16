@@ -11,7 +11,7 @@ import { modal, showToast } from './ui.js';
 import { getCharacter, saveCharacter, currentCharacterId } from './store.js';
 
 function rollTable(t) { return t.words[dN(100) - 1]; }
-function rollAll() { return ORACLE.tables.map((t) => ({ label: t.label, word: rollTable(t) })); }
+function rollAll() { return ORACLE.tables.map((t) => ({ id: t.id, label: t.label, word: rollTable(t) })); }
 
 function labeledLine(rolls) {
   return 'Oracle — ' + rolls.map((r) => `${r.label}: ${r.word}`).join(' · ');
@@ -34,14 +34,42 @@ function openOracle() {
     showToast('Copied');
   }
 
+  function closePop() {
+    box.querySelector('.oracle-pop')?.remove();
+    document.removeEventListener('click', onDocClick, true);
+  }
+  function onDocClick() { closePop(); }
+  function showDef(anchor, word) {
+    closePop();
+    const def = ORACLE.loreDefs[word];
+    if (!def) return;
+    const pop = el('div', { class: 'oracle-pop', role: 'tooltip' }, def);
+    box.append(pop);
+    const a = anchor.getBoundingClientRect(), b = box.getBoundingClientRect();
+    pop.style.left = Math.max(6, Math.min(a.left - b.left, box.clientWidth - pop.offsetWidth - 6)) + 'px';
+    pop.style.top = (a.bottom - b.top + 6) + 'px';
+    // Tap anywhere dismisses (capture so the same click that opened it doesn't immediately close).
+    setTimeout(() => document.addEventListener('click', onDocClick, true), 0);
+  }
+
+  function wordValue(r) {
+    if (r.id === 'lore' && ORACLE.loreDefs[r.word]) {
+      const btn = el('button', { class: 'oracle-word-val oracle-lore-btn', title: 'Tap for a definition' }, r.word);
+      btn.addEventListener('click', (e) => { e.stopPropagation(); showDef(btn, r.word); });
+      return btn;
+    }
+    return el('div', { class: 'oracle-word-val' }, r.word);
+  }
+
   function draw() {
+    closePop();
     box.replaceChildren(
       el('h3', {}, 'Oracle'),
       el('p', { class: 'small muted' }, ORACLE.note),
       el('div', { class: 'oracle-words' },
         ...rolls.map((r) => el('div', { class: 'oracle-word' },
           el('div', { class: 'small muted' }, r.label),
-          el('div', { class: 'oracle-word-val' }, r.word)))),
+          wordValue(r)))),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { rolls = rollAll(); draw(); } }, 'Reroll'),
         el('button', { class: 'btn secondary', onclick: copy }, 'Copy'),

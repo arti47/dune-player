@@ -1340,6 +1340,11 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('400 words all distinct across tables', new Set(all).size === 400);
   check('tables labeled Action/Descriptor/Event/Lore',
     ORACLE.tables.map((t) => t.label).join(',') === 'Action,Descriptor,Event,Lore');
+  const lore = ORACLE.tables.find((t) => t.id === 'lore').words;
+  check('every lore word has a gloss', lore.every((w) => ORACLE.loreDefs[w]) &&
+    Object.keys(ORACLE.loreDefs).length === 100);
+  check('every lore gloss is under 14 words',
+    Object.values(ORACLE.loreDefs).every((d) => d.trim().split(/\s+/).length < 14));
   const oracleSrc = readFileSync(join(root, 'src/oracle.js'), 'utf8');
   check('oracle FAB gated by Settings.oracle()', /Settings\.oracle\(\)/.test(oracleSrc));
   check('oracle appends to last-opened character via currentCharacterId', /currentCharacterId\(\)/.test(oracleSrc));
