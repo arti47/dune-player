@@ -418,3 +418,6 @@ img, svg, table, pre { max-width: 100%; }
 .oracle-answer-val { font-size: 1.15rem; font-weight: 700; }
 .oracle-answer-val.yes { color: var(--accent); }
 .oracle-answer-val.no { color: var(--muted); }
+.journal-compose { margin: 8px 0; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
+.journal-compose summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; }
+.journal-compose[open] summary { margin-bottom: 8px; }

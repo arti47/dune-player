@@ -1,15 +1,18 @@
 // journal.js — Solo-play Journal (gated by Settings.journal(), global/device-wide).
 //
-// Four sections over store's global journal object:
-//   • Current scene — one editable setup+notes pad (log it to an entry when the scene ends)
-//   • Entries       — dated freeform log (title optional, optional link to a thread)
-//   • Threads       — open plot questions/goals; toggle open/resolved
-//   • NPCs & places  — a roster of who/what you've met
-// Not rules content — a play aid. Everything persists immediately + rides the JSON backup.
+// Laid out as the solo play loop, top to bottom:
+//   1. Scene       — Chaos Factor · frame the scene · scene check (expected/altered/interrupted,
+//                    interrupted rolls a random event) · play notes · End scene (adjusts Chaos,
+//                    logs an entry, clears the pad)
+//   2. Oracle      — in-scene yes/no questions, odds shifted by the current Chaos Factor
+//   3. Entries     — the running log (with a folded-in "New entry" composer)
+//   4. Threads     — open plot questions to chase
+//   5. NPCs/places — who and what you've met
+// Not rules content — a homebrew play aid. Persists immediately + rides the JSON backup.
 
 import { el, uid, dN } from './core.js';
-import { getJournal, saveJournal, addJournalEntry, appendToSceneNotes } from './store.js';
-import { confirmModal, promptModal, showToast } from './ui.js';
+import { getJournal, saveJournal, addJournalEntry, appendToSceneNotes, setChaos, clampChaos } from './store.js';
+import { confirmModal, promptModal, showToast, modal } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
 
 function fmtDate(ts) {
@@ -25,10 +28,9 @@ export function renderJournal(root) {
       el('section', { class: 'card' },
         el('h2', {}, 'Journal'),
         el('p', { class: 'small muted' },
-          'Your solo-play log: keep the running story, chase plot threads, and remember who you’ve met. Saved on this device and in the JSON backup.')),
+          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.')),
       sceneCard(j, draw),
-      consultCard(draw),
-      newEntryCard(j, draw),
+      consultCard(j, draw),
       entriesCard(j, draw),
       threadsCard(j, draw),
       contactsCard(j, draw),
@@ -37,65 +39,166 @@ export function renderJournal(root) {
   draw();
 }
 
-// ---------- Current scene pad ----------
+// ---------- Pure solo-engine helpers (unit-tested) ----------
+
+/** Scene check: d10 vs Chaos. Higher than Chaos = as framed; else odd interrupts, even alters. */
+export function sceneCheck(chaos, roll) {
+  if (roll > chaos) return 'expected';
+  return roll % 2 === 1 ? 'interrupted' : 'altered';
+}
+
+/** End-of-scene Chaos move: in control lowers it, out of control raises it. */
+export function chaosAfterScene(chaos, inControl) {
+  return clampChaos(chaos + (inControl ? -1 : 1));
+}
+
+/** Yes-chance for a tier at the current Chaos Factor (linear shift around the pivot). */
+export function yesChanceFor(tierYes, chaos) {
+  const c = ORACLE.chaos;
+  const shifted = tierYes + (chaos - c.pivot) * c.oddsShiftPerStep;
+  return Math.max(c.minChance, Math.min(c.maxChance, shifted));
+}
+
+/** Map a d100 roll onto the event-focus table. */
+export function focusForRoll(roll) {
+  return ORACLE.eventFocus.find((f) => roll <= f.max) || ORACLE.eventFocus[ORACLE.eventFocus.length - 1];
+}
+
+const pick = (arr) => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : null);
+const wordFrom = (id) => {
+  const t = ORACLE.tables.find((x) => x.id === id);
+  return t.words[dN(100) - 1];
+};
+
+/** Roll a full random event: focus + whatever it pulls from the journal + two meaning words. */
+function rollEvent(j) {
+  const roll = dN(100);
+  const focus = focusForRoll(roll);
+  let subject = null;
+  if (focus.pull === 'thread') subject = (pick(j.threads.filter((t) => t.status !== 'resolved')) || {}).title || null;
+  if (focus.pull === 'contact') subject = (pick(j.contacts) || {}).name || null;
+  return { roll, focus, subject, words: [wordFrom('action'), wordFrom('descriptor')] };
+}
+
+function eventLine(ev) {
+  const subj = ev.subject ? ` (${ev.subject})` : '';
+  return `Event — ${ev.focus.label}${subj} · ${ev.words.join(' / ')}`;
+}
+
+// ---------- 1. Scene (Chaos · frame · check · play · end) ----------
 function sceneCard(j, draw) {
-  const setup = el('textarea', { rows: '2', placeholder: 'Scene setup: where, when, who, what’s at stake…', 'aria-label': 'Scene setup' });
+  const setup = el('textarea', { rows: '2', placeholder: 'Frame the scene you expect: where, when, who, what’s at stake…', 'aria-label': 'Scene setup' });
   setup.value = j.scene.setup || '';
-  const notes = el('textarea', { rows: '3', placeholder: 'What happens as the scene plays out…', 'aria-label': 'Scene notes' });
+  const notes = el('textarea', { rows: '4', placeholder: 'What actually happens as you play it out…', 'aria-label': 'Scene notes' });
   notes.value = j.scene.notes || '';
   const save = () => { const cur = getJournal(); cur.scene = { setup: setup.value, notes: notes.value }; saveJournal(cur); };
   setup.addEventListener('input', save);
   notes.addEventListener('input', save);
 
+  const chaosPill = el('span', { class: 'pill' }, `Chaos ${j.chaos}`);
+  const step = (delta) => () => { setChaos(j.chaos + delta); draw(); };
+  const out = el('div', { class: 'oracle-answer', 'aria-live': 'polite' });
+
+  function runCheck() {
+    const roll = dN(10);
+    const outcome = sceneCheck(j.chaos, roll);
+    const o = ORACLE.chaos.outcomes[outcome];
+    const ev = outcome === 'interrupted' ? rollEvent(j) : null;
+    out.replaceChildren(
+      el('div', { class: 'oracle-answer-val' + (outcome === 'expected' ? ' yes' : ' no') }, o.label),
+      el('div', { class: 'small muted' }, `d10 ${roll} vs Chaos ${j.chaos} · ${o.desc}`),
+      ev ? el('div', { class: 'small' }, el('strong', {}, ev.focus.label),
+        ev.subject ? ` — ${ev.subject}` : '', ` · ${ev.words.join(' / ')}`) : null,
+      ev ? el('div', { class: 'small muted' }, ev.focus.desc) : null,
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => {
+          const line = `Scene check — ${o.label} [d10 ${roll} vs Chaos ${j.chaos}]` + (ev ? `\n${eventLine(ev)}` : '');
+          appendToSceneNotes(line); showToast('Added to scene'); draw();
+        } }, 'Add to scene')));
+  }
+
+  // Three-way on purpose: dismissing the dialog must NOT silently pick a Chaos move.
+  function askInControl() {
+    return new Promise((resolve) => {
+      let done = false;
+      const answer = (v) => () => { done = true; close(); resolve(v); };
+      const close = modal([
+        el('h3', {}, 'End of scene'),
+        el('p', {}, 'Were you in control as the scene ended? In control lowers Chaos; out of control raises it.'),
+        el('div', { class: 'modal-actions' },
+          el('button', { class: 'btn secondary', onclick: answer(null) }, 'Cancel'),
+          el('button', { class: 'btn secondary', onclick: answer(false) }, 'Not in control (+1)'),
+          el('button', { class: 'btn', onclick: answer(true) }, 'In control (−1)')),
+      ], { onClose: () => { if (!done) resolve(null); } });
+    });
+  }
+
+  async function endScene() {
+    if (!setup.value.trim() && !notes.value.trim()) { showToast('Scene is empty'); return; }
+    const inControl = await askInControl();
+    if (inControl == null) return;
+    const next = chaosAfterScene(j.chaos, inControl);
+    const body = [setup.value.trim(), notes.value.trim()].filter(Boolean).join('\n\n')
+      + `\n\n[Chaos ${j.chaos} → ${next}]`;
+    addJournalEntry({ title: 'Scene', body });
+    const cur = getJournal();
+    cur.scene = { setup: '', notes: '' };
+    cur.chaos = next;
+    saveJournal(cur);
+    showToast(`Scene logged · Chaos ${next}`); draw();
+  }
+
   return el('section', { class: 'card' },
-    el('h3', {}, 'Current scene'),
-    el('label', { class: 'small muted', for: 'jr-setup' }, 'Setup'), setup,
-    el('label', { class: 'small muted', for: 'jr-notes' }, 'Notes'), notes,
+    el('h3', {}, '1 · Scene'),
+    el('div', { class: 'journal-meta' }, chaosPill,
+      el('button', { class: 'btn secondary', 'aria-label': 'Lower Chaos Factor', onclick: step(-1) }, '−'),
+      el('button', { class: 'btn secondary', 'aria-label': 'Raise Chaos Factor', onclick: step(1) }, '+')),
+    el('p', { class: 'small muted' }, ORACLE.chaos.note),
+    el('label', { class: 'small muted' }, 'Frame the scene'), setup,
     el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => {
-        if (!setup.value.trim() && !notes.value.trim()) { showToast('Scene is empty'); return; }
-        const body = [setup.value.trim(), notes.value.trim()].filter(Boolean).join('\n\n');
-        addJournalEntry({ title: 'Scene', body });
-        const cur = getJournal(); cur.scene = { setup: '', notes: '' }; saveJournal(cur);
-        showToast('Scene logged to entries'); draw();
-      } }, 'Log scene → entry'),
+      el('button', { class: 'btn', onclick: runCheck }, 'Scene check (d10)')),
+    out,
+    el('label', { class: 'small muted' }, 'Play it out'), notes,
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: endScene }, 'End scene → log entry'),
       el('button', { class: 'btn secondary', onclick: async () => {
         if (!await confirmModal('Clear the current scene pad?', { okLabel: 'Clear' })) return;
         const cur = getJournal(); cur.scene = { setup: '', notes: '' }; saveJournal(cur); draw();
       } }, 'Clear scene')));
 }
 
-// ---------- Consult the Oracle (yes/no; doubles = complication) ----------
+// ---------- 2. Consult the Oracle (yes/no; doubles = complication) ----------
 function isDouble(roll) { return roll === 100 || (roll >= 11 && roll <= 99 && roll % 11 === 0); }
 
-function askOracle(tier) {
+function askOracle(tier, chaos) {
+  const chance = yesChanceFor(tier.yes, chaos);
   const roll = dN(100);
-  const yes = roll <= tier.yes;
-  const complication = isDouble(roll);
-  return { roll, yes, complication, tierLabel: tier.label };
+  return { roll, chance, yes: roll <= chance, complication: isDouble(roll), tierLabel: tier.label };
 }
 function answerText(r) {
   return (r.yes ? 'Yes' : 'No') + (r.complication ? ', but… (complication)' : '');
 }
 function oracleLine(question, r) {
   const q = question.trim() ? `Q: ${question.trim()} → ` : '';
-  return `Oracle — ${q}${answerText(r)} [${r.tierLabel}, rolled ${r.roll}]`;
+  return `Oracle — ${q}${answerText(r)} [${r.tierLabel} ${r.chance}%, rolled ${r.roll}]`;
 }
 
-function consultCard(draw) {
+function consultCard(j, draw) {
   const { yesNo } = ORACLE;
   const question = el('input', { type: 'text', placeholder: 'Ask a yes/no question…', 'aria-label': 'Oracle question' });
   const tierSel = el('select', { 'aria-label': 'Likelihood' },
-    ...yesNo.tiers.map((t) => el('option', { value: t.id, selected: t.id === 'even' ? '' : null }, t.label)));
+    ...yesNo.tiers.map((t) => el('option', { value: t.id, selected: t.id === 'even' ? '' : null },
+      `${t.label} (${yesChanceFor(t.yes, j.chaos)}%)`)));
   const out = el('div', { class: 'oracle-answer', 'aria-live': 'polite' });
   let last = null;
   const tierById = (id) => yesNo.tiers.find((t) => t.id === id);
 
   function roll() {
-    last = askOracle(tierById(tierSel.value));
+    last = askOracle(tierById(tierSel.value), j.chaos);
     out.replaceChildren(
       el('div', { class: 'oracle-answer-val' + (last.yes ? ' yes' : ' no') }, answerText(last)),
-      el('div', { class: 'small muted' }, `${last.tierLabel} · rolled ${last.roll}${last.complication ? ' · doubles' : ''}`),
+      el('div', { class: 'small muted' },
+        `${last.tierLabel} ${last.chance}% · rolled ${last.roll}${last.complication ? ' · doubles' : ''}`),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn secondary', onclick: () => {
           appendToSceneNotes(oracleLine(question.value, last)); showToast('Added to scene'); draw();
@@ -107,8 +210,8 @@ function consultCard(draw) {
   }
 
   return el('section', { class: 'card' },
-    el('h3', {}, 'Consult the Oracle'),
-    el('p', { class: 'small muted' }, yesNo.note),
+    el('h3', {}, '2 · Consult the Oracle'),
+    el('p', { class: 'small muted' }, `${yesNo.note} Odds shift with the Chaos Factor (now ${j.chaos}).`),
     question,
     el('div', { class: 'grid-2' },
       el('label', { class: 'small muted' }, 'Likelihood', tierSel),
@@ -116,8 +219,8 @@ function consultCard(draw) {
     out);
 }
 
-// ---------- New entry composer ----------
-function newEntryCard(j, draw) {
+// ---------- 3. Entries (log + folded-in composer) ----------
+function newEntryFields(j, draw) {
   const title = el('input', { type: 'text', placeholder: 'Title (optional)', 'aria-label': 'Entry title' });
   const body = el('textarea', { rows: '3', placeholder: 'Write your entry…', 'aria-label': 'Entry body' });
   const openThreads = j.threads.filter((t) => t.status !== 'resolved');
@@ -125,8 +228,8 @@ function newEntryCard(j, draw) {
     el('option', { value: '' }, 'No thread'),
     ...openThreads.map((t) => el('option', { value: t.id }, t.title)));
 
-  return el('section', { class: 'card' },
-    el('h3', {}, 'New entry'),
+  return el('details', { class: 'journal-compose' },
+    el('summary', {}, '+ New entry'),
     title, body,
     openThreads.length ? el('label', { class: 'small muted' }, 'Link to thread', threadSel) : null,
     el('div', { class: 'cta-row' },
@@ -137,11 +240,11 @@ function newEntryCard(j, draw) {
       } }, 'Add entry')));
 }
 
-// ---------- Entries list ----------
 function entriesCard(j, draw) {
   const threadName = (id) => (j.threads.find((t) => t.id === id) || {}).title;
   return el('section', { class: 'card' },
-    el('h3', {}, `Entries (${j.entries.length})`),
+    el('h3', {}, `3 · Entries (${j.entries.length})`),
+    newEntryFields(j, draw),
     j.entries.length
       ? el('ul', { class: 'journal-list' }, ...j.entries.map((e) => el('li', { class: 'journal-entry' },
           el('div', { class: 'journal-meta' },
@@ -153,10 +256,10 @@ function entriesCard(j, draw) {
             } }, '× delete')),
           e.title ? el('div', { class: 'journal-title' }, e.title) : null,
           e.body ? el('div', { class: 'journal-body' }, e.body) : null)))
-      : el('p', { class: 'small muted' }, 'No entries yet. Play a scene, then log it here.'));
+      : el('p', { class: 'small muted' }, 'No entries yet. End a scene to log your first one.'));
 }
 
-// ---------- Threads ----------
+// ---------- 4. Threads ----------
 function threadsCard(j, draw) {
   const open = j.threads.filter((t) => t.status !== 'resolved');
   const done = j.threads.filter((t) => t.status === 'resolved');
@@ -180,8 +283,8 @@ function threadsCard(j, draw) {
       } }, '×')));
 
   return el('section', { class: 'card' },
-    el('h3', {}, `Threads (${open.length} open)`),
-    el('p', { class: 'small muted' }, 'Open questions and goals to chase. Resolve them as the story answers them.'),
+    el('h3', {}, `4 · Threads (${open.length} open)`),
+    el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
         const title = await promptModal('New thread', { placeholder: 'e.g. Who poisoned the Duke?', okLabel: 'Add' });
@@ -193,7 +296,7 @@ function threadsCard(j, draw) {
       : el('p', { class: 'small muted' }, 'No threads yet.'));
 }
 
-// ---------- NPCs & places ----------
+// ---------- 5. NPCs & places ----------
 function contactsCard(j, draw) {
   const row = (c) => el('li', { class: 'journal-row' },
     el('div', {},
@@ -217,7 +320,8 @@ function contactsCard(j, draw) {
   };
 
   return el('section', { class: 'card' },
-    el('h3', {}, `NPCs & places (${j.contacts.length})`),
+    el('h3', {}, `5 · NPCs & places (${j.contacts.length})`),
+    el('p', { class: 'small muted' }, 'Who and what you’ve met. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: add('npc') }, '+ NPC'),
       el('button', { class: 'btn secondary', onclick: add('place') }, '+ Place')),

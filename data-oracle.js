@@ -81,6 +81,38 @@ export const ORACLE = {
       { id: 'likely', label: 'Likely', yes: 65 },
     ],
   },
+
+  // Chaos Factor (homebrew solo-play engine): how unstable the story is right now.
+  // Scene check = d10; roll ≤ chaos means the scene doesn't start as framed (odd = interrupted by
+  // an event, even = altered). Chaos also shifts the yes/no odds linearly around its pivot.
+  chaos: {
+    min: 1, max: 9, start: 5, pivot: 5,
+    oddsShiftPerStep: 5, minChance: 5, maxChance: 95,
+    note: 'Chaos rises when events run away from you and falls when you stay in control. It steers the scene check and the oracle odds.',
+    sceneNote: 'Roll d10 against Chaos: higher than Chaos = the scene runs as you framed it. Equal or lower = odd is interrupted, even is altered.',
+    endNote: 'In control at the end of the scene → Chaos −1. Not in control → Chaos +1.',
+    outcomes: {
+      expected: { label: 'As expected', desc: 'Play the scene the way you framed it.' },
+      altered: { label: 'Altered', desc: 'Something about the framing is wrong — change one detail before you play it.' },
+      interrupted: { label: 'Interrupted', desc: 'Set the framed scene aside; the event below happens instead.' },
+    },
+  },
+
+  // Random-event focus (d100, homebrew Dune-flavored — not another product's table).
+  // `pull` tells the app what to draw from your journal: an open thread, a known NPC/place, or nothing.
+  eventFocus: [
+    { max: 7,   label: 'Distant upheaval',     pull: null,     desc: 'Something far off shifts — a world, a House, a fleet.' },
+    { max: 28,  label: 'A known face acts',    pull: 'contact', desc: 'Someone already in your journal makes a move.' },
+    { max: 35,  label: 'A stranger arrives',   pull: null,     desc: 'Introduce someone new to the story.' },
+    { max: 45,  label: 'Thread advances',      pull: 'thread', desc: 'An open question moves closer to an answer.' },
+    { max: 52,  label: 'Thread frustrated',    pull: 'thread', desc: 'An open question is pushed further out of reach.' },
+    { max: 55,  label: 'Thread resolves',      pull: 'thread', desc: 'An open question is answered now — close it.' },
+    { max: 67,  label: 'Turned against you',   pull: null,     desc: 'The situation moves against you.' },
+    { max: 75,  label: 'Turned in your favor', pull: null,     desc: 'The situation breaks your way.' },
+    { max: 83,  label: 'Ambiguous omen',       pull: null,     desc: 'A sign whose meaning is not yet clear.' },
+    { max: 92,  label: 'Setback for another',  pull: 'contact', desc: 'Someone else in your journal suffers for it.' },
+    { max: 100, label: 'Fortune for another',  pull: 'contact', desc: 'Someone else in your journal gains by it.' },
+  ],
   // Short glosses (<14 words) for the Lore table — tap a lore result for a reminder.
   // Homebrew paraphrase of general Herbert canon, not rulebook prose (§10.8/§12).
   loreDefs: {

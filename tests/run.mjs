@@ -1372,7 +1372,26 @@ console.log('— Journal (solo-play log; store + gating) —');
   check('yes/no oracle has 3 likelihood tiers with ascending Yes chance',
     ORACLE.yesNo.tiers.length === 3 &&
     ORACLE.yesNo.tiers.map((t) => t.yes).join(',') === '35,50,65');
+  const jm = await import(join(root, 'src/journal.js'));
+  check('sceneCheck: d10 above Chaos = as framed', jm.sceneCheck(5, 6) === 'expected' && jm.sceneCheck(5, 10) === 'expected');
+  check('sceneCheck: ≤ Chaos, odd interrupts / even alters',
+    jm.sceneCheck(5, 5) === 'interrupted' && jm.sceneCheck(5, 4) === 'altered' && jm.sceneCheck(9, 1) === 'interrupted');
+  check('chaosAfterScene: in control −1, else +1, clamped 1–9',
+    jm.chaosAfterScene(5, true) === 4 && jm.chaosAfterScene(5, false) === 6 &&
+    jm.chaosAfterScene(1, true) === 1 && jm.chaosAfterScene(9, false) === 9);
+  check('yesChanceFor: linear ±5 per Chaos step around the pivot, clamped',
+    jm.yesChanceFor(50, 5) === 50 && jm.yesChanceFor(50, 9) === 70 && jm.yesChanceFor(50, 1) === 30 &&
+    jm.yesChanceFor(5, 1) === 5);
+  check('focusForRoll covers the whole d100 with a labeled focus',
+    Array.from({ length: 100 }, (_, i) => jm.focusForRoll(i + 1)).every((f) => f && f.label) &&
+    jm.focusForRoll(1).label === 'Distant upheaval' && jm.focusForRoll(100).label === 'Fortune for another');
+  check('event focus pull targets are thread/contact/none',
+    ORACLE.eventFocus.every((f) => f.pull === null || f.pull === 'thread' || f.pull === 'contact'));
+  check('journal chaos persists + clamps via the store',
+    store.setChaos(9) === 9 && store.getJournal().chaos === 9 && store.setChaos(99) === 9 && store.setChaos(-5) === 1);
   const jsrc = readFileSync(join(root, 'src/journal.js'), 'utf8');
+  check('end-of-scene Chaos prompt is 3-way (dismiss cannot silently move Chaos)',
+    /askInControl/.test(jsrc) && /if \(inControl == null\) return;/.test(jsrc));
   check('journal oracle: doubles (incl. 00/100) flagged as complication',
     /roll === 100 \|\| \(roll >= 11 && roll <= 99 && roll % 11 === 0\)/.test(jsrc));
   check('journal oracle offers Add-to-scene + Log-as-entry', /Add to scene/.test(jsrc) && /Log as entry/.test(jsrc));

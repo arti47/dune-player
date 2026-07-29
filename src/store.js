@@ -4,6 +4,7 @@
 import { uid, capitalize } from './core.js';
 import { normalizeCharacter, normalizeHouse } from './derived.js';
 import { DATA } from '../data.js';
+import { ORACLE } from '../data-oracle.js';
 import { driveName } from './content.js';
 
 const K_CHARS = 'imperium.characters';
@@ -189,13 +190,25 @@ const K_JOURNAL = 'imperium.journal';
 const EMPTY_JOURNAL = { entries: [], threads: [], contacts: [], scene: { setup: '', notes: '' } };
 export function getJournal() {
   const j = readJSON(K_JOURNAL, null);
-  if (!j) return { ...EMPTY_JOURNAL, scene: { ...EMPTY_JOURNAL.scene } };
+  const chaosOf = (v) => (typeof v === 'number' ? clampChaos(v) : ORACLE.chaos.start);
+  if (!j) return { ...EMPTY_JOURNAL, scene: { ...EMPTY_JOURNAL.scene }, chaos: ORACLE.chaos.start };
   return {
     entries: Array.isArray(j.entries) ? j.entries : [],
     threads: Array.isArray(j.threads) ? j.threads : [],
     contacts: Array.isArray(j.contacts) ? j.contacts : [],
     scene: j.scene && typeof j.scene === 'object' ? { setup: '', notes: '', ...j.scene } : { setup: '', notes: '' },
+    chaos: chaosOf(j.chaos),
   };
+}
+/** Chaos Factor stays inside its data-defined bounds (§10.2 — numbers live in data-oracle.js). */
+export function clampChaos(n) {
+  return Math.max(ORACLE.chaos.min, Math.min(ORACLE.chaos.max, Math.round(n)));
+}
+export function setChaos(n) {
+  const j = getJournal();
+  j.chaos = clampChaos(n);
+  saveJournal(j);
+  return j.chaos;
 }
 export function saveJournal(j) { writeJSON(K_JOURNAL, j); notify('journal'); }
 /** Prepend a new entry (newest-first). Returns the created entry. */
