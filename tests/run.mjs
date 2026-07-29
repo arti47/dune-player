@@ -1292,9 +1292,10 @@ console.log('— Onboarding tutorial (Phase 7: src/tutorial.js) —');
   const { Settings } = await import(join(root, 'src/settings.js'));
   const mkSandbox = (p = PREGENS[0]) => ({ char: normalizeCharacter({ id: 't', identity: { ...p.identity }, ...p }), pools: { momentum: 0, threat: 0, determination: 1 } });
   const beatsOk = (beats) => Array.isArray(beats) && beats.length === 5 && beats.every((b) => typeof b.title === 'string' && typeof b.render === 'function');
-  check('Six lessons defined; every one has id/title/summary', LESSONS.length === 6 && LESSONS.every((l) => l.id && l.title && l.summary));
-  check('All six lessons available with beats (full core: first-test/pools/drives/create/conflict/lifecycle)',
-    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives,create,conflict,lifecycle' &&
+  check('Seven lessons defined (six core + gated solo); every one has id/title/summary',
+    LESSONS.length === 7 && LESSONS.every((l) => l.id && l.title && l.summary));
+  check('All lessons available with beats (core six + solo)',
+    LESSONS.filter((l) => l.available).map((l) => l.id).join(',') === 'first-test,pools,drives,create,conflict,lifecycle,solo' &&
     LESSONS.every((l) => typeof l.beats === 'function'));
   check('conflict + lifecycle lessons build well-formed beats (title + render fn each)',
     (() => { const shape = (beats) => Array.isArray(beats) && beats.length >= 3 &&
@@ -1389,6 +1390,19 @@ console.log('— Journal (solo-play log; store + gating) —');
     ORACLE.eventFocus.every((f) => f.pull === null || f.pull === 'thread' || f.pull === 'contact'));
   check('journal chaos persists + clamps via the store',
     store.setChaos(9) === 9 && store.getJournal().chaos === 9 && store.setChaos(99) === 9 && store.setChaos(-5) === 1);
+  check('help copy: overview + one entry per journal section, each with steps + example',
+    ORACLE.help.overview.steps.length >= 4 && ORACLE.help.overview.example &&
+    ['scene', 'oracle', 'entries', 'threads', 'contacts'].every((k) => {
+      const h = ORACLE.help.sections[k];
+      return h && h.steps.length >= 3 && h.steps.every((x) => typeof x === 'string' && x.length) && !!h.example;
+    }));
+  const jsrc0 = readFileSync(join(root, 'src/journal.js'), 'utf8');
+  check('every journal section renders a collapsed How-to-use accordion',
+    ['scene', 'oracle', 'entries', 'threads', 'contacts'].every((k) => jsrc0.includes(`helpBlock('${k}')`)) &&
+    /overviewBlock\(\)/.test(jsrc0) && !/journal-help[^]*?open:/.test(jsrc0));
+  const tsrc = readFileSync(join(root, 'src/tutorial.js'), 'utf8');
+  check('solo lesson is gated on the Journal toggle + menu lists only available lessons',
+    /gated: \(\) => Settings\.journal\(\)/.test(tsrc) && /availableLessons\(\)\.map/.test(tsrc));
   const jsrc = readFileSync(join(root, 'src/journal.js'), 'utf8');
   check('end-of-scene Chaos prompt is 3-way (dismiss cannot silently move Chaos)',
     /askInControl/.test(jsrc) && /if \(inControl == null\) return;/.test(jsrc));

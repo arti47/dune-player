@@ -15,6 +15,30 @@ import { getJournal, saveJournal, addJournalEntry, appendToSceneNotes, setChaos,
 import { confirmModal, promptModal, showToast, modal } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
 
+/** Collapsed "How to use" accordion for a section (steps + a worked example). */
+function helpBlock(id, label = 'How to use') {
+  const h = ORACLE.help.sections[id];
+  if (!h) return null;
+  return el('details', { class: 'journal-help' },
+    el('summary', {}, label),
+    el('ol', { class: 'small' }, ...h.steps.map((s) => el('li', {}, s))),
+    el('p', { class: 'small muted' }, el('strong', {}, 'Example: '), h.example));
+}
+
+/** The whole solo loop, collapsed, at the top of the tab. */
+function overviewBlock() {
+  const o = ORACLE.help.overview;
+  return el('details', { class: 'journal-help' },
+    el('summary', {}, o.title),
+    el('p', { class: 'small' }, o.intro),
+    el('ol', { class: 'small' }, ...o.steps.map((s) => el('li', {}, s))),
+    el('p', { class: 'small muted' }, el('strong', {}, 'Example: '), o.example),
+    el('p', { class: 'small muted' }, o.closing),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } },
+        'Walk me through it')));
+}
+
 function fmtDate(ts) {
   try { return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
   catch { return new Date(ts).toISOString(); }
@@ -28,7 +52,8 @@ export function renderJournal(root) {
       el('section', { class: 'card' },
         el('h2', {}, 'Journal'),
         el('p', { class: 'small muted' },
-          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.')),
+          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.'),
+        overviewBlock()),
       sceneCard(j, draw),
       consultCard(j, draw),
       entriesCard(j, draw),
@@ -150,6 +175,7 @@ function sceneCard(j, draw) {
 
   return el('section', { class: 'card' },
     el('h3', {}, '1 · Scene'),
+    helpBlock('scene'),
     el('div', { class: 'journal-meta' }, chaosPill,
       el('button', { class: 'btn secondary', 'aria-label': 'Lower Chaos Factor', onclick: step(-1) }, '−'),
       el('button', { class: 'btn secondary', 'aria-label': 'Raise Chaos Factor', onclick: step(1) }, '+')),
@@ -211,6 +237,7 @@ function consultCard(j, draw) {
 
   return el('section', { class: 'card' },
     el('h3', {}, '2 · Consult the Oracle'),
+    helpBlock('oracle'),
     el('p', { class: 'small muted' }, `${yesNo.note} Odds shift with the Chaos Factor (now ${j.chaos}).`),
     question,
     el('div', { class: 'grid-2' },
@@ -244,6 +271,7 @@ function entriesCard(j, draw) {
   const threadName = (id) => (j.threads.find((t) => t.id === id) || {}).title;
   return el('section', { class: 'card' },
     el('h3', {}, `3 · Entries (${j.entries.length})`),
+    helpBlock('entries'),
     newEntryFields(j, draw),
     j.entries.length
       ? el('ul', { class: 'journal-list' }, ...j.entries.map((e) => el('li', { class: 'journal-entry' },
@@ -284,6 +312,7 @@ function threadsCard(j, draw) {
 
   return el('section', { class: 'card' },
     el('h3', {}, `4 · Threads (${open.length} open)`),
+    helpBlock('threads'),
     el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
@@ -321,6 +350,7 @@ function contactsCard(j, draw) {
 
   return el('section', { class: 'card' },
     el('h3', {}, `5 · NPCs & places (${j.contacts.length})`),
+    helpBlock('contacts'),
     el('p', { class: 'small muted' }, 'Who and what you’ve met. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: add('npc') }, '+ NPC'),

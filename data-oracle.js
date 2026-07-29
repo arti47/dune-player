@@ -98,6 +98,76 @@ export const ORACLE = {
     },
   },
 
+  // In-app help copy for the solo Journal (steps + a worked example per section). Shared by the
+  // Journal's collapsed "How to use" accordions and the tutorial's solo lesson, so both stay in step.
+  help: {
+    overview: {
+      title: 'How to play solo',
+      intro: 'With no GM, you frame each scene yourself and let the dice answer the questions you can’t. One scene at a time, the loop is:',
+      steps: [
+        'Frame the scene you expect — where you are, who is there, what you want.',
+        'Run the scene check. Chaos decides whether the story cooperates: the scene plays as framed, gets altered, or is interrupted by an event.',
+        'Play it out in the notes. When you hit a question only the world can answer, consult the oracle.',
+        'End the scene. Say whether you were in control, which moves Chaos, and the scene is logged as an entry.',
+        'Keep threads and NPCs current — random events draw on those lists, so the story feeds itself.',
+      ],
+      example: 'Chaos 5. You frame "I search the Duke\'s study for the poisoner\'s trail." The scene check rolls d10 = 3 — that\'s ≤ 5 and odd, so the scene is interrupted: the event says "A known face acts (Stilgar) · Conceal / Ominous". Stilgar is already there, hiding something. You play that instead, ask the oracle "Does he admit it?" (Unlikely) and get "No, but… (complication)". At the end you were not in control, so Chaos rises to 6.',
+      closing: 'Your character sheet, dice roller and rules library all still work — the Journal only replaces the GM.',
+    },
+    sections: {
+      scene: {
+        steps: [
+          'Check the Chaos Factor. It starts at 5 and rises when things run away from you; use ± only to correct it by hand.',
+          'Write the scene you expect in "Frame the scene".',
+          'Press Scene check. Higher than Chaos = play it as framed. Equal or lower = altered (change one detail) or interrupted (an event happens instead).',
+          'Press Add to scene to paste the result — and any event — into your notes.',
+          'Play the scene out in "Play it out", consulting the oracle as questions come up.',
+          'Press End scene, answer whether you were in control, and the scene is logged and the pad cleared.',
+        ],
+        example: 'Chaos 5, d10 rolls 4 → 4 is ≤ 5 and even, so the scene is Altered: you framed a quiet study, but change one detail — the door is already open.',
+      },
+      oracle: {
+        steps: [
+          'Phrase your question so yes or no is a real answer ("Is the guard still at his post?").',
+          'Pick how likely a yes feels. The percentage shown already includes the current Chaos Factor.',
+          'Press Consult. Doubles (11, 22, … 00) add a complication to whichever way it lands.',
+          'Press Add to scene to drop the answer into the scene notes, or Log as entry to record it on its own.',
+          'Take the answer as true and keep playing — don’t re-roll a question you dislike.',
+        ],
+        example: '"Is the guard still at his post?" at Likely with Chaos 7 reads 75%. You roll 33 — a yes, and doubles, so: "Yes, but… (complication)". He is there, but he has already seen you.',
+      },
+      entries: {
+        steps: [
+          'Ending a scene writes an entry for you — that is the usual way this list grows.',
+          'Use "+ New entry" for anything outside a scene: downtime, a letter, a realisation.',
+          'Give an entry a title when you want to find it again later.',
+          'Link an entry to an open thread to keep that storyline together.',
+          'Delete an entry with × delete if it was a mistake.',
+        ],
+        example: 'After the study scene you add a separate entry titled "What I now believe", linked to the thread "Who poisoned the Duke?".',
+      },
+      threads: {
+        steps: [
+          'Add a thread for every open question or goal you want the story to chase.',
+          'Phrase it as a question ("Who poisoned the Duke?") or a goal ("Reach Sietch Tabr").',
+          'Use note to record what you have learned so far.',
+          'Press resolve when the story answers it; reopen if it comes back.',
+          'Keep at least a couple open — random events pull from this list.',
+        ],
+        example: 'The event "Thread advances — Who poisoned the Duke?" tells you this scene brings that answer closer, so you play a scene where the trail warms.',
+      },
+      contacts: {
+        steps: [
+          'Add an NPC or a place the moment it matters in play.',
+          'Use note for what you know: allegiance, what they want, what they owe you.',
+          'Keep the list trimmed to names still in the story.',
+          'Random events draw from this list, so anyone here can walk back on stage.',
+        ],
+        example: 'You record "Stilgar — NPC, sietch naib, does not trust offworlders". Later an event rolls "A known face acts (Stilgar)" and he arrives with a demand.',
+      },
+    },
+  },
+
   // Random-event focus (d100, homebrew Dune-flavored — not another product's table).
   // `pull` tells the app what to draw from your journal: an open thread, a known NPC/place, or nothing.
   eventFocus: [

@@ -15,6 +15,7 @@ import { startAdventureDetermination } from './combat.js';
 import { listCharacters } from './store.js';
 import { cite } from './cite.js';
 import { DATA } from '../data.js';
+import { ORACLE } from '../data-oracle.js';
 import { PREGENS } from '../data-pregens.js';
 
 const SKILLS = DATA.skills;
@@ -53,7 +54,16 @@ export const LESSONS = [
     summary: 'Opposed tests, defeat tracks, and staying in the fight.', beats: conflictBeats },
   { id: 'lifecycle', title: 'Scene lifecycle & advancement', available: true,
     summary: 'Ending scenes/adventures and spending advancement.', beats: lifecycleBeats },
+  // Solo play: only offered when the Journal tab is switched on (it teaches that tab).
+  { id: 'solo', title: 'Playing solo with the Journal', available: true,
+    summary: 'Run the game without a GM: frame scenes, check them against Chaos, ask the oracle.',
+    gated: () => Settings.journal(), beats: soloBeats,
+    finishLabel: 'Open the Journal',
+    onFinish: () => { location.hash = '#/journal'; } },
 ];
+
+/** Lessons on offer right now (a gated lesson hides until its surface is enabled). */
+export function availableLessons() { return LESSONS.filter((l) => !l.gated || l.gated()); }
 
 // ---------- screen ----------
 export function renderTutorial(root) {
@@ -101,7 +111,7 @@ function renderMenu(root, render) {
   root.append(el('section', { class: 'card' },
     el('h2', {}, 'Lessons'),
     el('p', { class: 'small muted' }, `Learning with ${c.identity.name}. Pick any lesson — do them in order the first time.`),
-    el('ul', { class: 'char-list' }, ...LESSONS.map((l) => {
+    el('ul', { class: 'char-list' }, ...availableLessons().map((l) => {
       const isDone = done.has(l.id);
       const row = el('li', {},
         el('div', {},
@@ -539,5 +549,44 @@ function lifecycleBeats(sb) {
       b.append(
         el('p', { class: 'small' }, 'Roll tests · spend the pools · lean on your drives · fight when you must · end the scene, end the adventure, and grow. You now know how to play.'),
         el('p', { class: 'small muted' }, 'Head back and try “Create your character” to make a keeper of your own.')); } },
+  ];
+}
+
+// ---------- Lesson: Playing solo with the Journal (explanatory; hands off to the tab) ----------
+function soloBeats() {
+  const h = ORACLE.help;
+  const bullets = (steps) => el('ol', { class: 'small' }, ...steps.map((t) => el('li', {}, t)));
+  const example = (text) => el('p', { class: 'small muted' }, el('strong', {}, 'Example: '), text);
+  return [
+    { title: 'Playing without a GM', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Solo, you do two jobs: you play your character, and you decide what the world does. The Journal tab takes the second job off your hands wherever a die can answer better than you can.'),
+        el('p', { class: 'small muted' }, h.overview.closing));
+    } },
+    { title: 'The loop', render: (b) => {
+      b.append(el('p', { class: 'small' }, h.overview.intro), bullets(h.overview.steps), example(h.overview.example));
+    } },
+    { title: 'Chaos & the scene check', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, `The Chaos Factor runs ${ORACLE.chaos.min}–${ORACLE.chaos.max} and starts at ${ORACLE.chaos.start}. ${ORACLE.chaos.sceneNote}`),
+        el('p', { class: 'small muted' }, ORACLE.chaos.endNote),
+        bullets(h.sections.scene.steps), example(h.sections.scene.example));
+    } },
+    { title: 'Asking the oracle', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, ORACLE.yesNo.note + ' ' + ORACLE.yesNo.doublesNote),
+        bullets(h.sections.oracle.steps), example(h.sections.oracle.example));
+    } },
+    { title: 'Threads, faces & the log', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'Threads and NPCs are not just reference lists — a random event draws a real one of them back into play, which is what keeps a solo story from drifting.'),
+        bullets([...h.sections.threads.steps.slice(0, 3), ...h.sections.contacts.steps.slice(0, 2), ...h.sections.entries.steps.slice(0, 2)]),
+        example(h.sections.threads.example));
+    } },
+    { title: 'Go and play', render: (b) => {
+      b.append(
+        el('p', { class: 'small' }, 'That is the whole engine. Every section of the Journal also carries its own "How to use" panel, so you never have to come back here.'),
+        el('p', { class: 'small muted' }, 'The button below opens the Journal so you can frame your first scene.'));
+    } },
   ];
 }
