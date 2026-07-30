@@ -11,9 +11,16 @@
 // Not rules content — a homebrew play aid. Persists immediately + rides the JSON backup.
 
 import { el, uid, dN } from './core.js';
-import { getJournal, saveJournal, addJournalEntry, appendToSceneNotes, setChaos, clampChaos } from './store.js';
+import {
+  getJournal, saveJournal, addJournalEntry, appendToSceneNotes, setChaos, clampChaos,
+  listCharacters, currentCharacterId, getCharacter, getRollLog,
+} from './store.js';
 import { confirmModal, promptModal, showToast, modal } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
+import { poolsHeader } from './sheet.js';
+import { openRollDialog } from './roller.js';
+import { endScene as endGameScene } from './combat.js';
+import { hookCard, npcCard } from './gm.js';
 
 /** Collapsed "How to use" accordion for a section (steps + a worked example). */
 function helpBlock(id, label = 'How to use') {
@@ -44,24 +51,46 @@ function fmtDate(ts) {
   catch { return new Date(ts).toISOString(); }
 }
 
+/** The character currently in play (the one the Sheet has open), or null. */
+function activeCharacter() {
+  const id = currentCharacterId();
+  return (id && getCharacter(id)) || listCharacters()[0] || null;
+}
+
 export function renderJournal(root) {
   const draw = () => {
     const j = getJournal();
+    const c = activeCharacter();
     root.replaceChildren();
-    root.append(
+    root.append(...[
+      // Momentum/Threat/Determination stay on screen: solo, you spend both sides mid-scene (S3).
+      c ? poolsHeader(c, draw) : null,
       el('section', { class: 'card' },
         el('h2', {}, 'Journal'),
         el('p', { class: 'small muted' },
           'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.'),
         overviewBlock()),
-      sceneCard(j, draw),
+      sceneCard(j, c, draw),
       consultCard(j, draw),
       entriesCard(j, draw),
       threadsCard(j, draw),
       contactsCard(j, draw),
-    );
+      gmToolsCard(),
+    ].filter((n) => n != null));
   };
   draw();
+}
+
+// ---------- GM material a solo player needs without enabling the GM screen (S5) ----------
+function gmToolsCard() {
+  return el('section', { class: 'card' },
+    el('h3', {}, '6 · Opposition & sparks'),
+    el('p', { class: 'small muted' },
+      'Solo you are the GM too: pull a stat block for whoever opposes you, or roll a story hook when you need a scene from nothing.'),
+    el('details', { class: 'journal-help' },
+      el('summary', {}, 'Story hook generator'), hookCard()),
+    el('details', { class: 'journal-help' },
+      el('summary', {}, 'NPC compendium'), npcCard()));
 }
 
 // ---------- Pure solo-engine helpers (unit-tested) ----------
@@ -110,8 +139,19 @@ function eventLine(ev) {
   return `Event — ${ev.focus.label}${subj} · ${ev.words.join(' / ')}`;
 }
 
-// ---------- 1. Scene (Chaos · frame · check · play · end) ----------
-function sceneCard(j, draw) {
+/** One-line summary of a roll-log entry, for pasting into scene notes (S2). */
+export function rollLine(r) {
+  if (!r) return null;
+  const bits = [`${r.skill}+${r.drive} TN ${r.tn}`, `[${(r.dice || []).join(',')}]`,
+    `${r.successes} success${r.successes === 1 ? '' : 'es'}`];
+  if (r.complications) bits.push(`${r.complications} complication${r.complications === 1 ? '' : 's'}`);
+  if (r.momentumDelta) bits.push(`${r.momentumDelta > 0 ? '+' : ''}${r.momentumDelta} Momentum`);
+  if (r.threatDelta) bits.push(`${r.threatDelta > 0 ? '+' : ''}${r.threatDelta} Threat`);
+  return `Roll — ${r.characterName ? r.characterName + ': ' : ''}${bits.join(' · ')}`;
+}
+
+// ---------- 1. Scene (Chaos · frame · check · play · roll · end) ----------
+function sceneCard(j, character, draw) {
   const setup = el('textarea', { rows: '2', placeholder: 'Frame the scene you expect: where, when, who, what’s at stake…', 'aria-label': 'Scene setup' });
   setup.value = j.scene.setup || '';
   const notes = el('textarea', { rows: '4', placeholder: 'What actually happens as you play it out…', 'aria-label': 'Scene notes' });
@@ -158,11 +198,17 @@ function sceneCard(j, draw) {
     });
   }
 
+  // ONE end-of-scene action (S1): runs the §3.17 rules bundle (Momentum −1, temp assets expire,
+  // Resist Defeat reset) AND the solo bookkeeping (Chaos move, entry, clear the pad), with a single
+  // summary + one Undo that rolls back both halves.
   async function endScene() {
     if (!setup.value.trim() && !notes.value.trim()) { showToast('Scene is empty'); return; }
     const inControl = await askInControl();
     if (inControl == null) return;
+
+    const journalBefore = getJournal();
     const next = chaosAfterScene(j.chaos, inControl);
+    const rules = endGameScene();                       // §3.17 bundle + its own undo
     const body = [setup.value.trim(), notes.value.trim()].filter(Boolean).join('\n\n')
       + `\n\n[Chaos ${j.chaos} → ${next}]`;
     addJournalEntry({ title: 'Scene', body });
@@ -170,7 +216,22 @@ function sceneCard(j, draw) {
     cur.scene = { setup: '', notes: '' };
     cur.chaos = next;
     saveJournal(cur);
-    showToast(`Scene logged · Chaos ${next}`); draw();
+
+    const undo = () => {
+      rules.undo();
+      saveJournal(journalBefore);
+      showToast('Scene end undone'); draw();
+    };
+    const close = modal([
+      el('h3', {}, 'Scene ended'),
+      el('ul', { class: 'small' },
+        el('li', {}, `Chaos ${j.chaos} → ${next} (${inControl ? 'in control' : 'not in control'})`),
+        el('li', {}, 'Logged as a journal entry; scene pad cleared'),
+        ...rules.summary.map((line) => el('li', {}, line))),
+      el('div', { class: 'modal-actions' },
+        el('button', { class: 'btn secondary', onclick: () => { close(); undo(); } }, 'Undo'),
+        el('button', { class: 'btn', onclick: () => { close(); draw(); } }, 'Done')),
+    ]);
   }
 
   return el('section', { class: 'card' },
@@ -185,6 +246,16 @@ function sceneCard(j, draw) {
       el('button', { class: 'btn', onclick: runCheck }, 'Scene check (d10)')),
     out,
     el('label', { class: 'small muted' }, 'Play it out'), notes,
+    // Dice live in the loop (S2): roll without leaving the tab, then paste the result into the notes.
+    el('div', { class: 'cta-row' },
+      character
+        ? el('button', { class: 'btn secondary', onclick: () => openRollDialog(character, draw) }, '⚂ Roll a test')
+        : el('span', { class: 'small muted' }, 'Create a character to roll tests here.'),
+      el('button', { class: 'btn secondary', onclick: () => {
+        const line = rollLine(getRollLog()[0]);
+        if (!line) { showToast('No rolls yet'); return; }
+        appendToSceneNotes(line); showToast('Added to scene'); draw();
+      } }, 'Add last roll')),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: endScene }, 'End scene → log entry'),
       el('button', { class: 'btn secondary', onclick: async () => {
@@ -277,6 +348,7 @@ function entriesCard(j, draw) {
       ? el('ul', { class: 'journal-list' }, ...j.entries.map((e) => el('li', { class: 'journal-entry' },
           el('div', { class: 'journal-meta' },
             el('span', { class: 'small muted' }, fmtDate(e.ts)),
+            e.characterName ? el('span', { class: 'pill' }, e.characterName) : null,
             e.threadId && threadName(e.threadId) ? el('span', { class: 'pill' }, threadName(e.threadId)) : null,
             el('button', { class: 'link-btn small', 'aria-label': 'Delete entry', onclick: async () => {
               if (!await confirmModal('Delete this entry?', { okLabel: 'Delete' })) return;

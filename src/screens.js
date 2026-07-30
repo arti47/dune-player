@@ -35,6 +35,8 @@ export function renderHome(root) {
 
     houseCard(house),
 
+    soloCard(),
+
     el('section', { class: 'card' },
       el('h3', {}, chars.length ? 'Your characters' : 'Create a character'),
       el('div', { class: 'cta-row' },
@@ -81,6 +83,31 @@ function houseCard(house) {
         ? el('button', { class: 'btn', onclick: () => { location.hash = '#/house'; } }, 'Manage House')
         : null,
       el('button', { class: 'btn secondary', onclick: startHouseWizard }, 'Edit House')));
+}
+
+/** Solo play is toggle-gated and otherwise invisible — surface it from Home (S4). */
+function soloCard() {
+  if (Settings.journal()) {
+    return el('section', { class: 'card' },
+      el('h3', {}, 'Playing solo'),
+      el('p', { class: 'small muted' },
+        'Frame scenes, check them against the Chaos Factor, and ask the oracle when only the world can answer.'),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn', onclick: () => { location.hash = '#/journal'; } }, 'Open the Journal'),
+        el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } }, 'How to play solo')));
+  }
+  return el('section', { class: 'card' },
+    el('h3', {}, 'Playing solo?'),
+    el('p', { class: 'small muted' },
+      'No GM? Switch on the Journal and the Meaning Tables and the app runs the world for you — scene framing, a Chaos Factor, a yes/no oracle, and random events.'),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => {
+        Settings.set('journal', true);
+        Settings.set('oracle', true);
+        showToast('Solo play enabled');
+        location.hash = '#/journal';
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } }, 'Enable solo play')));
 }
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------

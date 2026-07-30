@@ -103,7 +103,7 @@ function partyCard() {
 }
 
 // ---------- Story Hook Generator (§3.16) ----------
-function hookCard() {
+export function hookCard() {
   const out = el('div', {});
   const roll = () => {
     const cols = DATA.storyHooks.columns;
@@ -147,7 +147,7 @@ function npcBlock(n, kind) {
     (n.talents || []).length ? el('p', { class: 'small muted' }, 'Talents: ' + n.talents.join(', ')) : null,
     (n.assets || []).length ? el('p', { class: 'small muted' }, 'Assets: ' + n.assets.map((a) => a.name || a).join(', ')) : null);
 }
-function npcCard() {
+export function npcCard() {
   const search = el('input', { type: 'search', placeholder: 'Search NPCs…', 'aria-label': 'Search NPCs' });
   const list = el('div', {});
   const draw = () => {

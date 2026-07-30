@@ -1403,6 +1403,37 @@ console.log('— Journal (solo-play log; store + gating) —');
   const tsrc = readFileSync(join(root, 'src/tutorial.js'), 'utf8');
   check('solo lesson is gated on the Journal toggle + menu lists only available lessons',
     /gated: \(\) => Settings\.journal\(\)/.test(tsrc) && /availableLessons\(\)\.map/.test(tsrc));
+  check('S1: journal End scene also runs the §3.17 rules bundle, with one shared Undo',
+    /endScene as endGameScene/.test(readFileSync(join(root, 'src/journal.js'), 'utf8')) &&
+    /const rules = endGameScene\(\)/.test(readFileSync(join(root, 'src/journal.js'), 'utf8')) &&
+    /rules\.undo\(\)/.test(readFileSync(join(root, 'src/journal.js'), 'utf8')));
+  const js2 = readFileSync(join(root, 'src/journal.js'), 'utf8');
+  check('S2: dice reachable from the Journal + last roll pastes into scene notes',
+    /openRollDialog\(character/.test(js2) && /rollLine\(getRollLog\(\)\[0\]\)/.test(js2));
+  check('S2: rollLine renders a one-line summary of a roll-log entry', (() => {
+    const line = jm.rollLine({ characterName: 'Paul', skill: 'Battle', drive: 'Duty', tn: 14, dice: [3, 19],
+      successes: 1, complications: 0, momentumDelta: 1 });
+    return line.includes('Paul') && line.includes('Battle+Duty TN 14') && line.includes('[3,19]') &&
+      line.includes('1 success') && line.includes('+1 Momentum') && jm.rollLine(null) === null;
+  })());
+  check('S3: pools header shown in the Journal, re-rendering the Journal not the Sheet',
+    /poolsHeader\(c, draw\)/.test(js2) &&
+    /export function poolsHeader\(current, onChange = refresh\)/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')));
+  check('S5: GM material (hooks + NPC compendium) reusable outside the GM screen',
+    /export function hookCard/.test(readFileSync(join(root, 'src/gm.js'), 'utf8')) &&
+    /export function npcCard/.test(readFileSync(join(root, 'src/gm.js'), 'utf8')) &&
+    /hookCard\(\)/.test(js2) && /npcCard\(\)/.test(js2));
+  check('S4: Home surfaces solo play and can enable it', (() => {
+    const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+    return /function soloCard/.test(sc) && /soloCard\(\)/.test(sc) &&
+      /Settings\.set\('journal', true\)/.test(sc) && /Settings\.set\('oracle', true\)/.test(sc);
+  })());
+  check('S6: journal entries stamp the character who played the scene', (() => {
+    store.saveCharacter({ id: 'jc1', identity: { name: 'Chani' } });
+    store.setCurrentCharacterId('jc1');
+    const e = store.addJournalEntry({ title: 'Scene', body: 'x' });
+    return e.characterId === 'jc1' && e.characterName === 'Chani';
+  })());
   const jsrc = readFileSync(join(root, 'src/journal.js'), 'utf8');
   check('end-of-scene Chaos prompt is 3-way (dismiss cannot silently move Chaos)',
     /askInControl/.test(jsrc) && /if \(inControl == null\) return;/.test(jsrc));

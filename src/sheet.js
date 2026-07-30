@@ -44,22 +44,24 @@ function stepper(value, onChange, { min = 0, max = 99, label = '' } = {}) {
 }
 
 /** Persistent Momentum/Threat/Determination header (§ Phase 2 · on the in-play sheet). */
-export function poolsHeader(current) {
+/** The Momentum/Threat/Determination bar. `onChange` re-renders the HOST screen — the Journal
+ *  reuses this bar, so it must not fall back to re-rendering the Sheet into a stale mount. */
+export function poolsHeader(current, onChange = refresh) {
   const pools = getPools();
   const cell = (name, node) => el('div', { class: 'pool-cell' },
     el('span', { class: 'pool-name' }, name), node);
 
   return el('section', { class: 'card pools-bar', 'aria-label': 'Shared resources' },
     cell('Momentum',
-      stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); refresh(); },
+      stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); onChange(); },
         { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' })),
     cell('Threat',
-      stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); refresh(); },
+      stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); onChange(); },
         { min: 0, max: 999, label: 'Threat' })),
     cell(current ? 'Determination' : 'Det.',
       current
         ? stepper(current.determination, (v) => {
-            saveCharacter({ ...current, determination: clampDetermination(v) }); refresh();
+            saveCharacter({ ...current, determination: clampDetermination(v) }); onChange();
           }, { min: 0, max: DATA.determination.cap, label: 'Determination' })
         : el('span', { class: 'stat-val muted' }, '—')));
 }

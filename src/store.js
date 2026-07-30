@@ -211,10 +211,15 @@ export function setChaos(n) {
   return j.chaos;
 }
 export function saveJournal(j) { writeJSON(K_JOURNAL, j); notify('journal'); }
-/** Prepend a new entry (newest-first). Returns the created entry. */
-export function addJournalEntry({ title = '', body = '', threadId = null } = {}) {
+/** Prepend a new entry (newest-first). Returns the created entry.
+ *  Stamps the character who played it (denormalized name so the log reads standalone). */
+export function addJournalEntry({ title = '', body = '', threadId = null, characterId, characterName } = {}) {
   const j = getJournal();
-  const entry = { id: uid(), ts: Date.now(), title, body, threadId };
+  const id = characterId !== undefined ? characterId : currentCharacterId();
+  const named = characterName !== undefined
+    ? characterName
+    : (id ? (getCharacter(id)?.identity?.name || null) : null);
+  const entry = { id: uid(), ts: Date.now(), title, body, threadId, characterId: id || null, characterName: named };
   j.entries.unshift(entry);
   saveJournal(j);
   return entry;
