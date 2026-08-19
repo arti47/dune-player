@@ -421,8 +421,13 @@ img, svg, table, pre { max-width: 100%; }
 .journal-compose { margin: 8px 0; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
 .journal-compose summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; }
 .journal-compose[open] summary { margin-bottom: 8px; }
-.journal-help { margin: 6px 0 10px; border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
-.journal-help summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
-.journal-help[open] summary { margin-bottom: 6px; }
-.journal-help ol { margin: 0 0 6px; padding-left: 18px; }
-.journal-help li { margin-bottom: 3px; }
+
+/* ---------- Shared "How to use" accordion (help.js) ---------- */
+.help-acc { margin: 6px 0 10px; border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
+.help-acc summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+.help-acc[open] summary { margin-bottom: 6px; }
+.help-acc ol { margin: 0 0 6px; padding-left: 18px; }
+.help-acc li { margin-bottom: 3px; }
+.pools-block { display: contents; }
+.pools-help { padding-top: 6px; padding-bottom: 6px; }
+.pools-help .help-acc { margin: 0; }

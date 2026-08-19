@@ -4,6 +4,7 @@
 // (data-great-game.js); this module only computes and applies them. greatGame-gated.
 
 import { el, rollD20s, clamp } from './core.js';
+import { help } from './help.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { getHouse, saveHouse, deleteHouse } from './store.js';
 import { normalizeHouse } from './derived.js';
@@ -128,6 +129,7 @@ function build(root, render) {
   if (!Settings.greatGame()) {
     root.append(el('section', { class: 'card' },
       el('h2', {}, 'House management'),
+      help('house'),
       el('p', { class: 'small muted' }, 'The House Management system is part of The Great Game. Enable that toggle in Settings to use it.'),
       el('button', { class: 'btn', onclick: () => goto('settings') }, 'Open Settings')));
     return;
@@ -136,6 +138,7 @@ function build(root, render) {
   if (!house) {
     root.append(el('section', { class: 'card' },
       el('h2', {}, 'House management'),
+      help('house'),
       el('p', { class: 'small muted' }, 'You have no House yet. Create one, or load a ready-made House of the Landsraad to play.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => goto('home') }, 'Create a House'),
@@ -145,6 +148,7 @@ function build(root, render) {
   if (!house.management || !house.management.active) {
     root.append(el('section', { class: 'card' },
       el('h2', {}, house.name || 'Your House'),
+      help('house'),
       el('p', { class: 'small muted' }, 'Begin House management to run the yearly session (income, upkeep, ventures) with live Wealth, Resources, and Status.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { beginManagement(house); render(); } }, 'Begin House management'),
@@ -209,6 +213,7 @@ function renderTracker(root, house, render) {
   // Header
   root.append(el('section', { class: 'card' },
     el('h2', {}, house.name || 'Your House'),
+    help('house'),
     el('p', { class: 'small muted' }, `${(house.type || 'major')} House · Year ${p.year}`),
     el('p', {},
       el('span', { class: 'pill' }, `Status ${p.status} · ${lvl.name}`),

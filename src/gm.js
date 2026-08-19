@@ -3,6 +3,7 @@
 // enemy generator). All read already-extracted data — no new rules content here.
 
 import { el, capitalize, d20 } from './core.js';
+import { help } from './help.js';
 import { Settings } from './settings.js';
 import { getPools, savePools, listCharacters } from './store.js';
 import { confirmModal, showToast } from './ui.js';
@@ -37,7 +38,8 @@ export function renderGM(root) {
   mountRoot = root;
   root.append(...[
     el('section', { class: 'card' }, el('h2', {}, 'GM Screen'),
-      el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.')),
+      el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.'),
+      help('gm')),
     threatCard(),
     partyCard(),
     hookCard(),

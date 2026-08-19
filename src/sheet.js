@@ -18,6 +18,7 @@ import {
 } from './rules.js';
 import { allTalents, focusExamplesFor, driveName } from './content.js';
 import { cite } from './cite.js';
+import { help } from './help.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -51,19 +52,23 @@ export function poolsHeader(current, onChange = refresh) {
   const cell = (name, node) => el('div', { class: 'pool-cell' },
     el('span', { class: 'pool-name' }, name), node);
 
-  return el('section', { class: 'card pools-bar', 'aria-label': 'Shared resources' },
-    cell('Momentum',
-      stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); onChange(); },
-        { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' })),
-    cell('Threat',
-      stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); onChange(); },
-        { min: 0, max: 999, label: 'Threat' })),
-    cell(current ? 'Determination' : 'Det.',
-      current
-        ? stepper(current.determination, (v) => {
-            saveCharacter({ ...current, determination: clampDetermination(v) }); onChange();
-          }, { min: 0, max: DATA.determination.cap, label: 'Determination' })
-        : el('span', { class: 'stat-val muted' }, '—')));
+  // The help accordion is a SIBLING of the flex row, never inside it: .pools-bar is a flex
+  // container, so an extra child squeezes the three cells past the viewport edge.
+  return el('div', { class: 'pools-block' },
+    el('section', { class: 'card pools-bar', 'aria-label': 'Shared resources' },
+      cell('Momentum',
+        stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); onChange(); },
+          { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' })),
+      cell('Threat',
+        stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); onChange(); },
+          { min: 0, max: 999, label: 'Threat' })),
+      cell(current ? 'Determination' : 'Det.',
+        current
+          ? stepper(current.determination, (v) => {
+              saveCharacter({ ...current, determination: clampDetermination(v) }); onChange();
+            }, { min: 0, max: DATA.determination.cap, label: 'Determination' })
+          : el('span', { class: 'stat-val muted' }, '—'))),
+    el('div', { class: 'card pools-help' }, help('pools', 'What are these three?')));
 }
 
 export function renderSheet(root) {
@@ -110,6 +115,8 @@ function liveSheet(c) {
     el('p', { class: 'small muted' },
       [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
        id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character'),
+
+    help('sheet', 'How to read this sheet'),
 
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: () => openRollDialog(c, refresh) }, '⚂ Roll a test')),
@@ -255,6 +262,7 @@ function rollLogSection() {
   return el('div', {},
     el('div', { class: 'section-head' },
       el('h4', {}, 'Roll log'),
+      help('rollLog'),
       log.length
         ? el('button', { class: 'link-btn', onclick: async () => {
             if (await confirmModal('Clear the entire roll log?', { okLabel: 'Clear all' })) {
@@ -531,6 +539,7 @@ function advancementSection(c) {
 
   return el('div', {},
     el('h4', {}, `Advancement · ${adv.points} point${adv.points === 1 ? '' : 's'}`, cite('Advancement')),
+    help('advancement'),
     el('p', { class: 'small muted' }, gated
       ? 'Advance already purchased this adventure — resets on End adventure.'
       : 'Earn points from play; spend between adventures (max 1 advance per adventure).'),

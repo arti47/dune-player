@@ -21,21 +21,17 @@ import { poolsHeader } from './sheet.js';
 import { openRollDialog } from './roller.js';
 import { endScene as endGameScene } from './combat.js';
 import { hookCard, npcCard } from './gm.js';
+import { helpFrom } from './help.js';
 
-/** Collapsed "How to use" accordion for a section (steps + a worked example). */
+/** Collapsed "How to use" accordion for a section — shared renderer, solo copy from ORACLE.help. */
 function helpBlock(id, label = 'How to use') {
-  const h = ORACLE.help.sections[id];
-  if (!h) return null;
-  return el('details', { class: 'journal-help' },
-    el('summary', {}, label),
-    el('ol', { class: 'small' }, ...h.steps.map((s) => el('li', {}, s))),
-    el('p', { class: 'small muted' }, el('strong', {}, 'Example: '), h.example));
+  return helpFrom(ORACLE.help.sections[id], label);
 }
 
 /** The whole solo loop, collapsed, at the top of the tab. */
 function overviewBlock() {
   const o = ORACLE.help.overview;
-  return el('details', { class: 'journal-help' },
+  return el('details', { class: 'help-acc' },
     el('summary', {}, o.title),
     el('p', { class: 'small' }, o.intro),
     el('ol', { class: 'small' }, ...o.steps.map((s) => el('li', {}, s))),
@@ -87,9 +83,9 @@ function gmToolsCard() {
     el('h3', {}, '6 · Opposition & sparks'),
     el('p', { class: 'small muted' },
       'Solo you are the GM too: pull a stat block for whoever opposes you, or roll a story hook when you need a scene from nothing.'),
-    el('details', { class: 'journal-help' },
+    el('details', { class: 'help-acc' },
       el('summary', {}, 'Story hook generator'), hookCard()),
-    el('details', { class: 'journal-help' },
+    el('details', { class: 'help-acc' },
       el('summary', {}, 'NPC compendium'), npcCard()));
 }
 

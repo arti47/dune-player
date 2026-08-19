@@ -1351,6 +1351,41 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('meaning tables append the spark to the current scene notes', /appendToSceneNotes\(/.test(oracleSrc));
 }
 
+console.log('— Novice guidance: help accordions on every surface —');
+{
+  const { HELP } = await import(join(root, 'data-help.js'));
+  const keys = ['firstRun', 'pools', 'sheet', 'roller', 'lifecycle', 'tasks', 'conflict', 'defeat',
+    'advancement', 'rollLog', 'house', 'gm', 'rules', 'settings'];
+  check('every help entry has 3+ steps and a worked example',
+    keys.every((k) => HELP[k] && HELP[k].steps.length >= 3 &&
+      HELP[k].steps.every((t) => typeof t === 'string' && t.length > 10) &&
+      (k === 'firstRun' || typeof HELP[k].example === 'string')));
+  check('glossary covers the core jargon in plain language',
+    HELP.glossary.length >= 20 &&
+    ['Momentum', 'Threat', 'Determination', 'Target number', 'Complication', 'Focus', 'Trait']
+      .every((t) => HELP.glossary.some(([term]) => term === t)) &&
+    HELP.glossary.every(([, meaning]) => meaning.length > 15));
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const wired = [
+    ['src/sheet.js', ["help('pools'", "help('sheet'", "help('advancement')", "help('rollLog')"]],
+    ['src/combat.js', ["help('lifecycle')", "help('tasks')", "help('conflict')", "help('defeat')"]],
+    ['src/roller.js', ["help('roller'"]],
+    ['src/house.js', ["help('house')"]],
+    ['src/gm.js', ["help('gm')"]],
+    ['src/screens.js', ["help('rules')", "help('settings')", 'firstRunCard()', 'Jargon buster']],
+    ['src/tutorial.js', ['How the tutorial works']],
+    ['src/journal.js', ['helpFrom(']],
+  ];
+  check('every major surface renders its help accordion',
+    wired.every(([file, needles]) => { const t = src(file); return needles.every((n) => t.includes(n)); }));
+  check('one shared help renderer; no per-screen copies of the accordion markup',
+    /export function helpFrom/.test(src('src/help.js')) && /export function help\(/.test(src('src/help.js')) &&
+    !src('src/journal.js').includes("class: 'journal-help'"));
+  check('help accordions ship collapsed everywhere (no open attribute)',
+    !/class: 'help-acc', open/.test(src('src/help.js')));
+  check('first-run card only shows on an empty install', /chars\.length \? null : firstRunCard\(\)/.test(src('src/screens.js')));
+}
+
 console.log('— Journal (solo-play log; store + gating) —');
 {
   const mem = new Map();

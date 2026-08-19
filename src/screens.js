@@ -9,6 +9,8 @@ import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayNam
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
+import { help } from './help.js';
+import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 
@@ -22,7 +24,9 @@ export function renderHome(root) {
   const chars = listCharacters();
   const house = getHouse();
 
-  root.append(
+  root.append(...[
+    chars.length ? null : firstRunCard(),
+
     el('section', { class: 'card' },
       el('h2', {}, 'Welcome, Agent of the Imperium'),
       el('p', { class: 'muted' },
@@ -31,6 +35,7 @@ export function renderHome(root) {
         el('span', { class: 'pill' }, `Momentum ${pools.momentum}/${DATA.momentumRules.cap}`),
         el('span', { class: 'pill' }, `Threat ${pools.threat}`),
         el('span', { class: 'pill' }, `${chars.length} character${chars.length === 1 ? '' : 's'}`)),
+      help('firstRun', 'What do I do here?'),
     ),
 
     houseCard(house),
@@ -49,7 +54,19 @@ export function renderHome(root) {
               c.identity.archetype ? el('span', { class: 'small muted' }, ' · ' + capitalize(c.identity.archetype)) : null)))
         : el('p', { class: 'small muted' }, 'Build a character with the 8-step wizard, or jump in as an iconic pregen.'),
     ),
-  );
+  ].filter((n) => n != null));
+}
+
+/** Brand-new install: an ordered path so a first-timer is never guessing what to press (N1). */
+function firstRunCard() {
+  return el('section', { class: 'card' },
+    el('h2', {}, 'New here? Start here'),
+    el('p', { class: 'small muted' },
+      'You do not need to have read anything. Follow these in order and the app explains the rest as you go.'),
+    el('ol', { class: 'small' }, ...HELP.firstRun.steps.map((t) => el('li', {}, t))),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => { location.hash = '#/tutorial'; } }, 'Teach me to play'),
+      el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Just start playing')));
 }
 
 /** The House is a shared, group-level entity: usually one person builds it, others join.
@@ -128,6 +145,14 @@ export function renderRules(root) {
     type: 'search', placeholder: 'Search rules…', 'aria-label': 'Search rules',
   });
   const cards = [];
+
+  cards.push(ruleCard('Jargon buster', el('div', {},
+    el('p', { class: 'small muted' },
+      'Plain-language meanings for the words the app uses. Every one has a full rules card below.'),
+    el('div', { class: 'table-scroll' },
+      el('table', { class: 'rules' },
+        el('tbody', {}, ...HELP.glossary.map(([term, meaning]) =>
+          el('tr', {}, el('th', {}, term), el('td', {}, meaning)))))))));
 
   cards.push(ruleCard('Skills', el('div', {},
     el('p', { class: 'small muted' }, 'Five skills, each rated 4–8.'),
@@ -458,7 +483,7 @@ export function renderRules(root) {
     });
   });
 
-  root.append(el('div', { class: 'card' }, search), ...cards);
+  root.append(el('div', { class: 'card' }, help('rules'), search), ...cards);
 
   // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
   const target = takeCiteTarget();
@@ -647,6 +672,7 @@ export function renderSettings(root) {
   root.append(
     el('section', { class: 'card' },
       el('h2', {}, 'Settings'),
+      help('settings'),
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel)),

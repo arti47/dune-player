@@ -14,6 +14,7 @@ import { startCharacterWizard } from './wizard.js';
 import { startAdventureDetermination } from './combat.js';
 import { listCharacters } from './store.js';
 import { cite } from './cite.js';
+import { helpFrom } from './help.js';
 import { DATA } from '../data.js';
 import { ORACLE } from '../data-oracle.js';
 import { PREGENS } from '../data-pregens.js';
@@ -92,6 +93,15 @@ function build(root, render) {
 function renderPicker(root, render) {
   root.append(el('section', { class: 'card' },
     el('h2', {}, 'Learn to play'),
+    helpFrom({
+      steps: [
+        'Each lesson is a few minutes long and teaches one idea by doing it.',
+        'Nothing here touches your real characters — it all runs on a practice copy.',
+        'Pick any character below to practise with; it only changes the names you see.',
+        'Do the lessons in order the first time. The last one builds a character you keep.',
+      ],
+      example: 'Never played a tabletop RPG? Pick anyone, then start with "Your first test".',
+    }, 'How the tutorial works'),
     el('p', { class: 'small muted' },
       'A short, hands-on tour of Dune: Adventures in the Imperium — using the app’s real dice engine, with scripted rolls so every example lands the same way. Nothing here touches your saved characters.'),
     el('p', { class: 'small' }, 'First, pick an iconic character to learn with:'),
@@ -111,6 +121,15 @@ function renderMenu(root, render) {
   root.append(el('section', { class: 'card' },
     el('h2', {}, 'Lessons'),
     el('p', { class: 'small muted' }, `Learning with ${c.identity.name}. Pick any lesson — do them in order the first time.`),
+    helpFrom({
+      steps: [
+        'Each lesson is a few minutes long and teaches one idea by doing it.',
+        'Nothing here touches your real characters — it all runs on a practice copy.',
+        'Do them in order the first time; the ticks remember where you got to.',
+        'The last one opens the real character wizard so you finish with a character you keep.',
+      ],
+      example: 'Never rolled dice for a game before? Start with "Your first test" and press through the steps.',
+    }, 'How the tutorial works'),
     el('ul', { class: 'char-list' }, ...availableLessons().map((l) => {
       const isDone = done.has(l.id);
       const row = el('li', {},

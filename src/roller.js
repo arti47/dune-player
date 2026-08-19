@@ -22,6 +22,7 @@ import { modal, showToast } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacters } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
+import { help } from './help.js';
 import { findTalent, driveName, allDrives } from './content.js';
 import { DATA } from '../data.js';
 
@@ -418,6 +419,7 @@ export function openRollDialog(character, onDone = null) {
 
     setUI(
       el('h2', { id: 'roll-title' }, 'Roll a test', cite('Skill test basics', close)),
+      help('roller', 'New to this? How a test works'),
       el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel,
         el('span', { class: 'field-hint' }, skillTag(cfg.skill))),
       el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel,
