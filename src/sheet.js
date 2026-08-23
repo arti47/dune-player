@@ -16,7 +16,7 @@ import {
 import {
   skillAdvanceCost, focusAdvanceCost, talentAdvanceCost, assetPermanentCost, assetQualityCost, retrainedCost,
 } from './rules.js';
-import { allTalents, focusExamplesFor, driveName } from './content.js';
+import { allTalents, focusExamplesFor, driveName, findTalent } from './content.js';
 import { cite } from './cite.js';
 import { help } from './help.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
@@ -134,10 +134,17 @@ function liveSheet(c) {
     el('p', { class: 'small' }, (c.focuses || []).map((f) => `${f.name} (${SKILL_NAME[f.skill]})`).join(', ') || '—'),
 
     el('h4', {}, 'Talents'),
-    el('p', { class: 'small' }, (c.talents || []).map((t) => {
-      const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? driveName(t.drive) : t.category || null;
-      return param ? `${t.name} (${param})` : t.name;
-    }).join(', ') || '—'),
+    // Tap a talent to read what it actually does — in play this is the only place you have it.
+    (c.talents || []).length
+      ? el('div', {}, ...(c.talents || []).map((t) => {
+          const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? driveName(t.drive) : t.category || null;
+          const def = findTalent(t.name);
+          return el('details', { class: 'tips' },
+            el('summary', {}, param ? `${t.name} (${param})` : t.name),
+            el('p', { class: 'small' }, def ? def.effect : 'See the rules library for this talent.'),
+            def && def.requires ? el('p', { class: 'small muted' }, `Requires: ${def.requires}`) : null);
+        }))
+      : el('p', { class: 'small' }, '—'),
 
     traitsSection(c),
     assetsSection(c),
@@ -484,6 +491,9 @@ function assetRow(c, a, i, cap, permCount) {
       el('strong', {}, a.name),
       a.tangible === false ? el('span', { class: 'tag' }, 'intangible') : null,
       permBtn),
+    // Show the book's note for a catalogue asset, so gear is readable without leaving the sheet.
+    (() => { const def = DATA.assets.find((x) => x.name === a.name);
+      return def && def.rider ? el('p', { class: 'small muted' }, def.rider) : null; })(),
     el('div', { class: 'asset-controls' },
       el('span', { class: 'small muted' }, 'Quality'),
       stepper(a.quality || 0, (v) => update({ quality: v }), { min: 0, max: 5, label: 'Quality' }),

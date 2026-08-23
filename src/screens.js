@@ -10,6 +10,7 @@ import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
 import { help } from './help.js';
+import { allTalents } from './content.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
@@ -256,8 +257,10 @@ export function renderRules(root) {
     `Each passed test scores ${DATA.extendedTask.basePoints} points + the Quality of an applicable asset. ` +
     'Momentum can add points; a complication can reduce them. Multiple characters may contribute to the same requirement.')));
 
-  cards.push(ruleCard('Conflict types', table(['Type', 'Scale', 'Attack skill'],
-    DATA.conflictTypes.map((c) => [c.name, c.scale, capitalize(c.attackSkill)]))));
+  cards.push(ruleCard('Conflict types', el('div', {},
+    el('p', { class: 'small muted' }, DATA.conflictDriveNote),
+    table(['Type', 'Scale', 'Attack skill'],
+    DATA.conflictTypes.map((c) => [c.name, c.scale, capitalize(c.attackSkill)])))));
 
   cards.push(ruleCard('Conflict turn order', el('div', {},
     el('p', { class: 'small' },
@@ -305,6 +308,36 @@ export function renderRules(root) {
     el('p', { class: 'small' }, DATA.wealth.purchaseRule),
     table(['Tier', 'Examples'], DATA.wealth.ladder.map((w) => [String(w.tier), w.examples])))));
 
+  cards.push(ruleCard('Talent catalog', (() => {
+    const all = allTalents();
+    const byFaction = {};
+    for (const t of all) (byFaction[t.faction || 'general'] = byFaction[t.faction || 'general'] || []).push(t);
+    const label = (k) => (k === 'general' ? 'General' : capitalize(k.replace(/([A-Z])/g, ' $1')));
+    return el('div', {},
+      el('p', { class: 'small muted' },
+        `${all.length} talents available with your current toggles. Faction talents only appear for a character of that faction.`),
+      ...Object.entries(byFaction).map(([fac, list]) => el('details', { class: 'tips' },
+        el('summary', {}, `${label(fac)} (${list.length})`),
+        ...list.map((t) => el('p', { class: 'small' },
+          el('strong', {}, t.name + ': '), t.effect,
+          t.requires ? el('span', { class: 'small muted' }, ` · Requires: ${t.requires}`) : null)))));
+  })()));
+
+  cards.push(ruleCard('Asset catalog', (() => {
+    const byCat = {};
+    for (const a of DATA.assets) (byCat[a.category] = byCat[a.category] || []).push(a);
+    return el('div', {},
+      el('p', { class: 'small muted' },
+        `${DATA.assets.length} assets from the book. Quality is shown where the book prints one; most start at 0.`),
+      ...Object.entries(byCat).map(([cat, list]) => el('details', { class: 'tips' },
+        el('summary', {}, `${capitalize(cat)} (${list.length})`),
+        ...list.map((a) => el('p', { class: 'small' },
+          el('strong', {}, a.name + ' '),
+          el('span', { class: 'small muted' },
+            `· ${a.tangible === 'either' ? 'tangible/intangible' : a.tangible ? 'tangible' : 'intangible'} · Quality ${a.quality}${a.defensive ? ' · defensive' : ''}${a.fast ? ' · fast' : ''}`),
+          a.rider ? el('span', {}, ' — ' + a.rider) : null)))));
+  })()));
+
   cards.push(ruleCard('Powers', el('p', { class: 'small' },
     'Voice, Mentat computation, prana-bindu conditioning, and prescience are not a separate subsystem — they are talents with embedded dice effects, resolved in the roller ' +
     '(e.g. Voice spends Threat for automatic successes; Mentat Discipline forces a die to count as a 1). Every talent with a dice effect is playable “tap to use” in the roll dialog.')));
@@ -331,6 +364,7 @@ export function renderRules(root) {
     el('p', { class: 'small muted' }, DATA.supportingCharacters.uncontrolled.onDefeat))));
 
   cards.push(ruleCard('Archetypes', el('div', {},
+    el('p', { class: 'small' }, DATA.archetypeRule),
     el('p', { class: 'small muted' }, `${DATA.archetypes.length} archetypes. Each sets a primary (6) and secondary (5) skill and suggests 2 focuses + 1 talent. Drive hints are guidance only.`),
     ...DATA.archetypes.map((a) => el('details', { class: 'tips' },
       el('summary', {}, `${a.name} — ${SKILL_NAME[a.primary]}/${SKILL_NAME[a.secondary]}`),
@@ -339,6 +373,7 @@ export function renderRules(root) {
         `Focuses: ${a.focuses.join(', ')} · Talent: ${a.talents.join(', ')} · Drives: ${(a.driveSuggestions || []).map((d) => DRIVE_NAME[d]).join(', ')}`))))));
 
   cards.push(ruleCard('Faction templates', el('div', {},
+    el('p', { class: 'small muted' }, DATA.factionTemplateNote),
     el('p', { class: 'small' }, DATA.factionIntro),
     ...DATA.factionTemplates.map((f) => el('details', { class: 'tips' },
       el('summary', {}, f.name),
@@ -356,11 +391,15 @@ export function renderRules(root) {
         el('tr', {}, el('td', {}, el('strong', {}, d.name)), el('td', {}, DATA.creationGuidance.ambitionByDrive[d.id])))))),
     el('p', { class: 'small muted' }, DATA.creationGuidance.ambitionChangeRule))));
 
-  cards.push(ruleCard('Sandworm riding', table(['Worm', 'Extended task requirement'],
-    DATA.sandwormRiding.map((w) => [w.size, String(w.requirement)]))));
+  cards.push(ruleCard('Sandworm riding', el('div', {},
+    el('p', { class: 'small muted' }, DATA.sandwormNote),
+    table(['Worm', 'Extended task requirement'],
+    DATA.sandwormRiding.map((w) => [w.size, String(w.requirement)])))));
 
-  cards.push(ruleCard('Desert hazards', table(['Hazard', 'Effect'],
-    DATA.desertHazards.map((h) => [h.name, h.effect]))));
+  cards.push(ruleCard('Desert hazards', el('div', {},
+    el('p', { class: 'small muted' }, DATA.desertHazardsNote),
+    table(['Hazard', 'Effect'],
+    DATA.desertHazards.map((h) => [h.name, h.effect])))));
 
   // House domains + starting Threat are Core narrative content — always shown.
   cards.push(ruleCard('House domains', el('div', {},

@@ -1351,6 +1351,29 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('meaning tables append the spark to the current scene notes', /appendToSceneNotes\(/.test(oracleSrc));
 }
 
+console.log('— Reachability: extracted content must have a UI path —');
+{
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const sc = src('src/screens.js');
+  check('talent + asset catalogues are browsable in the rules library',
+    /ruleCard\('Talent catalog'/.test(sc) && /allTalents\(\)/.test(sc) &&
+    /ruleCard\('Asset catalog'/.test(sc) && /DATA\.assets/.test(sc));
+  check('a character can read their own talents and gear on the sheet', (() => {
+    const sh = src('src/sheet.js');
+    return /findTalent\(t\.name\)/.test(sh) && /def \? def\.effect/.test(sh) &&
+      /DATA\.assets\.find\(\(x\) => x\.name === a\.name\)/.test(sh);
+  })());
+  check('no user-facing DATA table is left without a UI path', (() => {
+    const files = ['screens.js', 'sheet.js', 'roller.js', 'combat.js', 'wizard.js', 'gm.js', 'house.js', 'journal.js', 'tutorial.js']
+      .map((f) => src('src/' + f)).join('\n');
+    // Editorial-only keys are excluded by design (audit notes, not player-facing rules).
+    const editorial = new Set(['talentNotes', 'houseScopeNote', 'crit', 'opposedTest']);
+    const missing = Object.keys(DATA).filter((k) => !editorial.has(k) && !files.includes(`DATA.${k}`));
+    if (missing.length) console.log('    unreachable DATA keys:', missing.join(', '));
+    return missing.length === 0;
+  })());
+}
+
 console.log('— Novice guidance: help accordions on every surface —');
 {
   const { HELP } = await import(join(root, 'data-help.js'));
