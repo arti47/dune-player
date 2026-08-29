@@ -39,6 +39,12 @@ export const Settings = {
   setTutorial(patch)   { const s = read(); s.tutorial = { ...this.tutorial(), ...patch }; write(s); },
   markLessonDone(id)   { const t = this.tutorial(); if (!t.completedLessons.includes(id)) this.setTutorial({ completedLessons: [...t.completedLessons, id] }); },
   restartTutorial()    { const s = read(); delete s.tutorial; write(s); },
+
+  // How-to-play guide progress: { done: [stepId] } — manual ticks for steps the app can't detect.
+  play()               { return { done: [], ...(read().play || {}) }; },
+  markPlayStep(id)     { const p = this.play(); if (!p.done.includes(id)) { const s = read(); s.play = { ...p, done: [...p.done, id] }; write(s); } },
+  unmarkPlayStep(id)   { const p = this.play(); const s = read(); s.play = { ...p, done: p.done.filter((x) => x !== id) }; write(s); },
+  resetPlayGuide()     { const s = read(); delete s.play; write(s); },
 };
 
 /** Toggle metadata for the Settings screen. */

@@ -8,9 +8,11 @@ import { renderGM } from './gm.js';
 import { renderHouseManagement } from './house.js';
 import { renderTutorial } from './tutorial.js';
 import { renderJournal } from './journal.js';
+import { renderPlay } from './play.js';
 
 const ROUTES = [
   { id: 'home',     label: 'Home',     ico: '⌂', render: renderHome },
+  { id: 'play',     label: 'Play',     ico: '▶', render: renderPlay },
   { id: 'sheet',    label: 'Sheet',    ico: '☰', render: renderSheet },
   { id: 'rules',    label: 'Rules',    ico: '❖', render: renderRules },
   { id: 'journal',  label: 'Journal',  ico: '✒', render: renderJournal, gated: () => Settings.journal() },

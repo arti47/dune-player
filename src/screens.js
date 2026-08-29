@@ -66,7 +66,8 @@ function firstRunCard() {
       'You do not need to have read anything. Follow these in order and the app explains the rest as you go.'),
     el('ol', { class: 'small' }, ...HELP.firstRun.steps.map((t) => el('li', {}, t))),
     el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => { location.hash = '#/tutorial'; } }, 'Teach me to play'),
+      el('button', { class: 'btn', onclick: () => { location.hash = '#/play'; } }, 'How to play'),
+      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } }, 'Teach me the dice'),
       el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Just start playing')));
 }
 

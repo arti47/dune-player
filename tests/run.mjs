@@ -1351,6 +1351,42 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('meaning tables append the spark to the current scene notes', /appendToSceneNotes\(/.test(oracleSrc));
 }
 
+console.log('— How to play guide (start / sustain / end) —');
+{
+  const { HELP } = await import(join(root, 'data-help.js'));
+  const g = HELP.playGuide;
+  check('guide covers the three phases in order',
+    g.phases.map((p) => p.id).join(',') === 'start,sustain,end' &&
+    g.phases.every((p) => p.title && p.lead && p.steps.length >= 5));
+  check('every guide step has a unique id, title and text', (() => {
+    const all = g.phases.flatMap((p) => p.steps);
+    const ids = all.map((x) => x.id);
+    return new Set(ids).size === ids.length &&
+      all.every((x) => x.title && x.text && x.text.length > 30);
+  })());
+  const psrc = readFileSync(join(root, 'src/play.js'), 'utf8');
+  check('every action a step names is implemented in play.js', (() => {
+    const named = [...new Set(g.phases.flatMap((p) => p.steps).map((x) => x.action).filter(Boolean))];
+    const missing = named.filter((a) => !new RegExp(`^  ${a}:`, 'm').test(psrc));
+    if (missing.length) console.log('    unimplemented actions:', missing.join(', '));
+    return missing.length === 0;
+  })());
+  check('guide steps tick themselves from real evidence, not just manual marks',
+    /const EVIDENCE = \{/.test(psrc) && /listCharacters\(\)\.length > 0/.test(psrc) &&
+    /getRollLog\(\)\.length > 0/.test(psrc) && /provenByApp/.test(psrc));
+  check('the guide performs the real end-of-scene/adventure work, not a copy',
+    /import \{ endScene, endAdventure \} from '\.\/combat\.js'/.test(psrc) &&
+    /r\.undo\(\)/.test(psrc));
+  check('Play is a permanent nav route (never gated)', (() => {
+    const r = readFileSync(join(root, 'src/router.js'), 'utf8');
+    return /id: 'play'[^}]*render: renderPlay \}/.test(r);
+  })());
+  check('play-guide progress persists via Settings', (() => {
+    const st = readFileSync(join(root, 'src/settings.js'), 'utf8');
+    return /markPlayStep/.test(st) && /unmarkPlayStep/.test(st) && /resetPlayGuide/.test(st);
+  })());
+}
+
 console.log('— Reachability: extracted content must have a UI path —');
 {
   const src = (f) => readFileSync(join(root, f), 'utf8');
