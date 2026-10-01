@@ -1731,5 +1731,22 @@ console.log('\n— UI overhaul · Stage 5: grouped Settings, heading chips, desk
   check('section actions render as chips', /\.section-head \.link-btn \{[^}]*border-radius: 999px/.test(css));
 }
 
+console.log('\n— UI round 2 · #1 Rules library index —');
+{
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  check('rules cards fold to one-line rows', /el\('details', \{ class: 'card rule-card', id: slug\(title\)/.test(sc));
+  check('rules grouped under headings (Start here · Dice & tests · Conflict & scenes · Growth & gear · Arrakis · House)',
+    ['Start here', 'Dice & tests', 'Conflict & scenes', 'Growth & gear', 'Arrakis', 'House'].every((g) => sc.includes(`['${g}',`)));
+  const titles = [...sc.matchAll(/ruleCard\('([^']+)'/g)].map((m) => m[1]);
+  const groupsSrc = sc.slice(sc.indexOf('const RULE_GROUPS = ') + 'const RULE_GROUPS = '.length, sc.indexOf('];', sc.indexOf('const RULE_GROUPS = ')) + 1);
+  const RG = new Function(`return ${groupsSrc}`)();
+  const ruleGroupOf = (t) => (RG.find(([, re]) => re.test(t)) || ['Reference'])[0];
+  const lost = titles.filter((t) => ruleGroupOf(t) === 'Reference');
+  check('every rules card lands in a named group', lost.length === 0, lost.join(', '));
+  check('search opens every match and restores hand-opened cards when cleared', /c\.open = q \? hit : userOpen\.has\(c\)/.test(sc));
+  check('a cite() deep link opens its card', /card\.open = true;\s*card\.scrollIntoView/.test(sc));
+  check('only the search field pins', /class: 'rules-searchbar'/.test(sc) && /\.rules-searchbar \{ position: sticky/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

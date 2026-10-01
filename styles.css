@@ -802,3 +802,21 @@ html[data-theme="dark"] body::before { opacity: .6; }
   .wizard-nav { bottom: 0; }
   .toast-region { bottom: 24px; }
 }
+
+/* ---------- Round 2 #1: Rules library as a grouped, folded index ---------- */
+/* Segment bars stick just under the fixed header, on a solid band so content never shows above them. */
+.segmented { top: calc(var(--header-h) + 4px); box-shadow: 0 -8px 0 0 var(--bg); }
+.rules-searchbar { position: sticky; top: calc(var(--header-h) + 52px); z-index: 4; background: var(--bg); box-shadow: 0 -12px 0 var(--bg); padding: 6px 0 8px; margin-bottom: 4px; }
+.rules-searchbar input[type="search"] { width: 100%; }
+.rules-empty { margin: 8px 4px 0; }
+.rule-group { margin-bottom: 18px; }
+.rule-group-title { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); margin: 10px 4px 8px; }
+.rule-card { padding-top: 6px; padding-bottom: 6px; margin-bottom: 8px; }
+.rule-card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; min-height: 44px; }
+.rule-card > summary::-webkit-details-marker { display: none; }
+.rule-card > summary .rule-title { flex: 1; margin: 0; }
+.rule-card > summary::after { content: '▾'; color: var(--muted); transition: transform .15s; }
+.rule-card[open] > summary::after { transform: rotate(180deg); }
+.rule-card[open] { padding-bottom: 14px; }
+.rule-card[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+@media (min-width: 900px) { .hub-body:has(> .rule-group) { columns: auto; } .hub-body > .rules-searchbar { column-span: all; } }

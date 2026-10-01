@@ -152,10 +152,28 @@ const RULE_ICONS = [
 ];
 function ruleIcon(title) { return (RULE_ICONS.find(([re]) => re.test(title)) || [null, 'rules'])[1]; }
 
+// Each rules card folds to a one-line row (Round 2 #1): title + icon, tap to read.
 function ruleCard(title, node) {
-  return el('section', { class: 'card', id: slug(title), dataset: { search: title.toLowerCase() } },
-    el('h3', { class: 'rule-title' }, el('span', { class: 'rule-ico' }, icon(ruleIcon(title), { size: 18 })), title), node);
+  return el('details', { class: 'card rule-card', id: slug(title), dataset: { search: title.toLowerCase() } },
+    el('summary', {},
+      el('h3', { class: 'rule-title' }, el('span', { class: 'rule-ico' }, icon(ruleIcon(title), { size: 18 })), title)),
+    el('div', { class: 'rule-body' }, node));
 }
+
+// Library groups, in reading order; first matching pattern wins. Unmatched cards land in "Reference".
+const RULE_GROUPS = [
+  ['Start here', /^(Jargon buster|Skills|Drives|Building a character|Choosing drives|Creating a character in play|Ambition|Focus examples|Archetypes|Faction templates|Supporting characters|Powers)$/],
+  ['Dice & tests', /^(Skill test basics|Difficulty ladder|Buying extra dice|Momentum spends|Threat spends|Determination|Drive statements|Complications|Traits|Opposed tests|Assists|Extended tasks)/],
+  ['Conflict & scenes', /^(Conflict types|Conflict turn order|Defeat & recovery|Scene & adventure lifecycle)$/],
+  ['Growth & gear', /^(Advancement|Assets & wealth|Talent catalog|Asset catalog)$/],
+  ['Arrakis', /^(Sandworm riding|Desert hazards)$/],
+  ['House', /^House/],
+];
+function ruleGroupOf(title) {
+  const g = RULE_GROUPS.find(([, re]) => re.test(title));
+  return g ? g[0] : 'Reference';
+}
+export { ruleGroupOf };
 export { ruleIcon };
 function table(headers, rows) {
   // Wrapped so a wide table scrolls inside its own container instead of overflowing the page (§5).
@@ -538,15 +556,38 @@ export function renderRules(root) {
       el('p', { class: 'small' }, HM.warfareNote))));
   }
 
+  // Group the folded cards under headings; search filters across groups and opens every match.
+  const groups = [];
+  for (const c of cards) {
+    const name = ruleGroupOf(c.querySelector('.rule-title').textContent);
+    let g = groups.find((x) => x.name === name);
+    if (!g) { g = { name, cards: [] }; groups.push(g); }
+    g.cards.push(c);
+  }
+  const order = [...RULE_GROUPS.map(([n]) => n), 'Reference'];
+  groups.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+  const groupEls = groups.map((g) => el('section', { class: 'rule-group', 'aria-label': g.name },
+    el('h2', { class: 'rule-group-title' }, g.name, el('span', { class: 'tag' }, String(g.cards.length))), ...g.cards));
+
+  const userOpen = new Set();   // cards opened by hand stay open when a search is cleared
+  cards.forEach((c) => c.addEventListener('toggle', () => { if (!search.value) (c.open ? userOpen.add(c) : userOpen.delete(c)); }));
+  const empty = el('p', { class: 'small muted rules-empty', hidden: '' }, 'No rules match that search.');
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();
+    let hits = 0;
     cards.forEach((c) => {
       const hit = !q || c.textContent.toLowerCase().includes(q);
       c.style.display = hit ? '' : 'none';
+      c.open = q ? hit : userOpen.has(c);
+      if (hit) hits++;
     });
+    groupEls.forEach((g) => { g.style.display = [...g.querySelectorAll('.rule-card')].some((c) => c.style.display !== 'none') ? '' : 'none'; });
+    empty.hidden = !q || hits > 0;
   });
 
-  root.append(el('div', { class: 'card' }, el('h2', {}, 'Rules library'), help('rules'), search), ...cards);
+  // Only the search field pins (a slim bar under the section tabs); the title card scrolls away.
+  root.append(el('div', { class: 'card' }, el('h2', {}, 'Rules library'), help('rules')),
+    el('div', { class: 'rules-searchbar' }, search, empty), ...groupEls);
 
   // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
   const target = takeCiteTarget();
@@ -554,6 +595,7 @@ export function renderRules(root) {
     requestAnimationFrame(() => {
       const card = document.getElementById(target);
       if (!card) return;
+      card.open = true;
       card.scrollIntoView({ block: 'center' });
       card.classList.add('cited');
       setTimeout(() => card.classList.remove('cited'), 2200);
