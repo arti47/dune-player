@@ -10,6 +10,7 @@ import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
 import { help } from './help.js';
+import { icon } from './icons.js';
 import { allTalents } from './content.js';
 import { domainCrest } from './crests.js';
 import { houseBanner } from './banner.js';
@@ -135,10 +136,24 @@ function soloCard() {
 }
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------
+// Rules-library card icons: first matching pattern wins (order matters — specific before generic).
+const RULE_ICONS = [
+  [/jargon/i, 'learn'], [/talent catalog|^traits/i, 'star'], [/asset/i, 'coin'], [/upkeep/i, 'coin'],
+  [/house status|ascension|house roles/i, 'crown'], [/landsraad/i, 'flag'], [/ventures|advancement/i, 'up'],
+  [/house events/i, 'oracle'], [/yearly session|lifecycle|extended task/i, 'hourglass'], [/house/i, 'house'],
+  [/sandworm/i, 'worm'], [/desert/i, 'dune'], [/momentum/i, 'momentum'], [/threat/i, 'threat'], [/complication/i, 'threat'],
+  [/^determination/i, 'determination'], [/statement/i, 'scroll'], [/ambition/i, 'flag'], [/drives/i, 'compass'],
+  [/difficulty/i, 'target'], [/test basics|extra dice/i, 'd20'], [/opposed|conflict/i, 'swords'], [/defeat/i, 'shield'],
+  [/assists|supporting/i, 'group'], [/focus/i, 'list'], [/powers/i, 'bolt'], [/faction/i, 'gm'],
+  [/archetype|^skills/i, 'person'], [/character/i, 'sheet'],
+];
+function ruleIcon(title) { return (RULE_ICONS.find(([re]) => re.test(title)) || [null, 'rules'])[1]; }
+
 function ruleCard(title, node) {
   return el('section', { class: 'card', id: slug(title), dataset: { search: title.toLowerCase() } },
-    el('h3', {}, title), node);
+    el('h3', { class: 'rule-title' }, el('span', { class: 'rule-ico' }, icon(ruleIcon(title), { size: 18 })), title), node);
 }
+export { ruleIcon };
 function table(headers, rows) {
   // Wrapped so a wide table scrolls inside its own container instead of overflowing the page (§5).
   return el('div', { class: 'table-scroll' },

@@ -641,3 +641,10 @@ summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
 .roll-verdict .cite { background: transparent; border-color: currentColor; color: inherit; opacity: .85; }
 /* Josefin Sans has no ⓘ glyph — keep citation links on the system face inside display headings. */
 .cite { font-family: system-ui, "Segoe UI", sans-serif; letter-spacing: 0; text-transform: none; font-weight: 400; }
+
+/* ---------- Rules library card icons ---------- */
+.rule-title { display: flex; align-items: center; gap: 10px; }
+.rule-ico {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}

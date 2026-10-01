@@ -33,6 +33,18 @@ const PATHS = {
   shield: '<path d="M12 3 19.5 6v5.5c0 4.5-3.2 8-7.5 9.5-4.3-1.5-7.5-5-7.5-9.5V6z"/>',
   theme: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
   check: '<path d="M5 12.5 10 17.5 19.5 7"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".9" fill="currentColor"/>',
+  coin: '<ellipse cx="12" cy="7" rx="7" ry="2.8"/><path d="M5 7v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V7M5 12v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/>',
+  bolt: '<path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z"/>',
+  star: '<path d="M12 3.5l2.5 5.4 5.9.6-4.4 4 1.3 5.8L12 16.4l-5.3 2.9L8 13.5l-4.4-4 5.9-.6z"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r=".9" fill="currentColor"/><circle cx="4.8" cy="12" r=".9" fill="currentColor"/><circle cx="4.8" cy="17.5" r=".9" fill="currentColor"/>',
+  crown: '<path d="M4.5 18 3.5 8l5 4 3.5-6 3.5 6 5-4-1 10z"/><path d="M5 20.5h14"/>',
+  compass: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5 13.3 13.3 8.5 15.5 10.7 10.7z"/>',
+  swords: '<path d="M5 4.5 19.5 19M19 4.5 4.5 19"/><path d="M3.5 15.5l5 5M15.5 20.5l5-5"/>',
+  group: '<circle cx="9" cy="8.5" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3.5 19.5c.6-3.4 2.8-5.3 5.5-5.3s4.9 1.9 5.5 5.3M14.5 14.5c2.6-.6 5.2.8 6 4.5"/>',
+  up: '<path d="M12 20.5V4.5M6 10.5l6-6 6 6"/>',
+  flag: '<path d="M5.5 21V3.5"/><path d="M5.5 4h12l-3 4 3 4h-12"/>',
+  worm: '<path d="M3.5 18c0-4 3-6 6.5-6s4.5-1.5 4.5-4 2-4 4.5-4"/><path d="M3.5 18c2 0 3 1.5 3 2.5M19 4c1.4.5 1.5 2 1 3"/><circle cx="18.2" cy="5.2" r=".8" fill="currentColor"/>',
 };
 
 /** Build an icon <svg>. `size` in px; `label` makes it accessible (otherwise aria-hidden). */

@@ -1389,6 +1389,21 @@ console.log('— Faction + archetype crests —');
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
+console.log('— Rules library card icons —');
+{
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  const titles = [...sc.matchAll(/ruleCard\('([^']+)'/g)].map((m) => m[1]);
+  const rules = [...sc.slice(sc.indexOf('const RULE_ICONS = ['), sc.indexOf('];', sc.indexOf('const RULE_ICONS = ['))).matchAll(/\[\/(.+?)\/i, '(\w+)'\]/g)]
+    .map((m) => [new RegExp(m[1], 'i'), m[2]]);
+  const pick = (t) => (rules.find(([re]) => re.test(t)) || [null, 'rules'])[1];
+  const fallback = titles.filter((t) => pick(t) === 'rules');
+  if (fallback.length) console.log('    no specific icon:', fallback.join(', '));
+  check('every rules-library card gets a specific icon (none fall back)', titles.length >= 46 && fallback.length === 0);
+  const ic = readFileSync(join(root, 'src/icons.js'), 'utf8');
+  check('every icon the rules map names exists in the icon set',
+    [...new Set(rules.map(([, n]) => n))].every((n) => new RegExp(`\\b${n}: '`).test(ic)));
+}
+
 console.log('— Roll result panel —');
 {
   const rs = readFileSync(join(root, 'src/roller.js'), 'utf8');
