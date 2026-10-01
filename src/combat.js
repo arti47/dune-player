@@ -296,7 +296,7 @@ export function renderDefeat(character, onChange) {
     el('p', { class: 'small muted' }, 'Track = defender skill + defensive asset Quality; each hit scores 2 + attacker asset Quality (§3.7).'),
     el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Requirement'),
       stepper(track.req, (v) => save({ defeatTrack: { ...track, req: v } }), { min: 0, max: 40, label: 'requirement' })),
-    el('div', { class: 'task-bar' }, el('div', { class: 'task-fill' + (defeated ? ' danger' : ''), style: `width:${Math.min(100, Math.round((track.progress / Math.max(1, track.req)) * 100))}%` })),
+    el('div', { class: 'task-bar defeat-bar' }, el('div', { class: 'task-fill' + (defeated ? ' danger' : ''), style: `width:${Math.min(100, Math.round((track.progress / Math.max(1, track.req)) * 100))}%` })),
     el('div', { class: 'task-foot' },
       el('span', { class: 'small muted' + (defeated ? ' danger-text' : '') }, `${track.progress} / ${track.req}${defeated ? ' · DEFEATED' : ''}`),
       el('button', { class: 'btn small secondary', onclick: recordHit }, 'Record a hit')),

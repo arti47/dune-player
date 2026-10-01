@@ -10,6 +10,7 @@
 
 import { el } from './core.js';
 import { HELP } from '../data-help.js';
+import { icon } from './icons.js';
 import { Settings } from './settings.js';
 import { showToast, confirmModal, modal } from './ui.js';
 import {
@@ -180,6 +181,18 @@ const ACTIONS = {
 };
 
 // ---------- rendering ----------
+const PHASE_ICON = { start: 'dune', sustain: 'd20', end: 'hourglass' };
+
+/** Small SVG progress ring with the "done/total" count in the centre. */
+function progressRing(done, total) {
+  const r = 15, c = 2 * Math.PI * r, frac = total ? done / total : 0;
+  const wrap = el('span', { class: 'ring', role: 'img', 'aria-label': `${done} of ${total} done` });
+  wrap.innerHTML = `<svg viewBox="0 0 36 36" width="40" height="40" aria-hidden="true">
+    <circle cx="18" cy="18" r="${r}" class="ring-track"/>
+    <circle cx="18" cy="18" r="${r}" class="ring-fill" stroke-dasharray="${(c * frac).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 18 18)"/>
+    <text x="18" y="21.5" text-anchor="middle" class="ring-text">${done}/${total}</text></svg>`;
+  return wrap;
+}
 function stepRow(step) {
   const done = isDone(step);
   const act = step.action ? ACTIONS[step.action] : null;
@@ -211,8 +224,8 @@ function phaseCard(phase) {
   const done = phase.steps.filter(isDone).length;
   return el('section', { class: 'card' },
     el('div', { class: 'section-head' },
-      el('h3', {}, phase.title),
-      el('span', { class: 'pill' }, `${done}/${total}`)),
+      el('h3', { class: 'phase-title' }, el('span', { class: 'phase-medal' }, icon(PHASE_ICON[phase.id] || 'play', { size: 18 })), phase.title),
+      progressRing(done, total)),
     el('p', { class: 'small muted' }, phase.lead),
     el('ul', { class: 'play-list' }, ...phase.steps.map(stepRow)));
 }

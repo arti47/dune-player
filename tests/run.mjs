@@ -1351,6 +1351,23 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('meaning tables append the spark to the current scene notes', /appendToSceneNotes\(/.test(oracleSrc));
 }
 
+console.log('— Visual layer: icons, dice, meters, fonts —');
+{
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const ic = src('src/icons.js');
+  check('icon set covers every nav route + game concepts', ['home','play','sheet','rules','journal','house','settings','gm','learn','d20','momentum','threat','determination','chaos','oracle']
+    .every((n) => new RegExp(`\\b${n}: '`).test(ic)));
+  check('icons are currentColor + aria-hidden unless labelled', /'stroke', 'currentColor'/.test(ic) && /aria-hidden/.test(ic));
+  check('nav uses SVG icons, no emoji glyphs', /icon\(r\.id === 'tutorial' \? 'learn' : r\.id/.test(src('src/router.js')));
+  const css = src('styles.css');
+  check('fonts self-hosted + cached offline', existsSync(join(root, 'fonts/josefin-sans-latin-400-normal.woff2')) &&
+    existsSync(join(root, 'fonts/OFL-josefin-sans.txt')) && /fonts\/josefin-sans-latin-600-normal\.woff2/.test(src('service-worker.js')) &&
+    /'\.\/src\/icons\.js'/.test(src('service-worker.js')));
+  check('d20 dice + pip meters styled', /\.die \{[^}]*clip-path/.test(css) && /\.pip\.on/.test(css));
+  check('all motion disabled under prefers-reduced-motion', /prefers-reduced-motion: reduce[^}]*animation: none !important/.test(css));
+  check('meters used on pools, stats and chaos', /pips\(pools\.momentum/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /pips-chaos/.test(src('src/journal.js')));
+}
+
 console.log('— How to play guide (start / sustain / end) —');
 {
   const { HELP } = await import(join(root, 'data-help.js'));

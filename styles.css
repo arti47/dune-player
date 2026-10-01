@@ -445,3 +445,150 @@ img, svg, table, pre { max-width: 100%; }
 .play-tick:disabled { cursor: default; }
 .play-body { min-width: 0; flex: 1; }
 .play-title { font-weight: 600; margin-bottom: 2px; }
+
+/* =====================================================================
+   Visual layer (v0.98) — original, hand-authored; no third-party art (§12).
+   Fonts: Josefin Sans (SIL OFL 1.1, fonts/OFL-josefin-sans.txt), self-hosted for offline.
+   ===================================================================== */
+@font-face { font-family: "Josefin Sans"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/josefin-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Josefin Sans"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/josefin-sans-latin-600-normal.woff2") format("woff2"); }
+:root { --display: "Josefin Sans", "Avenir Next", Futura, system-ui, sans-serif; }
+h1, h2, h3, .app-title, .bottom-nav a, .pool-name, .stat-chip span, .play-title {
+  font-family: var(--display);
+}
+h2 { letter-spacing: 0.12em; }
+
+/* ---------- Atmosphere: dunes by day, stars and two moons by night ---------- */
+:root {
+  --sky-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 160' preserveAspectRatio='none'%3E%3Cpath d='M0 90 Q90 50 180 80 T400 70 V160 H0Z' fill='%23c9a566' fill-opacity='.16'/%3E%3Cpath d='M0 115 Q110 85 230 108 T400 100 V160 H0Z' fill='%238a6a3f' fill-opacity='.12'/%3E%3Cpath d='M0 138 Q120 122 260 134 T400 130 V160 H0Z' fill='%23c8571b' fill-opacity='.07'/%3E%3C/svg%3E");
+  --sky-pos: bottom; --sky-size: 100% 220px;
+}
+html[data-theme="dark"] {
+  --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='%23ecdfc8'%3E%3Ccircle cx='30' cy='40' r='1' opacity='.5'/%3E%3Ccircle cx='90' cy='120' r='.8' opacity='.35'/%3E%3Ccircle cx='160' cy='30' r='1.1' opacity='.45'/%3E%3Ccircle cx='220' cy='90' r='.7' opacity='.3'/%3E%3Ccircle cx='60' cy='220' r='.9' opacity='.3'/%3E%3Ccircle cx='140' cy='300' r='.8' opacity='.25'/%3E%3Ccircle cx='250' cy='250' r='1' opacity='.3'/%3E%3Ccircle cx='370' cy='190' r='.8' opacity='.35'/%3E%3Ccircle cx='330' cy='330' r='1' opacity='.25'/%3E%3Ccircle cx='20' cy='360' r='.7' opacity='.3'/%3E%3C/g%3E%3C/svg%3E");
+  --moons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='52' r='26' fill='%23ecdfc8' opacity='.08'/%3E%3Ccircle cx='98' cy='92' r='10' fill='%23e07b39' opacity='.12'/%3E%3C/svg%3E");
+}
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--sky-art) var(--sky-pos) / var(--sky-size) no-repeat;
+}
+html[data-theme="dark"] body::before {
+  background: var(--moons) right 8px top 60px / 140px 140px no-repeat, var(--stars) 0 0 / 400px 400px repeat;
+}
+
+/* ---------- Header mark ---------- */
+.app-title { display: flex; align-items: center; gap: 10px; }
+.app-mark { border-radius: 7px; flex: 0 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Nav: icon set + active rule ---------- */
+.bottom-nav a { position: relative; }
+.bottom-nav a .nav-ico { display: flex; }
+.bottom-nav a[aria-current="page"]::before {
+  content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 2px;
+  background: var(--accent); border-radius: 0 0 2px 2px;
+}
+
+/* ---------- Card depth + heading ornament ---------- */
+.card {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0) 40px);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.5);
+}
+html[data-theme="dark"] .card {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 40px);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.card > h2::after {
+  content: ""; display: block; width: 92px; height: 10px; margin-top: 8px; opacity: .8;
+  background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 10'%3E%3Cpath d='M0 5h36M56 5h36' stroke='%23000' stroke-width='1'/%3E%3Cpath d='M46 0 51 5 46 10 41 5z' fill='%23000'/%3E%3Ccircle cx='38.5' cy='5' r='1.2'/%3E%3Ccircle cx='53.5' cy='5' r='1.2'/%3E%3C/svg%3E") no-repeat center / contain;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 10'%3E%3Cpath d='M0 5h36M56 5h36' stroke='%23000' stroke-width='1'/%3E%3Cpath d='M46 0 51 5 46 10 41 5z' fill='%23000'/%3E%3Ccircle cx='38.5' cy='5' r='1.2'/%3E%3Ccircle cx='53.5' cy='5' r='1.2'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.modal > h2::after, .modal h2::after { display: none; }
+
+/* ---------- d20 dice ---------- */
+.die {
+  --die-bg: var(--surface-2); --die-ink: var(--text);
+  min-width: 46px; min-height: 50px; width: 46px; height: 50px;
+  border: none; border-radius: 0; padding: 0;
+  clip-path: polygon(50% 0, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 50'%3E%3Cpath d='M23 1 44 13v24L23 49 2 37V13z M23 1 13 32h20z M2 13l11 19-11 5 M44 13 33 32l11 5 M13 32l10 17 10-17' fill='none' stroke='%23000' stroke-opacity='.14' stroke-width='1.2'/%3E%3C/svg%3E") center / 100% 100% no-repeat,
+    var(--die-bg);
+  color: var(--die-ink); font-family: var(--display); font-weight: 600; font-size: 1rem;
+  display: inline-flex; align-items: center; justify-content: center; padding-top: 4px;
+  transition: transform .15s ease, background-color .15s ease;
+}
+.die.hit  { --die-bg: color-mix(in srgb, var(--ok) 28%, var(--surface-2)); border: none; }
+.die.crit { --die-bg: var(--ok); --die-ink: var(--accent-contrast); border: none; }
+.die.comp { --die-bg: var(--danger); --die-ink: var(--accent-contrast); border: none; }
+.die.miss { opacity: .55; }
+.die.sel  { outline: none; --die-bg: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); transform: translateY(-4px); }
+.dice-row .die { animation: die-in .4s cubic-bezier(.2,.8,.3,1.2) both; }
+.dice-row .die:nth-child(2) { animation-delay: .06s; }
+.dice-row .die:nth-child(3) { animation-delay: .12s; }
+.dice-row .die:nth-child(4) { animation-delay: .18s; }
+.dice-row .die:nth-child(5) { animation-delay: .24s; }
+@keyframes die-in { from { transform: rotate(-200deg) scale(.35); opacity: 0; } to { transform: none; } }
+
+/* ---------- Pip meters ---------- */
+.pips { display: flex; gap: 4px; justify-content: center; margin-top: 4px; }
+.pip {
+  width: 8px; height: 8px; transform: rotate(45deg);
+  border: 1.5px solid var(--accent); background: transparent; transition: background-color .15s ease;
+}
+.pip.on { background: var(--accent); }
+.pips-det .pip { border-color: var(--ok); }
+.pips-det .pip.on { background: var(--ok); }
+.pool-name { display: inline-flex; align-items: center; gap: 3px; letter-spacing: .03em; white-space: nowrap; }
+.pool-name .icon { flex: 0 0 auto; }
+/* skill/drive 4–8 bar */
+.pips-stat { gap: 3px; justify-content: stretch; margin-top: 5px; }
+.pips-stat .pip { transform: none; flex: 1; height: 4px; border: none; border-radius: 2px; background: var(--border); }
+.pips-stat .pip.on { background: var(--accent); }
+/* Chaos 1–9: cool → hot */
+.pips-chaos { justify-content: flex-start; gap: 3px; margin: 6px 0 2px; }
+.pips-chaos .pip { transform: none; width: 16px; height: 6px; border: none; border-radius: 3px; background: var(--border); }
+.pips-chaos .pip.on { background: var(--ok); }
+.pips-chaos .pip.on:nth-child(n+4) { background: var(--accent); }
+.pips-chaos .pip.on:nth-child(n+7) { background: var(--danger); }
+.chaos-pill { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- Bars ---------- */
+.task-bar { height: 10px; }
+.task-fill { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8c46a)); }
+.defeat-bar .task-fill { background: linear-gradient(90deg, var(--accent), var(--danger)); }
+.task-fill.danger { background: var(--danger); }
+
+/* ---------- Empty states ---------- */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px 6px; text-align: center; }
+.empty-state .icon { color: var(--muted); opacity: .55; }
+.empty-state p { margin: 0; }
+
+/* ---------- Play tab: phase medals + progress ring ---------- */
+.phase-title { display: inline-flex; align-items: center; gap: 10px; margin: 0; }
+.phase-medal {
+  width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-contrast); box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.ring { display: inline-flex; }
+.ring-track { fill: none; stroke: var(--border); stroke-width: 3; }
+.ring-fill { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray .3s ease; }
+.ring-text { fill: var(--text); font: 600 9px var(--display); }
+.section-head { align-items: center; }
+
+/* ---------- FAB clears content ---------- */
+.oracle-fab { display: inline-flex; align-items: center; justify-content: center; }
+body:has(.oracle-fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) + 86px); }
+
+/* ---------- Route entrance ---------- */
+.screen > * { animation: rise .22s ease both; }
+.screen > *:nth-child(2) { animation-delay: .03s; }
+.screen > *:nth-child(3) { animation-delay: .06s; }
+.screen > *:nth-child(n+4) { animation-delay: .09s; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

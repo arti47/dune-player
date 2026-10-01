@@ -19,6 +19,7 @@ import {
 import { allTalents, focusExamplesFor, driveName, findTalent } from './content.js';
 import { cite } from './cite.js';
 import { help } from './help.js';
+import { icon, pips, emptyState } from './icons.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -49,8 +50,8 @@ function stepper(value, onChange, { min = 0, max = 99, label = '' } = {}) {
  *  reuses this bar, so it must not fall back to re-rendering the Sheet into a stale mount. */
 export function poolsHeader(current, onChange = refresh) {
   const pools = getPools();
-  const cell = (name, node) => el('div', { class: 'pool-cell' },
-    el('span', { class: 'pool-name' }, name), node);
+  const cell = (name, node, ico, meter) => el('div', { class: 'pool-cell' },
+    el('span', { class: 'pool-name' }, icon(ico, { size: 14 }), name), node, meter || null);
 
   // The help accordion is a SIBLING of the flex row, never inside it: .pools-bar is a flex
   // container, so an extra child squeezes the three cells past the viewport edge.
@@ -58,16 +59,20 @@ export function poolsHeader(current, onChange = refresh) {
     el('section', { class: 'card pools-bar', 'aria-label': 'Shared resources' },
       cell('Momentum',
         stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); onChange(); },
-          { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' })),
+          { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' }),
+        'momentum', pips(pools.momentum, DATA.momentumRules.cap, { label: 'Momentum', cls: 'pips-momentum' })),
       cell('Threat',
         stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); onChange(); },
-          { min: 0, max: 999, label: 'Threat' })),
+          { min: 0, max: 999, label: 'Threat' }),
+        'threat'),
       cell(current ? 'Determination' : 'Det.',
         current
           ? stepper(current.determination, (v) => {
               saveCharacter({ ...current, determination: clampDetermination(v) }); onChange();
             }, { min: 0, max: DATA.determination.cap, label: 'Determination' })
-          : el('span', { class: 'stat-val muted' }, '—'))),
+          : el('span', { class: 'stat-val muted' }, '—'),
+        'determination',
+        current ? pips(current.determination, DATA.determination.cap, { label: 'Determination', cls: 'pips-det' }) : null)),
     el('div', { class: 'card pools-help' }, help('pools', 'What are these three?')));
 }
 
@@ -94,7 +99,7 @@ export function renderSheet(root) {
                 onclick: () => { setCurrentCharacterId(c.id); refresh(); } },
                 c.identity.name || 'Unnamed'),
               c.id === (current && current.id) ? el('span', { class: 'tag' }, 'active') : null)))
-        : el('p', { class: 'muted' }, 'No characters yet.')),
+        : emptyState('person', 'No characters yet. Make one, or play an iconic.')),
   );
 
   if (chars.length) root.append(renderLifecycle(refresh));
@@ -108,7 +113,9 @@ export function renderSheet(root) {
 
 function liveSheet(c) {
   const id = c.identity;
-  const statChip = (name, val) => el('div', { class: 'stat-chip' }, el('span', {}, name), el('strong', {}, String(val)));
+  // Rating bar: skills and drives run 4–8, so five segments show where a rating sits on that scale.
+  const statChip = (name, val) => el('div', { class: 'stat-chip' }, el('span', {}, name), el('strong', {}, String(val)),
+    pips(Math.max(0, Math.min(5, val - 3)), 5, { label: `${name} ${val} of 8`, cls: 'pips-stat' }));
 
   return el('section', { class: 'card' },
     el('h3', {}, id.name || 'Unnamed'),

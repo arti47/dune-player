@@ -22,6 +22,7 @@ import { openRollDialog } from './roller.js';
 import { endScene as endGameScene } from './combat.js';
 import { hookCard, npcCard } from './gm.js';
 import { helpFrom } from './help.js';
+import { icon, pips, emptyState } from './icons.js';
 
 /** Collapsed "How to use" accordion for a section — shared renderer, solo copy from ORACLE.help. */
 function helpBlock(id, label = 'How to use') {
@@ -156,7 +157,7 @@ function sceneCard(j, character, draw) {
   setup.addEventListener('input', save);
   notes.addEventListener('input', save);
 
-  const chaosPill = el('span', { class: 'pill' }, `Chaos ${j.chaos}`);
+  const chaosPill = el('span', { class: 'pill chaos-pill' }, icon('chaos', { size: 14 }), ` Chaos ${j.chaos}`);
   const step = (delta) => () => { setChaos(j.chaos + delta); draw(); };
   const out = el('div', { class: 'oracle-answer', 'aria-live': 'polite' });
 
@@ -236,6 +237,7 @@ function sceneCard(j, character, draw) {
     el('div', { class: 'journal-meta' }, chaosPill,
       el('button', { class: 'btn secondary', 'aria-label': 'Lower Chaos Factor', onclick: step(-1) }, '−'),
       el('button', { class: 'btn secondary', 'aria-label': 'Raise Chaos Factor', onclick: step(1) }, '+')),
+    pips(j.chaos, ORACLE.chaos.max, { label: `Chaos Factor ${j.chaos} of ${ORACLE.chaos.max}`, cls: 'pips-chaos' }),
     el('p', { class: 'small muted' }, ORACLE.chaos.note),
     el('label', { class: 'small muted' }, 'Frame the scene'), setup,
     el('div', { class: 'cta-row' },
@@ -352,7 +354,7 @@ function entriesCard(j, draw) {
             } }, '× delete')),
           e.title ? el('div', { class: 'journal-title' }, e.title) : null,
           e.body ? el('div', { class: 'journal-body' }, e.body) : null)))
-      : el('p', { class: 'small muted' }, 'No entries yet. End a scene to log your first one.'));
+      : emptyState('scroll', 'No entries yet. End a scene to log your first one.'));
 }
 
 // ---------- 4. Threads ----------
@@ -390,7 +392,7 @@ function threadsCard(j, draw) {
       } }, '+ Thread')),
     open.length || done.length
       ? el('ul', { class: 'journal-list' }, ...open.map(row), ...done.map(row))
-      : el('p', { class: 'small muted' }, 'No threads yet.'));
+      : emptyState('thread', 'No threads yet. Add the first open question.'));
 }
 
 // ---------- 5. NPCs & places ----------
@@ -425,5 +427,5 @@ function contactsCard(j, draw) {
       el('button', { class: 'btn secondary', onclick: add('place') }, '+ Place')),
     j.contacts.length
       ? el('ul', { class: 'journal-list' }, ...j.contacts.map(row))
-      : el('p', { class: 'small muted' }, 'No one recorded yet.'));
+      : emptyState('person', 'No one recorded yet.'));
 }

@@ -1,6 +1,7 @@
 // router.js — bottom-nav hash routing + conditional tab gating.
 
 import { qs, el } from './core.js';
+import { icon } from './icons.js';
 import { Settings } from './settings.js';
 import { renderHome, renderRules, renderSettings } from './screens.js';
 import { renderSheet } from './sheet.js';
@@ -45,7 +46,7 @@ export function renderNav() {
         href: `#/${r.id}`,
         'aria-current': currentRoute().id === r.id ? 'page' : null,
       },
-      el('span', { class: 'nav-ico', 'aria-hidden': 'true' }, r.ico),
+      el('span', { class: 'nav-ico', 'aria-hidden': 'true' }, icon(r.id === 'tutorial' ? 'learn' : r.id, { size: 22 })),
       r.label)
     )
   );

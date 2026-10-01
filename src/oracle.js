@@ -5,6 +5,7 @@
 // the last-opened character's notes. NOT official rules (labeled in-UI) — see data-oracle.js.
 
 import { el, dN } from './core.js';
+import { icon } from './icons.js';
 import { ORACLE } from '../data-oracle.js';
 import { Settings } from './settings.js';
 import { modal, showToast } from './ui.js';
@@ -84,7 +85,7 @@ export function initOracle() {
   fab = el('button', {
     class: 'oracle-fab', 'aria-label': 'Open the Meaning Tables idea generator', title: 'Meaning Tables',
     onclick: openOracle,
-  }, '✦');
+  }, icon('oracle', { size: 24 }));
   document.body.append(fab);
   syncOracleFab();
   // Toggling the setting dispatches hashchange (see screens.js); re-check on every route.
