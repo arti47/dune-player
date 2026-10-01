@@ -1715,5 +1715,21 @@ console.log('\n— UI overhaul · Stage 4: ? help sheets + collapsible Journal �
     ['entries', 'threads', 'contacts', 'gm'].every((k) => js.includes(`collapseCard('${k}'`)) && /const openCards = new Set\(\)/.test(js));
 }
 
+console.log('\n— UI overhaul · Stage 5: grouped Settings, heading chips, desktop layout —');
+{
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  check('Settings grouped: Appearance · Play features (open) · Expansions · Campaign · Backup · Learn · About (folded)',
+    /foldCard\('appearance', 'Appearance', true/.test(sc) && /foldCard\('features', 'Play features', true/.test(sc) &&
+    ['expansions', 'campaign', 'data', 'learn', 'about'].every((k) => new RegExp(`foldCard\\('${k}', '[^']+', false`).test(sc)));
+  check('every toggle still offered in Settings (play + expansions cover TOGGLE_DEFS)',
+    /PLAY_FLAGS = \['journal', 'oracle', 'gmScreen'\]/.test(sc) && /EXPANSION_FLAGS = TOGGLE_DEFS\.map/.test(sc));
+  const ui = readFileSync(join(root, 'src/ui.js'), 'utf8');
+  check('folding cards remember open state per key across re-renders', /export function foldCard\(key, title, defaultOpen/.test(ui) && /foldOpen\.set\(key, d\.open\)/.test(ui));
+  const css = readFileSync(join(root, 'styles.css'), 'utf8');
+  check('desktop (≥900px): nav becomes a left rail, content flows in two columns', /@media \(min-width: 900px\) \{[^]*--rail-w[^]*flex-direction: column[^]*columns: 2/.test(css));
+  check('desktop Character: controls left, open section right', /\.screen > #sheet-panel \{ grid-column: 2;/.test(css));
+  check('section actions render as chips', /\.section-head \.link-btn \{[^}]*border-radius: 999px/.test(css));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

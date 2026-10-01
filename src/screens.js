@@ -4,7 +4,7 @@ import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
 import { listCharacters, currentCharacterId, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
-import { confirmModal, promptModal, modal } from './ui.js';
+import { confirmModal, promptModal, modal, foldCard } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
@@ -770,16 +770,24 @@ export function renderSettings(root) {
       box);
   });
 
+  const byFlag = Object.fromEntries(TOGGLE_DEFS.map((d, i) => [d.flag, toggleRows[i]]));
+  const PLAY_FLAGS = ['journal', 'oracle', 'gmScreen'];
+  const EXPANSION_FLAGS = TOGGLE_DEFS.map((d) => d.flag).filter((f) => !PLAY_FLAGS.includes(f));
+
+  // Grouped (UI overhaul Stage 5): the everyday groups open, the rest folded to one line each.
   root.append(
-    el('section', { class: 'card' },
-      el('h2', {}, 'Settings'),
-      help('settings'),
+    el('section', { class: 'card' }, el('h2', {}, 'Settings'), help('settings')),
+    foldCard('appearance', 'Appearance', true,
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel)),
-    el('section', { class: 'card' }, el('h3', {}, 'Content & surfaces'), ...toggleRows),
-    el('section', { class: 'card' },
-      el('h3', {}, 'Learn to play'),
+    foldCard('features', 'Play features', true, ...PLAY_FLAGS.map((f) => byFlag[f])),
+    foldCard('expansions', 'Expansions', false,
+      el('p', { class: 'small muted' }, 'Switch on only the books you own — each adds its rules content across the app.'),
+      ...EXPANSION_FLAGS.map((f) => byFlag[f])),
+    foldCard('campaign', 'Campaign & party', false, campaignCard()),
+    foldCard('data', 'Backup & data', false, dataCard()),
+    foldCard('learn', 'Learn to play', false,
       el('p', { class: 'small muted' }, 'A short, hands-on tutorial that teaches the 2d20 system with the app’s real dice engine.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { location.hash = '#/tutorial'; } }, 'Learn to play'),
@@ -789,10 +797,7 @@ export function renderSettings(root) {
               Settings.restartTutorial(); showToast('Tutorial reset'); location.hash = '#/tutorial';
             } }, 'Restart tutorial')
           : null)),
-    campaignCard(),
-    dataCard(),
-    el('section', { class: 'card' },
-      el('h3', {}, 'About'),
+    foldCard('about', 'About', false,
       el('p', { class: 'small muted' },
         'Imperium Player is a personal play aid built from the owner\'s own rulebooks for Dune: Adventures in the Imperium (Modiphius 2d20). ' +
         'It contains paraphrased rules mechanics only — no book text, art, or logos. If you publish or distribute this app, licensing is your responsibility.')),

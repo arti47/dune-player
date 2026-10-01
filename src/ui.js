@@ -106,3 +106,16 @@ export function promptModal(message, { placeholder = '', value = '', okLabel = '
     input.focus();
   });
 }
+
+// ---------- Folding card (UI overhaul Stage 5) ----------
+// A card that folds to a one-line header. Open state is remembered per key for the session, so a
+// full screen re-render (e.g. flipping a toggle) keeps the user's place.
+const foldOpen = new Map();
+export function foldCard(key, title, defaultOpen, ...body) {
+  const d = el('details', { class: 'card collapse-card' },
+    el('summary', {}, el('h3', {}, title)),
+    el('div', { class: 'fold-body' }, ...body.filter((n) => n != null)));
+  d.open = foldOpen.has(key) ? foldOpen.get(key) : !!defaultOpen;
+  d.addEventListener('toggle', () => foldOpen.set(key, d.open));
+  return d;
+}

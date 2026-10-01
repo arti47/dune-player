@@ -752,3 +752,53 @@ html[data-theme="dark"] body::before { opacity: .6; }
 .collapse-card > summary::after { content: '▾'; color: var(--muted); margin-left: 8px; transition: transform .15s; }
 .collapse-card[open] > summary::after { transform: rotate(180deg); }
 .collapse-card[open] > summary { margin-bottom: 10px; }
+
+/* ---------- UI overhaul · Stage 5: folding groups, heading actions, desktop ---------- */
+/* A card nested in a folding group (campaign, backup) loses its own chrome + duplicate title. */
+.fold-body > .card { background: none; border: none; box-shadow: none; padding: 0; margin: 0; }
+.fold-body > .card > h3:first-child { display: none; }
+.fold-body > .toggle-row:first-child { border-top: none; }
+/* Section actions (Traits: Declaration / + Add · Assets: + Add) read as compact chips, not stray links. */
+.section-head { flex-wrap: wrap; row-gap: 4px; }
+.section-head > div { display: flex; gap: 6px; flex-wrap: wrap; }
+.section-head .link-btn {
+  text-decoration: none; border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 12px; min-height: 32px; font-size: .82rem; white-space: nowrap;
+}
+.section-head .link-btn:hover { border-color: var(--accent); }
+
+@media (min-width: 900px) {
+  :root { --rail-w: 208px; }
+  /* Bottom nav → left rail */
+  .bottom-nav {
+    top: var(--header-h); bottom: 0; right: auto; width: var(--rail-w); height: auto;
+    flex-direction: column; gap: 4px; padding: 16px 12px; border-top: none; border-right: 1px solid var(--border);
+  }
+  .bottom-nav a {
+    flex: 0 0 auto; flex-direction: row; justify-content: flex-start; gap: 12px;
+    min-height: 46px; padding: 0 14px; border-radius: 10px; font-size: .8rem;
+  }
+  .bottom-nav a[aria-current="page"] { background: var(--surface-2); }
+  .bottom-nav a[aria-current="page"]::before { display: none; }
+  /* Content: beside the rail, cards flow in two balanced columns in reading order down each column. */
+  .screen {
+    margin: 0 auto 0 var(--rail-w); max-width: 1180px;
+    padding: calc(var(--header-h) + 20px) 28px 40px; columns: 2; column-gap: 20px;
+  }
+  body:has(.fab:not([hidden])) .screen { padding-bottom: 110px; }
+  .screen > *, .hub-body > * { break-inside: avoid; }
+  .pools-block { display: block; }   /* keep the bar and its ? together in one column */
+  .screen > .segmented, .screen > .hub-body, .screen > .wizard, .screen > .help-row { column-span: all; }
+  .hub-body { columns: 2; column-gap: 20px; }
+  .screen:has(> .wizard) { columns: auto; }
+  /* Character: header, pools and section tabs on the left; the open section on the right. */
+  .screen:has(> #sheet-panel) {
+    columns: auto; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    column-gap: 20px; align-items: start; grid-auto-flow: row dense;
+  }
+  .screen:has(> #sheet-panel) > * { grid-column: 1; }
+  .screen > #sheet-panel { grid-column: 2; grid-row: 1 / span 12; }
+  .fab { bottom: 28px; right: 28px; }
+  .wizard-nav { bottom: 0; }
+  .toast-region { bottom: 24px; }
+}
