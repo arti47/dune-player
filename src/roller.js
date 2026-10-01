@@ -23,6 +23,7 @@ import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacter
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
 import { help } from './help.js';
+import { icon, pips } from './icons.js';
 import { findTalent, driveName, allDrives } from './content.js';
 import { DATA } from '../data.js';
 
@@ -48,6 +49,19 @@ function buyCost(n) {
  *  (with an applicable focus) any die ≤ the Skill rating, crits for 2; each die ≥ the
  *  complication threshold (default 20 = Normal range; lower when the GM raises the range) = a
  *  complication. */
+/** Ring showing successes against the Difficulty (full when met; Difficulty 0 counts as met). */
+function successRing(successes, diff, passed) {
+  const r = 20, c = 2 * Math.PI * r;
+  const frac = diff > 0 ? Math.min(1, successes / diff) : 1;
+  const wrap = el('span', { class: 'roll-ring' + (passed ? ' met' : '') + (frac === 0 ? ' empty' : '') });
+  wrap.innerHTML = `<svg viewBox="0 0 48 48" width="64" height="64">
+    <circle cx="24" cy="24" r="${r}" class="ring-track"/>
+    <circle cx="24" cy="24" r="${r}" class="ring-fill" stroke-dasharray="${(c * frac).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 24 24)"/>
+    <text x="24" y="25" text-anchor="middle" class="roll-ring-num">${successes}</text>
+    <text x="24" y="34" text-anchor="middle" class="roll-ring-of">of ${diff}</text></svg>`;
+  return wrap;
+}
+
 export function evaluateDice(values, { tn, skillRating, focus, complicationThreshold = 20 }) {
   return values.map((v) => {
     const success = v <= tn;
@@ -522,7 +536,9 @@ export function openRollDialog(character, onDone = null) {
         el('button', { class: 'step-btn', 'aria-label': 'More predictions', onclick: () => { if (cfg.predExtra < maxPredExtra) { cfg.predExtra++; render(); } } }, '+'))) : null;
 
     setUI(
-      el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure', cite('Skill test basics', close)),
+      el('div', { class: 'roll-verdict ' + (passed ? 'success' : 'failure') },
+        icon(passed ? 'check' : 'threat', { size: 22 }),
+        el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure', cite('Skill test basics', close))),
       el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${driveName(cfg.drive)} · TN ${tn()} · Difficulty ${diff}${cfg.architect ? ' · Architect' : ''}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}${cfg.otherMemory && om ? ` · +${om.auto.count} ${om.name}` : ''}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
       assistDice.length ? el('div', {},
@@ -530,6 +546,14 @@ export function openRollDialog(character, onDone = null) {
         el('div', { class: 'dice-row' }, ...assistDice.map((a) => el('span', {
           class: 'die ' + (a.value >= compThreshold() ? 'comp' : a.crit ? 'crit' : a.success ? 'hit' : 'miss') + (leaderOwn >= 1 ? '' : ' miss'),
           title: `${a.name}: ${SKILLS.find((s) => s.id === a.skill).name}+${driveName(a.drive)}` }, String(a.value)))) ) : null,
+      // Visual summary: successes vs Difficulty ring + Momentum gained as pips (same facts as the pills).
+      el('div', { class: 'roll-stats', 'aria-hidden': 'true' },
+        successRing(successes, diff, passed),
+        el('div', { class: 'roll-gain' },
+          passed
+            ? [pips(Math.min(momentum, DATA.momentumRules.cap), DATA.momentumRules.cap, { cls: 'pips-gain' }),
+               el('div', { class: 'roll-gain-text' }, `+${momentum} Momentum`)]
+            : el('div', { class: 'roll-gain-text muted' }, `Short by ${Math.max(0, diff - successes)}`))),
       el('p', { 'aria-live': 'polite' },
         el('span', { class: 'pill' }, `${successes} success${successes === 1 ? '' : 'es'}`),
         el('span', { class: 'pill' }, passed ? `+${momentum} Momentum` : 'failed'),

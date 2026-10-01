@@ -618,3 +618,26 @@ summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
 .house-banner.themed .banner-field { fill: var(--accent); }
 .house-banner.themed .banner-ink { stroke: var(--accent-contrast); color: var(--accent-contrast); }
 .house-head h2::after { display: none; }
+
+/* ---------- Roll result panel ---------- */
+.roll-verdict {
+  display: flex; align-items: center; gap: 10px; margin: -2px -4px 6px; padding: 10px 12px;
+  border-radius: 10px; color: var(--accent-contrast); animation: rise .25s ease both;
+}
+.roll-verdict h2 { margin: 0; color: inherit; letter-spacing: .16em; }
+.roll-verdict h2 .cite, .roll-verdict h2 a { color: inherit; }
+.roll-verdict.success { background: linear-gradient(135deg, var(--ok), color-mix(in srgb, var(--ok) 70%, #000)); }
+.roll-verdict.failure { background: linear-gradient(135deg, var(--danger), color-mix(in srgb, var(--danger) 70%, #000)); }
+.roll-stats { display: flex; align-items: center; gap: 16px; margin: 4px 0 2px; }
+.roll-ring .ring-track { fill: none; stroke: var(--border); stroke-width: 4; }
+.roll-ring .ring-fill { fill: none; stroke: var(--danger); stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray .4s ease; }
+.roll-ring.met .ring-fill { stroke: var(--ok); }
+.roll-ring-num { fill: var(--text); font: 600 15px var(--display); }
+.roll-ring-of { fill: var(--muted); font: 400 7px var(--display); letter-spacing: .06em; }
+.roll-gain { display: flex; flex-direction: column; gap: 4px; }
+.pips-gain { justify-content: flex-start; }
+.roll-gain-text { font: 600 .95rem var(--display); letter-spacing: .04em; }
+.roll-ring.empty .ring-fill { display: none; }
+.roll-verdict .cite { background: transparent; border-color: currentColor; color: inherit; opacity: .85; }
+/* Josefin Sans has no ⓘ glyph — keep citation links on the system face inside display headings. */
+.cite { font-family: system-ui, "Segoe UI", sans-serif; letter-spacing: 0; text-transform: none; font-weight: 400; }

@@ -1389,6 +1389,20 @@ console.log('— Faction + archetype crests —');
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
+console.log('— Roll result panel —');
+{
+  const rs = readFileSync(join(root, 'src/roller.js'), 'utf8');
+  check('result shows a success/failure verdict bar carrying the dialog title',
+    /class: 'roll-verdict ' \+ \(passed \? 'success' : 'failure'\)/.test(rs) && /el\('h2', \{ id: 'roll-title' \}, passed \? 'Success' : 'Failure'/.test(rs));
+  check('successes-vs-Difficulty ring + Momentum pips, decorative (pills stay the accessible record)',
+    /successRing\(successes, diff, passed\)/.test(rs) && /class: 'roll-stats', 'aria-hidden': 'true'/.test(rs) &&
+    /pips\(Math\.min\(momentum, DATA\.momentumRules\.cap\)/.test(rs) && /'aria-live': 'polite'/.test(rs));
+  check('zero-success ring hides its arc (no stray round-cap dot)', /frac === 0 \? ' empty'/.test(rs) &&
+    /\.roll-ring\.empty \.ring-fill \{ display: none; \}/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
+  check('citation glyph pinned to the system font (display font lacks ⓘ)',
+    /\.cite \{ font-family: system-ui/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
+}
+
 console.log('— House banners —');
 {
   const { parseColours } = await import(join(root, 'src/banner.js'));
