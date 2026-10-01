@@ -22,7 +22,6 @@ import { help } from './help.js';
 import { icon, pips, emptyState } from './icons.js';
 import { factionCrest, archetypeCrest } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
-import { openRollDialog } from './roller.js';
 import { renderDefeat } from './combat.js';
 import { modal, showToast, confirmModal, promptModal } from './ui.js';
 import { DATA } from '../data.js';
@@ -77,108 +76,134 @@ export function poolsHeader(current, onChange = refresh) {
     el('div', { class: 'card pools-help' }, help('pools', 'What are these three?')));
 }
 
+// Character screen (UI overhaul Stage 2): compact header → pools bar → sub-tabs. The open
+// sub-tab survives re-renders (edits, rolls) for the session; Overview is the default.
+const SHEET_TABS = [
+  ['overview', 'Overview'], ['stats', 'Stats'], ['traits', 'Traits & assets'],
+  ['advance', 'Advancement'], ['notes', 'Notes & log'],
+];
+let sheetTab = 'overview';
+// Visible labels are shortened so all five fit a 360px phone; the full name stays the tab's accessible name.
+const SHEET_TAB_SHORT = { traits: 'Traits', advance: 'Advance', notes: 'Notes' };
+
 export function renderSheet(root) {
   mountRoot = root;
   const chars = listCharacters();
   const currentId = currentCharacterId();
   const current = chars.find((c) => c.id === currentId) || chars[0] || null;
+  const importer = mdImportInput();
 
-  root.append(poolsHeader(current));
-
-  root.append(
-    el('section', { class: 'card' },
+  if (!current) {
+    root.append(importer.input, el('section', { class: 'card' },
       el('h2', {}, 'Characters'),
+      emptyState('person', 'No characters yet. Make one, or play an iconic.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: startCharacterWizard }, '+ New character'),
         el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic'),
-        chars.length ? el('button', { class: 'btn secondary', onclick: () => chooseExportTargetDialog() }, 'Export (.md)') : null,
-        mdImportButton()),
-      chars.length
-        ? el('ul', { class: 'char-list' }, ...chars.map((c) =>
-            el('li', {},
-              el('button', { class: 'link-btn',
-                onclick: () => { setCurrentCharacterId(c.id); refresh(); } },
-                c.identity.name || 'Unnamed'),
-              c.id === (current && current.id) ? el('span', { class: 'tag' }, 'active') : null)))
-        : emptyState('person', 'No characters yet. Make one, or play an iconic.')),
-  );
+        el('button', { class: 'btn secondary', onclick: () => importer.input.click() }, 'Import (.md)'))));
+    return;
+  }
 
-  if (current) root.append(liveSheet(current));
-  else root.append(el('section', { class: 'card' },
-    el('p', { class: 'small muted' }, 'Create or select a character to open the live sheet.')));
+  root.append(importer.input, charHeader(current, chars, importer), poolsHeader(current), sheetTabBar(), sheetBody(current));
 }
 
-function liveSheet(c) {
+function charHeader(c, chars, importer) {
   const id = c.identity;
-  // Rating bar: skills and drives run 4–8, so five segments show where a rating sits on that scale.
-  const statChip = (name, val) => el('div', { class: 'stat-chip' }, el('span', {}, name), el('strong', {}, String(val)),
-    pips(Math.max(0, Math.min(5, val - 3)), 5, { label: `${name} ${val} of 8`, cls: 'pips-stat' }));
-
-  return el('section', { class: 'card' },
+  return el('section', { class: 'card char-header' },
     el('div', { class: 'char-head' },
       el('div', { class: 'char-crests' },
         id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 40) : null,
         id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 40) : null),
-      el('h3', {}, id.name || 'Unnamed')),
-    el('p', { class: 'small muted' },
-      [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
-       id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character'),
+      el('div', { class: 'char-id' },
+        el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
+        el('p', { class: 'small muted' },
+          [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
+           id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character')),
+      el('button', { class: 'btn secondary btn-sm', 'aria-label': `Switch character (${chars.length})`,
+        onclick: () => charactersDialog(chars, c, importer) }, icon('group', { size: 18 }), ` ${chars.length}`)));
+}
 
-    help('sheet', 'How to read this sheet'),
-
+/** The roster + create/import/export actions, moved off the screen into one dialog. */
+function charactersDialog(chars, current, importer) {
+  const close = modal([
+    el('h2', {}, 'Characters'),
+    el('ul', { class: 'more-list' }, ...chars.map((c) =>
+      el('li', {}, el('button', { class: 'more-row link-row', 'aria-current': c.id === current.id ? 'true' : null,
+        onclick: () => { setCurrentCharacterId(c.id); sheetTab = 'overview'; close(); refresh(); } },
+        el('span', { class: 'more-text' }, el('strong', {}, c.identity.name || 'Unnamed'),
+          el('span', { class: 'small muted' }, [c.identity.archetype, c.identity.factionTemplate].filter(Boolean).map(capitalize).join(' · '))),
+        c.id === current.id ? el('span', { class: 'tag' }, 'active') : null)))),
     el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => openRollDialog(c, refresh) }, '⚂ Roll a test')),
+      el('button', { class: 'btn', onclick: () => { close(); startCharacterWizard(); } }, '+ New character'),
+      el('button', { class: 'btn secondary', onclick: () => { close(); openPregenPicker(); } }, 'Play an iconic')),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn secondary', onclick: () => { close(); chooseExportTargetDialog(); } }, 'Export (.md)'),
+      el('button', { class: 'btn secondary', onclick: () => { close(); importer.input.click(); } }, 'Import (.md)')),
+  ]);
+}
 
-    creationInPlaySection(c),
+function sheetTabBar() {
+  return el('div', { class: 'segmented', role: 'tablist', 'aria-label': 'Character sections' },
+    ...SHEET_TABS.map(([tid, label]) => el('button', {
+      role: 'tab', 'aria-selected': String(sheetTab === tid), 'aria-controls': 'sheet-panel',
+      'aria-label': label, title: label,
+      onclick: () => { sheetTab = tid; refresh(); },
+    }, SHEET_TAB_SHORT[tid] || label)));
+}
 
-    el('h4', {}, 'Skills'),
-    el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
+function sheetBody(c) {
+  const id = c.identity;
+  const statChip = (name, val) => el('div', { class: 'stat-chip' }, el('span', {}, name), el('strong', {}, String(val)),
+    pips(Math.max(0, Math.min(5, val - 3)), 5, { label: `${name} ${val} of 8`, cls: 'pips-stat' }));
+  const panel = (...kids) => el('section', { class: 'card', id: 'sheet-panel', role: 'tabpanel' }, ...kids);
 
-    el('h4', {}, 'Drives'),
-    el('div', { class: 'stat-grid' }, ...Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((id) => statChip(driveName(id), c.drives[id]))),
-
-    statementsSection(c),
-    el('h4', {}, 'Focuses'),
-    el('p', { class: 'small' }, (c.focuses || []).map((f) => `${f.name} (${SKILL_NAME[f.skill]})`).join(', ') || '—'),
-
-    el('h4', {}, 'Talents'),
-    // Tap a talent to read what it actually does — in play this is the only place you have it.
-    (c.talents || []).length
-      ? el('div', {}, ...(c.talents || []).map((t) => {
-          const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? driveName(t.drive) : t.category || null;
-          const def = findTalent(t.name);
-          return el('details', { class: 'tips' },
-            el('summary', {}, param ? `${t.name} (${param})` : t.name),
-            el('p', { class: 'small' }, def ? def.effect : 'See the rules library for this talent.'),
-            def && def.requires ? el('p', { class: 'small muted' }, `Requires: ${def.requires}`) : null);
-        }))
-      : el('p', { class: 'small' }, '—'),
-
-    traitsSection(c),
-    assetsSection(c),
-    renderDefeat(c, refresh),
-
-    id.ambition ? el('div', {}, el('h4', {}, 'Ambition'),
-      el('p', { class: 'small' }, id.ambition)) : null,
-
-    id.appearance || id.relationships
-      ? el('div', {}, el('h4', {}, 'Details'),
-          id.appearance ? el('p', { class: 'small' }, el('strong', {}, 'Appearance: '), id.appearance) : null,
-          id.relationships ? el('p', { class: 'small' }, el('strong', {}, 'Relationships: '), id.relationships) : null)
-      : null,
-
-    advancementSection(c),
-    notesSection(c),
-    rollLogSection(),
-
-    el('div', { class: 'cta-row', style: 'margin-top:14px' },
-      el('button', { class: 'btn secondary', onclick: () => exportCharacterMarkdown(c) }, '⬇ Export sheet (.md)'),
-      el('button', { class: 'btn secondary danger-btn',
-        onclick: async () => {
-          if (await confirmModal(`Delete ${id.name || 'this character'}? This cannot be undone.`,
-            { okLabel: 'Delete' })) { deleteCharacter(c.id); showToast('Character deleted'); refresh(); }
-        } }, 'Delete character')),
-  );
+  switch (sheetTab) {
+    case 'stats':
+      return panel(
+        el('h4', {}, 'Skills'),
+        el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
+        el('h4', {}, 'Drives'),
+        el('div', { class: 'stat-grid' }, ...Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((d) => statChip(driveName(d), c.drives[d]))),
+        el('h4', {}, 'Focuses'),
+        el('p', { class: 'small' }, (c.focuses || []).map((f) => `${f.name} (${SKILL_NAME[f.skill]})`).join(', ') || '—'),
+        el('h4', {}, 'Talents'),
+        // Tap a talent to read what it actually does — in play this is the only place you have it.
+        (c.talents || []).length
+          ? el('div', {}, ...(c.talents || []).map((t) => {
+              const param = t.skill ? SKILL_NAME[t.skill] : t.drive ? driveName(t.drive) : t.category || null;
+              const def = findTalent(t.name);
+              return el('details', { class: 'tips' },
+                el('summary', {}, param ? `${t.name} (${param})` : t.name),
+                el('p', { class: 'small' }, def ? def.effect : 'See the rules library for this talent.'),
+                def && def.requires ? el('p', { class: 'small muted' }, `Requires: ${def.requires}`) : null);
+            }))
+          : el('p', { class: 'small' }, '—'));
+    case 'traits':
+      return panel(traitsSection(c), assetsSection(c));
+    case 'advance':
+      return panel(advancementSection(c));
+    case 'notes':
+      return panel(notesSection(c), rollLogSection(),
+        el('div', { class: 'cta-row', style: 'margin-top:14px' },
+          el('button', { class: 'btn secondary', onclick: () => exportCharacterMarkdown(c) }, '⬇ Export sheet (.md)'),
+          el('button', { class: 'btn secondary danger-btn',
+            onclick: async () => {
+              if (await confirmModal(`Delete ${id.name || 'this character'}? This cannot be undone.`,
+                { okLabel: 'Delete' })) { deleteCharacter(c.id); sheetTab = 'overview'; showToast('Character deleted'); refresh(); }
+            } }, 'Delete character')));
+    default:
+      return panel(
+        help('sheet', 'How to read this sheet'),
+        creationInPlaySection(c),
+        statementsSection(c),
+        renderDefeat(c, refresh),
+        id.ambition ? el('div', {}, el('h4', {}, 'Ambition'), el('p', { class: 'small' }, id.ambition)) : null,
+        id.appearance || id.relationships
+          ? el('div', {}, el('h4', {}, 'Details'),
+              id.appearance ? el('p', { class: 'small' }, el('strong', {}, 'Appearance: '), id.appearance) : null,
+              id.relationships ? el('p', { class: 'small' }, el('strong', {}, 'Relationships: '), id.relationships) : null)
+          : null);
+  }
 }
 
 // ---------- Character Markdown export / import ----------
@@ -218,9 +243,10 @@ function chooseExportTargetDialog() {
   ]);
 }
 
-/** Hidden file input + button that imports a Markdown sheet, letting the user choose
- *  whether it becomes a new character or replaces an existing one. */
-function mdImportButton() {
+/** Hidden file input that imports a Markdown sheet, letting the user choose whether it
+ *  becomes a new character or replaces an existing one. Lives on the screen (not inside the
+ *  Characters dialog) so the picker survives the dialog closing. */
+function mdImportInput() {
   const input = el('input', { type: 'file', 'aria-label': 'Choose a character Markdown file to import', accept: 'text/markdown,.md,.markdown,text/plain', style: 'display:none' });
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
@@ -231,9 +257,7 @@ function mdImportButton() {
     catch (e) { showToast(e.message || 'Import failed.'); return; }
     chooseImportTargetDialog(parsed);
   });
-  return el('span', {},
-    el('button', { class: 'btn secondary', onclick: () => input.click() }, 'Import (.md)'),
-    input);
+  return { input };
 }
 
 /** Ask where a parsed Markdown character should land: a new character, or overwrite an
@@ -294,7 +318,7 @@ function rollLogSection() {
             r.note ? ` · ${r.note}` : ''),
           el('button', { class: 'chip-x', 'aria-label': 'Delete this roll',
             onclick: () => { deleteRollAt(i); refresh(); } }, '×'))))
-      : el('p', { class: 'small muted' }, 'No rolls yet — tap “Roll a test”.'));
+      : el('p', { class: 'small muted' }, 'No rolls yet — tap the d20 button.'));
 }
 
 // ---------- Drive statements: challenge / recover (§3.8) ----------

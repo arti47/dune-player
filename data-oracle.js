@@ -123,7 +123,7 @@ export const ORACLE = {
           'Press Scene check. Higher than Chaos = play it as framed. Equal or lower = altered (change one detail) or interrupted (an event happens instead).',
           'Press Add to scene to paste the result — and any event — into your notes.',
           'Play the scene out in "Play it out", consulting the oracle as questions come up.',
-          'Roll a test right here when your character acts, then press Add last roll to record the result.',
+          'Tap the floating d20 to roll a test when your character acts, then press Add last roll to record the result.',
           'Press End scene, answer whether you were in control, and the app logs the entry, moves Chaos, and applies the end-of-scene rules (Momentum −1, temporary assets expire, Resist Defeat resets) in one step.',
         ],
         example: 'Chaos 5, d10 rolls 4 → 4 is ≤ 5 and even, so the scene is Altered: you framed a quiet study, but change one detail — the door is already open.',

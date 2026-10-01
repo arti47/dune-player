@@ -15,7 +15,7 @@ import { renderHouseManagement } from './house.js';
 import { renderTutorial } from './tutorial.js';
 import { renderJournal } from './journal.js';
 import { renderPlay } from './play.js';
-import { renderScene, renderTaskSeg, renderConflictSeg, renderMore } from './hubs.js';
+import { renderScene, renderTaskSeg, renderConflictSeg, renderMore, syncRollFab } from './hubs.js';
 
 const TABS = [
   { id: 'home',    label: 'Home',      ico: 'home' },
@@ -108,6 +108,7 @@ export function renderScreen() {
   }
   route.render(mount, renderScreen);
   renderNav();
+  syncRollFab(tabOf(route), renderScreen);
   screen.focus({ preventScroll: true });
 }
 

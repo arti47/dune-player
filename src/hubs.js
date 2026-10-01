@@ -10,6 +10,7 @@ import { listCharacters, currentCharacterId } from './store.js';
 import { poolsHeader } from './sheet.js';
 import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
+import { openRollDialog } from './roller.js';
 
 function activeCharacter() {
   const chars = listCharacters();
@@ -53,4 +54,19 @@ export function renderMore(root) {
       Settings.greatGame() ? row('#/house', 'house', 'House', 'Run your House’s yearly session') : null,
       Settings.gmScreen() ? row('#/gm', 'gm', 'GM screen', 'Threat, party peek, tables, NPCs') : null,
       row('#/settings', 'settings', 'Settings', 'Toggles, theme, campaign, backup'))));
+}
+
+// ---------- Floating d20 Roll button (Character + Table tabs) ----------
+let rollFab = null;
+
+/** Show the Roll button on in-play tabs when there is a character to roll for. */
+export function syncRollFab(tab, rerender) {
+  if (!rollFab) {
+    rollFab = el('button', { class: 'fab roll-fab', 'aria-label': 'Roll a test', title: 'Roll a test' },
+      icon('d20', { size: 28 }));
+    document.body.append(rollFab);
+  }
+  const c = activeCharacter();
+  rollFab.hidden = !(c && (tab === 'sheet' || tab === 'table'));
+  rollFab.onclick = () => { const cur = activeCharacter(); if (cur) openRollDialog(cur, rerender); };
 }

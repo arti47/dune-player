@@ -14,10 +14,10 @@ export const HELP = {
       'Take the tutorial if you have never played this game — it teaches the dice in a few minutes and nothing you do there is saved.',
       'Make a character: use the 8-step wizard, or tap "Play an iconic" to start instantly as a character from the novels.',
       'Open the Character tab. That is your character and every button you need in play.',
-      'Press "⚂ Roll a test" whenever you try something risky. The app does the maths.',
+      'Tap the floating d20 (Roll a test) whenever you try something risky. The app does the maths.',
       'Playing without a gamemaster? Switch on solo play and the app runs the world for you.',
     ],
-    example: 'Never played before? Tutorial → "Play an iconic" → Character → ⚂ Roll a test. You are playing within five minutes.',
+    example: 'Never played before? Tutorial → "Play an iconic" → Character → tap the d20. You are playing within five minutes.',
   },
 
   // ---------- the persistent resource bar ----------
@@ -40,7 +40,7 @@ export const HELP = {
       'Traits are short truths about your situation ("Injured", "Well-armed"). Negative ones make tests harder.',
       'Assets are the useful things you have. Everything else on this page updates itself as you play.',
     ],
-    example: 'Battle 6 + Duty 8 = 14. Press ⚂ Roll a test, pick Battle and Duty, and every die that rolls 14 or under succeeds.',
+    example: 'Battle 6 + Duty 8 = 14. Tap the d20, pick Battle and Duty, and every die that rolls 14 or under succeeds.',
   },
 
   roller: {

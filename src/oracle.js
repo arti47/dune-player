@@ -1,13 +1,11 @@
-// oracle.js — Floating "oracle" idea generator (homebrew, gated by Settings.oracle()).
+// oracle.js — Meaning Tables idea generator (homebrew, gated by Settings.oracle()).
 //
-// A global FAB (above the bottom nav) opens a modal that rolls a d100 on each of the four ORACLE
+// The Journal's Meaning Tables button opens a modal that rolls a d100 on each of the four ORACLE
 // tables → one word each → a 4-word spark for solo play / GM prep. Reroll-all, Copy, and Append to
 // the last-opened character's notes. NOT official rules (labeled in-UI) — see data-oracle.js.
 
 import { el, dN } from './core.js';
-import { icon } from './icons.js';
 import { ORACLE } from '../data-oracle.js';
-import { Settings } from './settings.js';
 import { modal, showToast } from './ui.js';
 import { appendToSceneNotes } from './store.js';
 
@@ -18,7 +16,8 @@ function labeledLine(rolls) {
   return 'Oracle — ' + rolls.map((r) => `${r.label}: ${r.word}`).join(' · ');
 }
 
-function openOracle() {
+/** Open the Meaning Tables modal (launched from the Journal's Scene card, gated by Settings.oracle()). */
+export function openOracle() {
   let rolls = rollAll();
   const box = el('div', { class: 'oracle-modal' });
 
@@ -76,22 +75,4 @@ function openOracle() {
   }
   draw();
   modal(box);
-}
-
-let fab = null;
-
-/** Create the FAB (once) and keep its visibility in sync with the oracle toggle. */
-export function initOracle() {
-  fab = el('button', {
-    class: 'oracle-fab', 'aria-label': 'Open the Meaning Tables idea generator', title: 'Meaning Tables',
-    onclick: openOracle,
-  }, icon('oracle', { size: 24 }));
-  document.body.append(fab);
-  syncOracleFab();
-  // Toggling the setting dispatches hashchange (see screens.js); re-check on every route.
-  window.addEventListener('hashchange', syncOracleFab);
-}
-
-export function syncOracleFab() {
-  if (fab) fab.hidden = !Settings.oracle();
 }

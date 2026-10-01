@@ -18,7 +18,8 @@ import {
 import { confirmModal, promptModal, showToast, modal } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
 import { poolsHeader } from './sheet.js';
-import { openRollDialog } from './roller.js';
+import { openOracle } from './oracle.js';
+import { Settings } from './settings.js';
 import { endScene as endGameScene } from './combat.js';
 import { hookCard, npcCard } from './gm.js';
 import { helpFrom } from './help.js';
@@ -244,11 +245,13 @@ function sceneCard(j, character, draw) {
       el('button', { class: 'btn', onclick: runCheck }, 'Scene check (d10)')),
     out,
     el('label', { class: 'small muted' }, 'Play it out'), notes,
-    // Dice live in the loop (S2): roll without leaving the tab, then paste the result into the notes.
+    // Dice live in the loop (S2): the floating d20 rolls without leaving the tab; paste the result
+    // into the notes. Meaning Tables (homebrew sparks) live here too, gated by their toggle.
     el('div', { class: 'cta-row' },
-      character
-        ? el('button', { class: 'btn secondary', onclick: () => openRollDialog(character, draw) }, '⚂ Roll a test')
-        : el('span', { class: 'small muted' }, 'Create a character to roll tests here.'),
+      Settings.oracle()
+        ? el('button', { class: 'btn secondary', onclick: openOracle }, icon('oracle', { size: 16 }), ' Meaning Tables')
+        : null,
+      character ? null : el('span', { class: 'small muted' }, 'Create a character to roll tests here.'),
       el('button', { class: 'btn secondary', onclick: () => {
         const line = rollLine(getRollLog()[0]);
         if (!line) { showToast('No rolls yet'); return; }

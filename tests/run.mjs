@@ -1347,7 +1347,7 @@ console.log('— Oracle idea generator (data-oracle.js) —');
   check('every lore gloss is under 14 words',
     Object.values(ORACLE.loreDefs).every((d) => d.trim().split(/\s+/).length < 14));
   const oracleSrc = readFileSync(join(root, 'src/oracle.js'), 'utf8');
-  check('oracle FAB gated by Settings.oracle()', /Settings\.oracle\(\)/.test(oracleSrc));
+  check('Meaning Tables button gated by Settings.oracle() in the Journal', /Settings\.oracle\(\)\s*\?\s*el\('button', \{ class: 'btn secondary', onclick: openOracle \}/.test(readFileSync(join(root, 'src/journal.js'), 'utf8')));
   check('meaning tables append the spark to the current scene notes', /appendToSceneNotes\(/.test(oracleSrc));
 }
 
@@ -1392,7 +1392,7 @@ console.log('— Faction + archetype crests —');
 console.log('— Final visual review guards —');
 {
   const css = readFileSync(join(root, 'styles.css'), 'utf8');
-  check('Meaning Tables button hidden over dialogs and wizards', /body:has\(\.modal-overlay\) \.oracle-fab, body:has\(\.wizard\) \.oracle-fab \{ display: none; \}/.test(css));
+  check('floating Roll button hidden over dialogs and wizards', /body:has\(\.modal-overlay\) \.fab, body:has\(\.wizard\) \.fab \{ display: none; \}/.test(css));
   check('toggle-row selects size to content (labels keep their width)', /\.toggle-row select \{ flex: 0 0 auto; width: auto; max-width: 55%; \}/.test(css));
   check('sticky wizard bar has a solid backing and sits flush on the nav', /\.wizard-nav \{\s*background: linear-gradient/.test(css) && /\.wizard-nav \{ bottom: var\(--nav-h\); padding-bottom: 12px; \}/.test(css));
 }
@@ -1618,7 +1618,7 @@ console.log('— Journal (solo-play log; store + gating) —');
     /rules\.undo\(\)/.test(readFileSync(join(root, 'src/journal.js'), 'utf8')));
   const js2 = readFileSync(join(root, 'src/journal.js'), 'utf8');
   check('S2: dice reachable from the Journal + last roll pastes into scene notes',
-    /openRollDialog\(character/.test(js2) && /rollLine\(getRollLog\(\)\[0\]\)/.test(js2));
+    /syncRollFab/.test(readFileSync(join(root, 'src/router.js'), 'utf8')) && /rollLine\(getRollLog\(\)\[0\]\)/.test(js2));
   check('S2: rollLine renders a one-line summary of a roll-log entry', (() => {
     const line = jm.rollLine({ characterName: 'Paul', skill: 'Battle', drive: 'Duty', tn: 14, dice: [3, 19],
       successes: 1, complications: 0, momentumDelta: 1 });
@@ -1669,6 +1669,21 @@ console.log('\n— UI overhaul · Stage 1: five tabs + hubs —');
   const hb = readFileSync(join(root, 'src/hubs.js'), 'utf8');
   check('hubs reuse the real combat renderers + pools header', /renderLifecycle\(rerender\)/.test(hb) && /renderTasks\(rerender\)/.test(hb) && /renderConflict\(rerender\)/.test(hb) && /poolsHeader\(activeCharacter\(\), rerender\)/.test(hb));
   check('hubs.js in the SW app shell', /'\.\/src\/hubs\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
+}
+
+console.log('\n— UI overhaul · Stage 2: Character screen + floating Roll —');
+{
+  const sh = readFileSync(join(root, 'src/sheet.js'), 'utf8');
+  check('Character sub-tabs: Overview · Stats · Traits & assets · Advancement · Notes & log',
+    /\['overview', 'Overview'\], \['stats', 'Stats'\], \['traits', 'Traits & assets'\],\s*\['advance', 'Advancement'\], \['notes', 'Notes & log'\]/.test(sh));
+  check('Overview is the default sub-tab', /let sheetTab = 'overview';/.test(sh));
+  check('sub-tabs are an accessible tablist', /role: 'tablist'/.test(sh) && /role: 'tab', 'aria-selected'/.test(sh) && /role: 'tabpanel'/.test(sh));
+  check('roster + create/import/export moved into one Characters dialog', /function charactersDialog\(/.test(sh) && !/function mdImportButton/.test(sh));
+  check('no inline Roll button on the Character screen (floating d20 instead)', !/Roll a test/.test(sh));
+  const hb = readFileSync(join(root, 'src/hubs.js'), 'utf8');
+  check('floating Roll shows on Character + Table only, with a character', /tab === 'sheet' \|\| tab === 'table'/.test(hb) && /aria-label': 'Roll a test'/.test(hb));
+  const mn = readFileSync(join(root, 'src/main.js'), 'utf8');
+  check('Meaning Tables no longer a global floating button', !/initOracle/.test(mn) && !/oracle-fab/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

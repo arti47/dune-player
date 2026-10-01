@@ -369,8 +369,8 @@ h4 { margin: 14px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-sp
 /* Zero horizontal overflow guard at narrow widths */
 img, svg, table, pre { max-width: 100%; }
 
-/* ---------- Oracle FAB + modal (homebrew idea generator) ---------- */
-.oracle-fab {
+/* ---------- Floating Roll button + Meaning Tables modal ---------- */
+.fab {
   position: fixed; right: 16px; z-index: 25;
   bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
   width: 52px; height: 52px; border-radius: 50%;
@@ -378,8 +378,8 @@ img, svg, table, pre { max-width: 100%; }
   border: none; font-size: 1.4rem; line-height: 1; cursor: pointer;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
-.oracle-fab[hidden] { display: none; }
-.oracle-fab:hover { filter: brightness(1.08); }
+.fab[hidden] { display: none; }
+.fab:hover { filter: brightness(1.08); }
 .oracle-words {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0;
 }
@@ -579,8 +579,8 @@ html[data-theme="dark"] .card {
 .section-head { align-items: center; }
 
 /* ---------- FAB clears content ---------- */
-.oracle-fab { display: inline-flex; align-items: center; justify-content: center; }
-body:has(.oracle-fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) + 86px); }
+.fab { display: inline-flex; align-items: center; justify-content: center; }
+body:has(.fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) + 86px); }
 
 /* ---------- Route entrance ---------- */
 .screen > * { animation: rise .22s ease both; }
@@ -653,7 +653,7 @@ summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
 /* ---------- Final visual review fixes (v0.105) ---------- */
 /* 1. Crowded nav (7+ tabs at phone width): drop caps + tracking so labels don't run together. */
 /* 2. The Meaning Tables button never sits over a dialog or the creation wizards. */
-body:has(.modal-overlay) .oracle-fab, body:has(.wizard) .oracle-fab { display: none; }
+body:has(.modal-overlay) .fab, body:has(.wizard) .fab { display: none; }
 /* 3. Night moons: quieter so they never read as stray shapes behind full-screen flows. */
 html[data-theme="dark"] body::before { opacity: .6; }
 /* 4. Toggle rows with a select: the label keeps its width, the select sizes to its content. */
@@ -689,3 +689,22 @@ html[data-theme="dark"] body::before { opacity: .6; }
 .more-ico { color: var(--accent); display: flex; }
 .more-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .more-chev { color: var(--muted); font-size: 1.4rem; line-height: 1; }
+
+/* ---------- UI overhaul · Stage 2: Character header, sub-tabs, Roll button ---------- */
+.segmented button {
+  flex: 1 0 auto; padding: 8px 12px; min-height: 36px; border: none; background: none;
+  border-radius: 7px; color: var(--muted); font: inherit; font-size: .85rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.segmented button[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.char-header .char-head { gap: 12px; }
+.char-id { flex: 1; min-width: 0; }
+.char-name { margin: 0; overflow-wrap: anywhere; }
+.char-header .char-name::after { display: none; }
+.char-id p { margin: 2px 0 0; }
+.btn-sm { min-height: 36px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.link-row { width: 100%; background: none; border: none; font: inherit; text-align: left; cursor: pointer; }
+.link-row[aria-current="true"] strong { color: var(--accent); }
+.roll-fab { width: 58px; height: 58px; }
+/* Five sub-tabs fit 360px without sideways scrolling (short labels, tight padding). */
+.segmented[role="tablist"] button { flex: 1 1 auto; min-width: 0; padding: 6px 4px; font-size: .8rem; }

@@ -248,7 +248,7 @@ function firstTestBeats(sb) {
     { title: 'You’ve got it', render: (b) => {
       b.append(
         el('p', { class: 'small' }, 'That’s the core loop: pick Skill + Drive, roll 2d20, count successes at/under the Target Number, beat the Difficulty.'),
-        el('p', { class: 'small' }, 'On your real characters, the sheet’s “⚂ Roll a test” button does all this for you — buying dice, focuses, Determination, and talents included.'),
+        el('p', { class: 'small' }, 'On your real characters, the floating d20 (Roll a test) button does all this for you — buying dice, focuses, Determination, and talents included.'),
         el('p', { class: 'small muted' }, 'Next up: Momentum, Threat & Determination.'));
     } },
   ];
