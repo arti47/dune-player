@@ -236,81 +236,157 @@ function renderTracker(root, house, render) {
         deleteHouse(); showToast('House deleted'); render();
       } }, 'Delete House'))));
 
-  // Domains + income
-  root.append(el('section', { class: 'card' },
-    el('h3', {}, 'Domains'),
-    (house.domains || []).length
-      ? el('ul', { class: 'char-list' }, ...house.domains.map((d) => {
-          const inc = domainIncome(d.subtype, d.category || resolveCategory(d.id), d.tier);
-          return el('li', {}, el('span', { class: 'crest-label' }, domainCrest(d.id, d.id, 24), `${d.id} · ${d.tier} (${d.subtype})`),
-            el('span', { class: 'small muted' }, ` +${inc.resources}R / +${inc.wealth}W`));
-        }))
-      : el('p', { class: 'small muted' }, 'No domains recorded.'),
-    el('p', { class: 'small' }, el('strong', {}, 'Total income: '), `${income.resources} Resources · ${income.wealth} Wealth${house.roles && house.roles.treasurer ? ' (incl. Treasurer +10 W)' : ''}`)));
+  // The year as a stepper (UI round 2 #9): one step at a time in the book's order (M.steps).
+  const STEPS = M.steps;
+  const step = Math.min(STEPS.length - 1, Math.max(0, mgmt.step || 0));
+  const done = new Set(mgmt.doneSteps || []);
+  // Income and Upkeep count as done once actually taken; the rest are ticked on Next.
+  if (mgmt.incomeCollected) done.add(1);
+  if (mgmt.upkeepPaid) done.add(3);
+  const goStep = (i) => { mgmt.step = Math.min(STEPS.length - 1, Math.max(0, i)); persist(); };
+  const next = () => { mgmt.doneSteps = [...new Set([...(mgmt.doneSteps || []), step])]; goStep(step + 1); };
 
-  // 6-step session
-  const income$ = el('section', { class: 'card' },
-    el('h3', {}, `Income — year ${p.year}`),
-    el('p', { class: 'small muted' }, mgmt.incomeCollected ? 'Income already collected this year.' : `Collect ${income.resources} Resources and ${income.wealth} Wealth from your domains.`),
-    el('button', { class: 'btn', disabled: mgmt.incomeCollected ? '' : null, onclick: () => {
-      house.resources = (house.resources || 0) + income.resources;
-      house.wealth = (house.wealth || 0) + income.wealth;
-      mgmt.incomeCollected = true;
-      log(house, `Income: +${income.resources}R / +${income.wealth}W.`); persist();
-    } }, 'Collect income'));
-  root.append(income$);
+  const progress = el('ol', { class: 'year-steps', 'aria-label': `Year ${p.year} session` },
+    ...STEPS.map((st, i) => el('li', {},
+      el('button', { class: 'year-step' + (i === step ? ' current' : '') + (done.has(i) ? ' done' : ''),
+        'aria-current': i === step ? 'step' : null, onclick: () => goStep(i) },
+        el('span', { class: 'year-step-dot', 'aria-hidden': 'true' }, done.has(i) ? '✓' : String(i + 1)),
+        el('span', { class: 'year-step-name' }, shortStep(st.name))))));
 
-  // Upkeep
-  const upSel = (label, list, key) => {
-    const s = el('select', { 'aria-label': label }, ...list.map((o) => el('option', { value: o.level, selected: mgmt.upkeep[key] === o.level ? '' : null }, `${o.level} (${o.upkeep} W)`)));
-    s.addEventListener('change', () => { mgmt.upkeep[key] = s.value; persist(); });
-    return el('div', { class: 'field' }, el('span', {}, label), s);
-  };
-  root.append(el('section', { class: 'card' },
-    el('h3', {}, 'Upkeep'),
-    upSel('Military Power', M.militaryPower, 'military'),
-    upSel('Population Loyalty', M.populationLoyalty, 'population'),
-    upSel('Lifestyle', M.lifestyle, 'lifestyle'),
-    el('p', { class: 'small muted' }, mgmt.upkeepPaid ? 'Upkeep already paid this year.' : `Skill upkeep ${upkeep.skills} W · Total upkeep ${upkeep.total} W.`),
-    el('button', { class: 'btn', disabled: mgmt.upkeepPaid ? '' : null, onclick: () => {
-      house.wealth = Math.max(0, (house.wealth || 0) - upkeep.total);
-      mgmt.upkeepPaid = true;
-      log(house, `Paid upkeep: −${upkeep.total}W (Mil ${upkeep.military}/Pop ${upkeep.population}/Life ${upkeep.lifestyle}/Skills ${upkeep.skills}).`); persist();
-    } }, `Pay upkeep (${upkeep.total} W)`)));
+  const cur = STEPS[step];
+  const body = [stepNews, stepIncome, stepEvent, stepUpkeep, stepVentures, stepEndYear][step]();
+  // Pinned pools (phones): stay in view while you work through the steps.
+  root.append(el('div', { class: 'house-pools', 'aria-label': 'House pools' },
+    el('span', { class: 'pill' }, `Status ${p.status} · ${lvl.name}`),
+    el('span', { class: 'pill' }, `Wealth ${house.wealth || 0}`),
+    el('span', { class: 'pill' }, `Resources ${house.resources || 0}`)));
+  root.append(el('section', { class: 'card year-card' },
+    el('p', { class: 'eyebrow' }, `Year ${p.year} · Step ${step + 1} of ${STEPS.length}${cur.optional ? ' · optional' : ''}`),
+    el('h3', {}, cur.name),
+    progress,
+    el('p', { class: 'small muted' }, cur.desc),
+    ...[].concat(body).filter(Boolean),
+    el('div', { class: 'year-nav' },
+      el('button', { class: 'btn secondary', disabled: step === 0 ? '' : null, onclick: () => goStep(step - 1) }, 'Back'),
+      step < STEPS.length - 1 ? el('button', { class: 'btn', onclick: next }, cur.optional ? 'Next (or skip)' : 'Next') : null)));
 
-  // Ventures
-  const ventureList = [
-    ...M.constructionVentures.map((v) => ({ ...v, kind: 'construction' })),
-    ...M.boonVentures.map((v) => ({ ...v, kind: 'boon' })),
-  ];
-  const vSel = el('select', { 'aria-label': 'Venture' },
-    ...ventureList.map((v, i) => el('option', { value: String(i) }, `${v.kind === 'boon' ? '◆ ' : ''}${v.name} — ${v.cost}`)));
-  root.append(el('section', { class: 'card' },
-    el('h3', {}, `Ventures — ${mgmt.venturesUsed} used`),
-    el('p', { class: 'small muted' }, `${M.ventureRules.perSession} ventures/session (buy more at ${M.ventureRules.buyExtraCost} W). Boons: success +1 status, failure −1.`),
-    el('div', { class: 'field' }, el('span', {}, 'Venture'), vSel),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => openVenture(house, ventureList[+vSel.value], render) }, 'Attempt venture'),
-      el('button', { class: 'btn secondary', onclick: () => { mgmt.venturesUsed = Math.max(0, mgmt.venturesUsed - 1); persist(); } }, 'Undo a use'))));
+  function stepNews() {
+    return el('p', { class: 'small' }, 'Talk it through at the table, then tap Next. Rumours can become adventure hooks.');
+  }
 
-  // End of year
-  root.append(el('section', { class: 'card' },
-    el('h3', {}, 'End of year & downtime'),
-    el('p', { class: 'small muted' }, `Stockpile caps Resources at ${M.endOfYear.resourceStockpile} (more with Storage Facilities). Holding 20+ Wealth risks theft.`),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: async () => {
-        if (!await confirmModal(`End year ${p.year}? Resources over ${M.endOfYear.resourceStockpile} are lost and a new year begins.`, { okLabel: 'End year' })) return;
-        endYear(house); persist();
-      } }, 'End year'),
-      el('button', { class: 'btn secondary', onclick: () => rollWealthTheft(house, render) }, 'Roll Wealth theft'))));
+  function stepIncome() {
+    return [
+      (house.domains || []).length
+        ? el('ul', { class: 'char-list' }, ...house.domains.map((d) => {
+            const inc = domainIncome(d.subtype, d.category || resolveCategory(d.id), d.tier);
+            return el('li', {}, el('span', { class: 'crest-label' }, domainCrest(d.id, d.id, 24), `${d.id} · ${d.tier} (${d.subtype})`),
+              el('span', { class: 'small muted' }, ` +${inc.resources}R / +${inc.wealth}W`));
+          }))
+        : el('p', { class: 'small muted' }, 'No domains recorded.'),
+      el('p', { class: 'small' }, el('strong', {}, 'Total income: '), `${income.resources} Resources · ${income.wealth} Wealth${house.roles && house.roles.treasurer ? ' (incl. Treasurer +10 W)' : ''}`),
+      el('button', { class: 'btn', disabled: mgmt.incomeCollected ? '' : null, onclick: () => {
+        house.resources = (house.resources || 0) + income.resources;
+        house.wealth = (house.wealth || 0) + income.wealth;
+        mgmt.incomeCollected = true;
+        log(house, `Income: +${income.resources}R / +${income.wealth}W.`); persist();
+      } }, mgmt.incomeCollected ? 'Income collected ✓' : 'Collect income'),
+    ];
+  }
 
-  // Log
+  function stepEvent() {
+    const col = eventColumn(lvl.name);
+    const ev = mgmt.lastEvent && mgmt.lastEvent.y === p.year ? mgmt.lastEvent : null;
+    return [
+      col ? el('p', { class: 'small' }, `At ${lvl.name} status: Opportunity on ${col.opportunity}, Crisis on ${col.crisis}, otherwise a quiet year.`) : null,
+      ev ? el('div', { class: 'event-result ' + ev.kind, 'aria-live': 'polite' },
+        el('strong', {}, ev.kind === 'none' ? `Rolled ${ev.roll} — a quiet year` : `Rolled ${ev.roll} — ${ev.kind === 'opportunity' ? 'Opportunity' : 'Crisis'}: ${ev.name}`),
+        ev.desc ? el('p', { class: 'small' }, ev.desc) : null) : null,
+      el('button', { class: ev ? 'btn secondary' : 'btn', disabled: ev ? '' : null, onclick: () => {
+        mgmt.lastEvent = rollEvent(lvl.name, p.year);
+        const e = mgmt.lastEvent;
+        log(house, e.kind === 'none' ? `Event roll ${e.roll}: quiet year.` : `Event roll ${e.roll}: ${e.kind} — ${e.name}.`);
+        persist();
+      } }, ev ? 'Event rolled ✓' : 'Roll for an event'),
+    ];
+  }
+
+  function stepUpkeep() {
+    const upSel = (label, list, key) => {
+      const sel = el('select', { 'aria-label': label }, ...list.map((o) => el('option', { value: o.level, selected: mgmt.upkeep[key] === o.level ? '' : null }, `${o.level} (${o.upkeep} W)`)));
+      sel.addEventListener('change', () => { mgmt.upkeep[key] = sel.value; persist(); });
+      return el('div', { class: 'field' }, el('span', {}, label), sel);
+    };
+    return [
+      upSel('Military Power', M.militaryPower, 'military'),
+      upSel('Population Loyalty', M.populationLoyalty, 'population'),
+      upSel('Lifestyle', M.lifestyle, 'lifestyle'),
+      el('p', { class: 'small muted' }, `Skill upkeep ${upkeep.skills} W · Total upkeep ${upkeep.total} W.`),
+      el('button', { class: 'btn', disabled: mgmt.upkeepPaid ? '' : null, onclick: () => {
+        house.wealth = Math.max(0, (house.wealth || 0) - upkeep.total);
+        mgmt.upkeepPaid = true;
+        log(house, `Paid upkeep: −${upkeep.total}W (Mil ${upkeep.military}/Pop ${upkeep.population}/Life ${upkeep.lifestyle}/Skills ${upkeep.skills}).`); persist();
+      } }, mgmt.upkeepPaid ? 'Upkeep paid ✓' : `Pay upkeep (${upkeep.total} W)`),
+    ];
+  }
+
+  function stepVentures() {
+    const ventureList = [
+      ...M.constructionVentures.map((v) => ({ ...v, kind: 'construction' })),
+      ...M.boonVentures.map((v) => ({ ...v, kind: 'boon' })),
+    ];
+    const vSel = el('select', { 'aria-label': 'Venture' },
+      ...ventureList.map((v, i) => el('option', { value: String(i) }, `${v.kind === 'boon' ? '◆ ' : ''}${v.name} — ${v.cost}`)));
+    return [
+      el('p', { class: 'small' }, el('span', { class: 'pill' }, `${mgmt.venturesUsed} of ${M.ventureRules.perSession} used`),
+        ` Buy more at ${M.ventureRules.buyExtraCost} W. Boons: success +1 status, failure −1.`),
+      el('div', { class: 'field' }, el('span', {}, 'Venture'), vSel),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn', onclick: () => openVenture(house, ventureList[+vSel.value], render) }, 'Attempt venture'),
+        el('button', { class: 'btn secondary', onclick: () => { mgmt.venturesUsed = Math.max(0, mgmt.venturesUsed - 1); persist(); } }, 'Undo a use')),
+    ];
+  }
+
+  function stepEndYear() {
+    return [
+      el('p', { class: 'small' }, `Resources over ${M.endOfYear.resourceStockpile} are lost (more with Storage Facilities). Holding 20+ Wealth risks theft.`),
+      el('div', { class: 'cta-row' },
+        el('button', { class: 'btn secondary', onclick: () => rollWealthTheft(house, render) }, 'Roll Wealth theft'),
+        el('button', { class: 'btn', onclick: async () => {
+          if (!await confirmModal(`End year ${p.year}? Resources over ${M.endOfYear.resourceStockpile} are lost and year ${p.year + 1} starts at step 1.`, { okLabel: 'End year' })) return;
+          endYear(house); persist();
+        } }, `End year ${p.year}`)),
+    ];
+  }
+
+  // Log (folded)
   if ((mgmt.log || []).length) {
-    root.append(el('section', { class: 'card' },
-      el('h3', {}, 'Session log'),
+    root.append(el('details', { class: 'card collapse-card' },
+      el('summary', {}, el('h3', {}, `Session log (${mgmt.log.length})`)),
       el('ul', { class: 'char-list' },
         ...mgmt.log.slice(-12).reverse().map((e) => el('li', {}, el('span', { class: 'small' }, `Y${e.y}`), el('span', { class: 'small muted' }, ' ' + e.text))))));
   }
+}
+
+/** Short labels for the step bar ("End of Year & Downtime" → "End of year"). */
+export function shortStep(name) {
+  return ({ 'News from the Imperium': 'News', 'End of Year & Downtime': 'End of year' })[name] || name;
+}
+
+const inRange = (roll, range) => {
+  const m = String(range).match(/^(\d+)(?:[–-](\d+))?$/); if (!m) return false;
+  const lo = +m[1], hi = m[2] ? +m[2] : lo; return roll >= lo && roll <= hi;
+};
+/** The Events-table column for a status level name (columns can cover two levels, e.g. "Feeble / Weak"). */
+export function eventColumn(levelName) {
+  return M.eventsByStatus.find((c) => c.column.split('/').map((x) => x.trim()).includes(levelName)) || null;
+}
+/** Roll the yearly Event: d20 on the status column → Opportunity / Crisis / quiet, then d20 on that table. */
+export function rollEvent(levelName, year, roll = rollD20s(1)[0], pick = rollD20s(1)[0]) {
+  const col = eventColumn(levelName);
+  const kind = col && inRange(roll, col.opportunity) ? 'opportunity' : col && inRange(roll, col.crisis) ? 'crisis' : 'none';
+  if (kind === 'none') return { y: year, roll, kind };
+  const entry = (kind === 'opportunity' ? M.opportunities : M.crises).find((e) => inRange(pick, e.roll));
+  return { y: year, roll, kind, pick, name: entry ? entry.name : 'GM’s choice', desc: entry ? entry.desc : M.crisesGap };
 }
 
 // Parse a simple venture cost like 'R12' or 'W5' into a pool deduction (else null → manual).
@@ -398,6 +474,7 @@ function endYear(house) {
   house.resources = Math.min(M.endOfYear.resourceStockpile, before);
   const lost = before - house.resources;
   mgmt.year += 1; mgmt.venturesUsed = 0; mgmt.incomeCollected = false; mgmt.upkeepPaid = false;
+  mgmt.step = 0; mgmt.doneSteps = []; mgmt.lastEvent = null;
   log(house, `End of year ${mgmt.year - 1}${lost > 0 ? ` · lost ${lost}R over stockpile` : ''}. Year ${mgmt.year} begins.`);
 }
 

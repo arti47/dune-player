@@ -892,3 +892,32 @@ button.wizard-dot.done:not(:disabled):hover { background: var(--surface-2); }
 .starter-type strong { font-family: var(--display); letter-spacing: .04em; }
 .starter-card { border-left: 3px solid var(--accent); }
 .starter-card .link-btn { margin-top: var(--sp-2); }
+
+/* ---------- UI round 2 #9: House yearly stepper ---------- */
+.house-pools {
+  position: sticky; top: calc(var(--header-h) + var(--sp-1)); z-index: 5;
+  display: flex; flex-wrap: wrap; gap: var(--sp-1); justify-content: center;
+  margin: 0 0 var(--sp-3); padding: var(--sp-2); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.house-pools .pill { margin: 0; }
+.year-steps { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-1); padding: 0; margin: var(--sp-2) 0 var(--sp-3); }
+.year-step {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0;
+  background: none; border: none; cursor: pointer; color: var(--muted); font: inherit; font-size: var(--fs-2xs);
+}
+.year-step-dot {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--border); background: var(--surface-2); font-weight: 700; font-size: var(--fs-xs); color: var(--text);
+}
+.year-step.done .year-step-dot { background: var(--ok); border-color: var(--ok); color: var(--accent-contrast); }
+.year-step.current .year-step-dot { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.year-step.current { color: var(--accent); font-weight: 600; }
+.year-step-name { text-align: center; line-height: 1.15; letter-spacing: -.01em; }  /* wraps only at spaces ("End of / year"), never mid-word */
+.year-card h3 { margin: 2px 0 0; }
+.year-nav { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-4); }
+.event-result { border-radius: 10px; padding: var(--sp-2) var(--sp-3); margin: var(--sp-2) 0; border: 1px solid var(--border); background: var(--surface-2); }
+.event-result.opportunity { border-color: var(--ok); }
+.event-result.crisis { border-color: var(--danger); }
+.event-result p { margin: 4px 0 0; }
+@media (min-width: 900px) { .house-pools { position: static; } }

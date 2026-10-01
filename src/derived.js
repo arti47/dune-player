@@ -160,6 +160,9 @@ export function normalizeHouse(h) {
       venturesUsed: Number.isFinite(h.management.venturesUsed) ? h.management.venturesUsed : 0,
       incomeCollected: !!h.management.incomeCollected,   // income taken this year?
       upkeepPaid: !!h.management.upkeepPaid,              // upkeep paid this year?
+      step: Number.isInteger(h.management.step) ? h.management.step : 0,          // yearly stepper position (round 2 #9)
+      doneSteps: Array.isArray(h.management.doneSteps) ? h.management.doneSteps : [],
+      lastEvent: h.management.lastEvent || null,                                  // this year's Event roll
       upkeep: {
         military: 'None', population: 'Acceptance', lifestyle: 'Noble',
         ...(h.management.upkeep || {}),

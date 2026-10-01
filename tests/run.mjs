@@ -1837,5 +1837,22 @@ console.log('\n— UI round 2 #8: guided Table empty states —');
   check('scene intro dismissible + null-safe append', /sceneIntroDone/.test(hb) && /\.filter\(Boolean\)\)/.test(hb));
 }
 
+console.log('\n— UI round 2 #9: House yearly stepper —');
+{
+  const HOUSE = await import(join(root, 'src/house.js'));
+  const { EXPANSION: GGX } = await import(join(root, 'data-great-game.js'));
+  const M = GGX.houseManagement.management;
+  check('step bar follows the book’s 6 steps', M.steps.length === 6 && HOUSE.shortStep(M.steps[0].name) === 'News' && HOUSE.shortStep(M.steps[5].name) === 'End of year');
+  check('event column resolves every status level', ['Feeble', 'Weak', 'Respected', 'Strong', 'Problematic', 'Dangerous'].every((n) => HOUSE.eventColumn(n)));
+  const opp = HOUSE.rollEvent('Respected', 1, 3, 1), cri = HOUSE.rollEvent('Respected', 1, 18, 1), quiet = HOUSE.rollEvent('Respected', 1, 10, 1);
+  check('event roll: opportunity / crisis / quiet by the status column', opp.kind === 'opportunity' && opp.name === M.opportunities[0].name && cri.kind === 'crisis' && cri.name === M.crises[0].name && quiet.kind === 'none');
+  check('event crisis gap falls back to GM’s choice', HOUSE.rollEvent('Respected', 1, 18, 20).name === 'GM’s choice');
+  const { normalizeHouse } = await import(join(root, 'src/derived.js'));
+  const nh = normalizeHouse({ name: 'X', management: { status: 40 } });
+  check('normalize: step 0, no done steps, no event by default', nh.management.step === 0 && Array.isArray(nh.management.doneSteps) && nh.management.lastEvent === null);
+  const hs = readFileSync(join(root, 'src/house.js'), 'utf8');
+  check('end of year returns to step 1 and clears ticks', /mgmt\.step = 0; mgmt\.doneSteps = \[\]; mgmt\.lastEvent = null;/.test(hs));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
