@@ -467,7 +467,7 @@ h2 { letter-spacing: 0.12em; }
 }
 html[data-theme="dark"] {
   --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='%23ecdfc8'%3E%3Ccircle cx='30' cy='40' r='1' opacity='.5'/%3E%3Ccircle cx='90' cy='120' r='.8' opacity='.35'/%3E%3Ccircle cx='160' cy='30' r='1.1' opacity='.45'/%3E%3Ccircle cx='220' cy='90' r='.7' opacity='.3'/%3E%3Ccircle cx='60' cy='220' r='.9' opacity='.3'/%3E%3Ccircle cx='140' cy='300' r='.8' opacity='.25'/%3E%3Ccircle cx='250' cy='250' r='1' opacity='.3'/%3E%3Ccircle cx='370' cy='190' r='.8' opacity='.35'/%3E%3Ccircle cx='330' cy='330' r='1' opacity='.25'/%3E%3Ccircle cx='20' cy='360' r='.7' opacity='.3'/%3E%3C/g%3E%3C/svg%3E");
-  --moons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='52' r='26' fill='%23ecdfc8' opacity='.08'/%3E%3Ccircle cx='98' cy='92' r='10' fill='%23e07b39' opacity='.12'/%3E%3C/svg%3E");
+  --moons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='52' r='26' fill='%23ecdfc8' opacity='.035'/%3E%3Ccircle cx='98' cy='92' r='10' fill='%23e07b39' opacity='.07'/%3E%3C/svg%3E");
 }
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -649,3 +649,19 @@ summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
   color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .btn.danger-btn { background: var(--danger); color: var(--accent-contrast); border: none; }
+
+/* ---------- Final visual review fixes (v0.105) ---------- */
+/* 1. Crowded nav (7+ tabs at phone width): drop caps + tracking so labels don't run together. */
+.bottom-nav:has(a:nth-child(7)) a { font-size: .58rem; letter-spacing: 0; text-transform: none; }
+/* 2. The Meaning Tables button never sits over a dialog or the creation wizards. */
+body:has(.modal-overlay) .oracle-fab, body:has(.wizard) .oracle-fab { display: none; }
+/* 3. Night moons: quieter so they never read as stray shapes behind full-screen flows. */
+html[data-theme="dark"] body::before { opacity: .6; }
+/* 4. Toggle rows with a select: the label keeps its width, the select sizes to its content. */
+.toggle-row select { flex: 0 0 auto; width: auto; max-width: 55%; }
+/* 5. Sticky wizard Back/Next bar: solid backing so step text never shows through behind it. */
+.wizard-nav {
+  background: linear-gradient(to bottom, transparent, var(--bg) 10px);
+  padding: 14px 0 6px; margin: 0 -14px; padding-left: 14px; padding-right: 14px;
+}
+.wizard-nav { bottom: var(--nav-h); padding-bottom: 12px; }

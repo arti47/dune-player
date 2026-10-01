@@ -1389,6 +1389,15 @@ console.log('— Faction + archetype crests —');
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
+console.log('— Final visual review guards —');
+{
+  const css = readFileSync(join(root, 'styles.css'), 'utf8');
+  check('crowded nav (7+ tabs) drops caps + tracking', /\.bottom-nav:has\(a:nth-child\(7\)\) a \{[^}]*letter-spacing: 0; text-transform: none/.test(css));
+  check('Meaning Tables button hidden over dialogs and wizards', /body:has\(\.modal-overlay\) \.oracle-fab, body:has\(\.wizard\) \.oracle-fab \{ display: none; \}/.test(css));
+  check('toggle-row selects size to content (labels keep their width)', /\.toggle-row select \{ flex: 0 0 auto; width: auto; max-width: 55%; \}/.test(css));
+  check('sticky wizard bar has a solid backing and sits flush on the nav', /\.wizard-nav \{\s*background: linear-gradient/.test(css) && /\.wizard-nav \{ bottom: var\(--nav-h\); padding-bottom: 12px; \}/.test(css));
+}
+
 console.log('— Wipe data (pick categories, typed confirm) —');
 {
   const mem = new Map();
