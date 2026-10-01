@@ -31,6 +31,8 @@ export const Settings = {
   oracle()             { return !!read().oracle; },
   journal()            { return !!read().journal; },
   advancedAutomation() { return !!read().advancedAutomation; },
+  // Roll vibration (UI round 2 #6): ON unless the user switched it off (false stored explicitly).
+  haptics()            { return read().haptics !== false; },
 
   // Onboarding & tutorial state (§13 sign-off): { seen, completedLessons[], pregenId }.
   // seen gates the one-time first-launch prompt; completedLessons drives the menu ticks;

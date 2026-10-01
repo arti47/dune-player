@@ -864,3 +864,11 @@ button.wizard-dot.done:not(:disabled):hover { background: var(--surface-2); }
 .swipe-in-left  { animation: swipe-from-right 180ms ease-out; }
 .swipe-in-right { animation: swipe-from-left 180ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .swipe-in-left, .swipe-in-right { animation: none; } }
+
+/* ---------- UI round 2 #6: roll feel — bigger result ---------- */
+.roll-verdict { padding: 14px 14px; gap: 12px; animation: verdict-pop .32s cubic-bezier(.2, 1.4, .4, 1) both; }
+.roll-verdict h2 { font-size: 1.65rem; line-height: 1.1; }
+.roll-stats { gap: 18px; }
+.roll-gain-text { font-size: 1.15rem; }
+@keyframes verdict-pop { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .roll-verdict { animation: none; } }

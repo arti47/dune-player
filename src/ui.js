@@ -1,6 +1,7 @@
 // ui.js — themed modals/toasts/confirm/prompt. No native alert/confirm/prompt anywhere.
 
 import { el, qs } from './core.js';
+import { Settings } from './settings.js';
 
 let lastFocused = null;
 let modalTitleSeq = 0;
@@ -90,6 +91,19 @@ export function undoToast(message, undo, ms = 6000) {
   timer = setTimeout(dismiss, ms);
   undoDismiss = dismiss;
   return dismiss;
+}
+
+/** Vibration patterns for a roll result (ms on/off). Strongest event wins: complication > crit > outcome. */
+export const HAPTIC_PATTERNS = {
+  success: [35], failure: [35, 70, 35], crit: [15, 40, 15, 40, 60], complication: [90, 60, 90],
+};
+export function rollHapticKind({ passed, crit, complication }) {
+  return complication ? 'complication' : crit ? 'crit' : passed ? 'success' : 'failure';
+}
+/** Buzz the device for a roll result, if supported and not switched off in Settings. */
+export function rollHaptic(outcome) {
+  if (!Settings.haptics() || typeof navigator === 'undefined' || !navigator.vibrate) return false;
+  try { return navigator.vibrate(HAPTIC_PATTERNS[rollHapticKind(outcome)]); } catch { return false; }
 }
 
 /** Themed confirm → Promise<boolean>. */

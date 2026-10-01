@@ -796,6 +796,18 @@ export function renderSettings(root) {
     showToast(`Theme: ${themeSel.value}`);
   });
 
+  // Roll vibration (round 2 #6) — on by default, stored as an explicit true/false.
+  function hapticsRow() {
+    const box = el('input', { type: 'checkbox', id: 'tg-haptics' });
+    box.checked = Settings.haptics();
+    box.addEventListener('change', () => { Settings.set('haptics', box.checked); showToast(`Roll vibration ${box.checked ? 'on' : 'off'}`); });
+    return el('div', { class: 'toggle-row' },
+      el('label', { for: 'tg-haptics' },
+        el('div', {}, 'Roll vibration'),
+        el('div', { class: 'small muted' }, 'Phones that support it buzz on a roll result: one for success, two for failure, a pattern for a crit or complication.')),
+      box);
+  }
+
   const toggleRows = TOGGLE_DEFS.map((def) => {
     const box = el('input', { type: 'checkbox', id: `tg-${def.flag}` });
     box.checked = !!Settings.get(def.flag);
@@ -822,7 +834,8 @@ export function renderSettings(root) {
     foldCard('appearance', 'Appearance', true,
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
-        themeSel)),
+        themeSel),
+      hapticsRow()),
     foldCard('features', 'Play features', true, ...PLAY_FLAGS.map((f) => byFlag[f])),
     foldCard('expansions', 'Expansions', false,
       el('p', { class: 'small muted' }, 'Switch on only the books you own — each adds its rules content across the app.'),

@@ -18,7 +18,7 @@
 // rules-library entry (T38 citations).
 
 import { el, rollD20s, clamp } from './core.js';
-import { modal, showToast } from './ui.js';
+import { modal, showToast, rollHaptic } from './ui.js';
 import { getPools, savePools, saveCharacter, appendRoll, getHouse, listCharacters } from './store.js';
 import { targetNumber, clampMomentum, clampDetermination } from './derived.js';
 import { cite } from './cite.js';
@@ -54,7 +54,7 @@ function successRing(successes, diff, passed) {
   const r = 20, c = 2 * Math.PI * r;
   const frac = diff > 0 ? Math.min(1, successes / diff) : 1;
   const wrap = el('span', { class: 'roll-ring' + (passed ? ' met' : '') + (frac === 0 ? ' empty' : '') });
-  wrap.innerHTML = `<svg viewBox="0 0 48 48" width="64" height="64">
+  wrap.innerHTML = `<svg viewBox="0 0 48 48" width="84" height="84">
     <circle cx="24" cy="24" r="${r}" class="ring-track"/>
     <circle cx="24" cy="24" r="${r}" class="ring-fill" stroke-dasharray="${(c * frac).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 24 24)"/>
     <text x="24" y="25" text-anchor="middle" class="roll-ring-num">${successes}</text>
@@ -551,10 +551,11 @@ export function openRollDialog(character, onDone = null) {
         el('span', { class: 'stat-val' }, String(predictions)),
         el('button', { class: 'step-btn', 'aria-label': 'More predictions', onclick: () => { if (cfg.predExtra < maxPredExtra) { cfg.predExtra++; render(); } } }, '+'))) : null;
 
+    const verdict = el('div', { class: 'roll-verdict ' + (passed ? 'success' : 'failure') },
+        icon(passed ? 'check' : 'threat', { size: 28 }),
+        el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure', cite('Skill test basics', close)));
     setUI(
-      el('div', { class: 'roll-verdict ' + (passed ? 'success' : 'failure') },
-        icon(passed ? 'check' : 'threat', { size: 22 }),
-        el('h2', { id: 'roll-title' }, passed ? 'Success' : 'Failure', cite('Skill test basics', close))),
+      verdict,
       el('p', { class: 'small muted' }, `${SKILLS.find((s) => s.id === cfg.skill).name} + ${driveName(cfg.drive)} · TN ${tn()} · Difficulty ${diff}${cfg.architect ? ' · Architect' : ''}${cfg.voice ? ` · +${cfg.voice} Voice` : ''}${cfg.otherMemory && om ? ` · +${om.auto.count} ${om.name}` : ''}`),
       el('div', { class: 'dice-row' }, ...dice.map(dieChip)),
       assistDice.length ? el('div', {},
@@ -604,6 +605,14 @@ export function openRollDialog(character, onDone = null) {
         } }, `Re-roll one · ${def.name}${t.skill ? ` (${SKILLS.find((s) => s.id === t.skill)?.name})` : ''}`)),
         el('button', { class: 'btn', onclick: () => commit({ successes, complications, passed, momentum, opposedShortfall, predictions, assistSuccesses, succeedAtCost: sacOn }) }, 'Apply result')),
     );
+    // Roll feel (round 2 #6): bring the verdict into view and buzz once per new set of dice
+    // (a re-roll buzzes again; toggling options on the same dice does not).
+    verdict.scrollIntoView({ block: 'nearest' });
+    const key = `${result.reRolls}|${result.talentRerolls.size}|${result.values.join(',')}`;
+    if (result.feltKey !== key) {
+      result.feltKey = key;
+      rollHaptic({ passed, crit: dice.some((d) => d.crit), complication: complications > 0 });
+    }
   }
 
   // Cool Under Pressure: automatic success, 0 Momentum, no dice rolled (§3.9).
@@ -618,7 +627,7 @@ export function openRollDialog(character, onDone = null) {
         el('span', { class: 'pill' }, '−1 Determination')),
       el('div', { class: 'modal-actions' },
         el('button', { class: 'btn', onclick: () => commitAuto() }, 'Apply result')),
-    );
+    );    if (result.feltKey !== 'auto') { result.feltKey = 'auto'; rollHaptic({ passed: true }); }
   }
 
   function commitAuto() {

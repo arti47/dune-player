@@ -1796,5 +1796,22 @@ console.log('\n— UI round 2 #5: swipe between sections —');
   check('swipe.js in SW app shell', /'\.\/src\/swipe\.js'/.test(src('service-worker.js')));
 }
 
+console.log('\n— UI round 2 #6: roll feel —');
+{
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const ui = src('src/ui.js'), rl = src('src/roller.js'), st = src('src/settings.js'), sc = src('src/screens.js'), css = src('styles.css');
+  // pure kind selection mirrored from ui.js (ui.js imports DOM helpers, so parse it rather than import)
+  const kindSrc = ui.match(/export function rollHapticKind\(\{[^}]*\}\) \{\n([^\n]*)\n\}/);
+  const kind = kindSrc && new Function('o', 'const { passed, crit, complication } = o; ' + kindSrc[1]);
+  check('haptic kind: complication > crit > success/failure', !!kind && kind({ passed: true, crit: true, complication: true }) === 'complication'
+    && kind({ passed: true, crit: true }) === 'crit' && kind({ passed: true }) === 'success' && kind({ passed: false }) === 'failure');
+  check('haptic patterns: success 1 pulse, failure 2, crit/complication distinct', /success: \[35\]/.test(ui) && /failure: \[35, 70, 35\]/.test(ui) && /crit: \[[^\]]+\]/.test(ui) && /complication: \[[^\]]+\]/.test(ui));
+  check('haptics guarded by setting + vibrate support', /Settings\.haptics\(\)/.test(ui) && /navigator\.vibrate/.test(ui));
+  check('haptics on by default (explicit false turns it off)', /haptics\(\)\s*\{ return read\(\)\.haptics !== false; \}/.test(st));
+  check('roller buzzes once per set of dice and scrolls the verdict into view', /result\.feltKey !== key/.test(rl) && /verdict\.scrollIntoView/.test(rl) && /rollHaptic\(/.test(rl));
+  check('Settings has a Roll vibration toggle', /tg-haptics/.test(sc) && /Roll vibration/.test(sc));
+  check('bigger result + pop off under reduced motion', /\.roll-verdict h2 \{ font-size: 1\.65rem/.test(css) && /prefers-reduced-motion[^}]*roll-verdict/.test(css) && /width="84"/.test(rl));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
