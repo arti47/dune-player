@@ -45,3 +45,11 @@ export function helpFrom(block, label = 'How to use', extra = null) {
 export function help(id, label = 'How to use') {
   return helpFrom(HELP[id], label);
 }
+
+/** Put a screen's "?" help in the app bar (audit 2: the screen name + help live in the top bar,
+ *  not in a title card). The router clears the slot before each render. */
+export function setAppHelp(btn) {
+  const slot = typeof document !== 'undefined' && document.getElementById('app-help');
+  if (!slot) return;
+  slot.replaceChildren(...(btn ? [btn] : []));
+}

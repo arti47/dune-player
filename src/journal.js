@@ -22,8 +22,8 @@ import { openOracle } from './oracle.js';
 import { Settings } from './settings.js';
 import { endScene as endGameScene } from './combat.js';
 import { hookCard, npcCard } from './gm.js';
-import { helpFrom } from './help.js';
-import { icon, pips, emptyState } from './icons.js';
+import { helpFrom, setAppHelp } from './help.js';
+import { icon, pips, emptyState, dial } from './icons.js';
 
 /** "?" help for a section — shared renderer, solo copy from ORACLE.help. */
 function helpBlock(id, label = 'How to use') {
@@ -54,14 +54,12 @@ export function renderJournal(root) {
     const j = getJournal();
     const c = activeCharacter();
     root.replaceChildren();
+    setAppHelp(overviewBlock());
     root.append(...[
       // Momentum/Threat/Determination stay on screen: solo, you spend both sides mid-scene (S3).
       c ? poolsHeader(c, draw) : null,
-      el('section', { class: 'card' },
-        el('h2', {}, 'Journal'),
-        overviewBlock(),
-        el('p', { class: 'small muted' },
-          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.')),
+      el('p', { class: 'screen-lead small muted' },
+        'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.'),
       sceneCard(j, c, draw),
       consultCard(j, draw),
       entriesCard(j, draw),
@@ -240,10 +238,12 @@ function sceneCard(j, character, draw) {
   return el('section', { class: 'card' },
     el('h3', {}, '1 · Scene'),
     helpBlock('scene'),
-    el('div', { class: 'journal-meta' }, chaosPill,
-      el('button', { class: 'btn secondary', 'aria-label': 'Lower Chaos Factor', onclick: step(-1) }, '−'),
-      el('button', { class: 'btn secondary', 'aria-label': 'Raise Chaos Factor', onclick: step(1) }, '+')),
-    pips(j.chaos, ORACLE.chaos.max, { label: `Chaos Factor ${j.chaos} of ${ORACLE.chaos.max}`, cls: 'pips-chaos' }),
+    // Audit 2: Chaos as a dial (cool → hot) with −/+ either side; the pill keeps the plain-text value.
+    el('div', { class: 'chaos-row' },
+      el('button', { class: 'step-btn big', 'aria-label': 'Lower Chaos Factor', onclick: step(-1) }, '−'),
+      dial(j.chaos, { min: ORACLE.chaos.min, max: ORACLE.chaos.max, label: `Chaos Factor ${j.chaos} of ${ORACLE.chaos.max}`, caption: 'CHAOS' }),
+      el('button', { class: 'step-btn big', 'aria-label': 'Raise Chaos Factor', onclick: step(1) }, '+')),
+    el('div', { class: 'journal-meta chaos-meta' }, chaosPill),
     el('p', { class: 'small muted' }, ORACLE.chaos.note),
     el('label', { class: 'small muted' }, 'Frame the scene'), setup,
     el('div', { class: 'cta-row' },
@@ -354,10 +354,10 @@ function entriesCard(j, draw) {
             el('span', { class: 'small muted' }, fmtDate(e.ts)),
             e.characterName ? el('span', { class: 'pill' }, e.characterName) : null,
             e.threadId && threadName(e.threadId) ? el('span', { class: 'pill' }, threadName(e.threadId)) : null,
-            el('button', { class: 'link-btn small', 'aria-label': 'Delete entry', onclick: () => {
+            el('button', { class: 'chip chip-icon', 'aria-label': 'Delete entry', title: 'Delete entry', onclick: () => {
               const before = getJournal(); const cur = getJournal(); cur.entries = cur.entries.filter((x) => x.id !== e.id); saveJournal(cur); draw();
               undoToast('Entry deleted', () => { saveJournal(before); draw(); });
-            } }, '× delete')),
+            } }, icon('trash', { size: 14 }))),
           e.title ? el('div', { class: 'journal-title' }, e.title) : null,
           e.body ? el('div', { class: 'journal-body' }, e.body) : null)))
       : emptyState('scroll', 'No entries yet. End a scene to log your first one.'));
@@ -372,19 +372,19 @@ function threadsCard(j, draw) {
       el('div', { class: 'journal-title' }, t.title),
       t.note ? el('div', { class: 'small muted' }, t.note) : null),
     el('div', { class: 'journal-row-actions' },
-      el('button', { class: 'link-btn small', onclick: () => {
+      el('button', { class: 'chip', onclick: () => {
         const cur = getJournal(); const x = cur.threads.find((y) => y.id === t.id);
         x.status = x.status === 'resolved' ? 'open' : 'resolved'; saveJournal(cur); draw();
-      } }, t.status === 'resolved' ? 'reopen' : 'resolve'),
-      el('button', { class: 'link-btn small', onclick: async () => {
+      } }, icon(t.status === 'resolved' ? 'undo' : 'check', { size: 14 }), t.status === 'resolved' ? 'Reopen' : 'Resolve'),
+      el('button', { class: 'chip chip-icon', 'aria-label': 'Edit note', title: 'Note', onclick: async () => {
         const note = await promptModal('Thread note', { value: t.note || '', okLabel: 'Save' });
         if (note == null) return;
         const cur = getJournal(); cur.threads.find((y) => y.id === t.id).note = note; saveJournal(cur); draw();
-      } }, 'note'),
-      el('button', { class: 'link-btn small', 'aria-label': 'Delete thread', onclick: () => {
+      } }, icon('pencil', { size: 14 })),
+      el('button', { class: 'chip chip-icon', 'aria-label': 'Delete thread', title: 'Delete', onclick: () => {
         const before = getJournal(); const cur = getJournal(); cur.threads = cur.threads.filter((y) => y.id !== t.id); saveJournal(cur); draw();
         undoToast('Thread deleted', () => { saveJournal(before); draw(); });
-      } }, '×')));
+      } }, icon('trash', { size: 14 }))));
 
   return collapseCard('threads', `4 · Threads (${open.length} open)`, helpBlock('threads'),
     el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
@@ -406,15 +406,15 @@ function contactsCard(j, draw) {
       el('div', { class: 'journal-title' }, c.name, el('span', { class: 'pill' }, c.type === 'place' ? 'place' : 'NPC')),
       c.note ? el('div', { class: 'small muted' }, c.note) : null),
     el('div', { class: 'journal-row-actions' },
-      el('button', { class: 'link-btn small', onclick: async () => {
+      el('button', { class: 'chip chip-icon', 'aria-label': `Edit note on ${c.name}`, title: 'Note', onclick: async () => {
         const note = await promptModal(`Note on ${c.name}`, { value: c.note || '', okLabel: 'Save' });
         if (note == null) return;
         const cur = getJournal(); cur.contacts.find((y) => y.id === c.id).note = note; saveJournal(cur); draw();
-      } }, 'note'),
-      el('button', { class: 'link-btn small', 'aria-label': 'Delete', onclick: () => {
+      } }, icon('pencil', { size: 14 })),
+      el('button', { class: 'chip chip-icon', 'aria-label': `Delete ${c.name}`, title: 'Delete', onclick: () => {
         const before = getJournal(); const cur = getJournal(); cur.contacts = cur.contacts.filter((y) => y.id !== c.id); saveJournal(cur); draw();
         undoToast(`Deleted ${c.name}`, () => { saveJournal(before); draw(); });
-      } }, '×')));
+      } }, icon('trash', { size: 14 }))));
 
   const add = (type) => async () => {
     const name = await promptModal(type === 'place' ? 'New place' : 'New NPC', { placeholder: 'Name', okLabel: 'Add' });

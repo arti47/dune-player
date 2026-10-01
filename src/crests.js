@@ -111,3 +111,25 @@ export const CREST_IDS = {
   faction: Object.keys(FACTION), archetype: Object.keys(ARCHETYPE),
   domain: Object.keys(DOMAIN), role: Object.keys(ROLE),
 };
+
+/** Character medallion (audit 2): the character's initials in a ringed disc, with the archetype
+ *  crest (and faction crest, when there is one) set as small badges on the rim. Original art. */
+export function medallion(identity = {}, size = 64) {
+  const initials = String(identity.name || '?').trim().split(/\s+/).filter(Boolean)
+    .filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const wrap = document.createElement('span');
+  wrap.className = 'medallion';
+  wrap.style.setProperty('--m', `${size}px`);
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute('aria-label', [identity.name, identity.archetype, identity.factionTemplate].filter(Boolean).join(', ') || 'Character');
+  const face = document.createElement('span');
+  face.className = 'medallion-face';
+  face.setAttribute('aria-hidden', 'true');
+  face.textContent = initials;
+  wrap.append(face);
+  const badge = (svg, cls) => { const b = document.createElement('span'); b.className = `medallion-badge ${cls}`; b.setAttribute('aria-hidden', 'true'); b.append(svg); return b; };
+  const bs = Math.round(size * 0.42);
+  if (identity.archetype) wrap.append(badge(archetypeCrest(identity.archetype, identity.archetype, bs), 'arch'));
+  if (identity.factionTemplate) wrap.append(badge(factionCrest(identity.factionTemplate, identity.factionTemplate, bs), 'fac'));
+  return wrap;
+}

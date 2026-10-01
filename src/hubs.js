@@ -44,7 +44,7 @@ function sceneIntro(rerender) {
       el('button', { class: 'btn', onclick: () => { const c = activeCharacter(); if (c) openRollDialog(c, rerender); } }, icon('d20', { size: 18 }), ' Roll a test'),
       el('button', { class: 'btn secondary', onclick: go('tasks') }, 'Start a task'),
       el('button', { class: 'btn secondary', onclick: go('conflict') }, 'Start a conflict')),
-    el('button', { class: 'link-btn small', onclick: () => { Settings.set('sceneIntroDone', true); rerender(); } }, 'Got it — hide this'));
+    el('button', { class: 'chip', onclick: () => { Settings.set('sceneIntroDone', true); rerender(); } }, icon('check', { size: 14 }), 'Got it — hide this'));
 }
 
 export function renderTaskSeg(root, rerender) {
@@ -64,12 +64,13 @@ export function renderMore(root) {
         el('span', { class: 'more-ico' }, icon(ico, { size: 22 })),
         el('span', { class: 'more-text' }, el('strong', {}, title), el('span', { class: 'small muted' }, desc)),
         el('span', { class: 'more-chev', 'aria-hidden': 'true' }, '›')));
-  root.append(el('section', { class: 'card' },
-    el('h2', {}, 'More'),
+  root.append(el('section', { class: 'card more-card' },
     el('ul', { class: 'more-list' },
       Settings.greatGame() ? row('#/house', 'house', 'House', 'Run your House’s yearly session') : null,
       Settings.gmScreen() ? row('#/gm', 'gm', 'GM screen', 'Threat, party peek, tables, NPCs') : null,
-      row('#/settings', 'settings', 'Settings', 'Toggles, theme, campaign, backup'))));
+      row('#/settings', 'settings', 'Settings', 'Toggles, theme, campaign, backup'),
+      row('#/play', 'play', 'How to play', 'Start, sustain and end a game well'),
+      row('#/rules', 'rules', 'Rules library', 'Search any rule'))));
 }
 
 // ---------- Floating d20 Roll button (Character + Table tabs) ----------
@@ -79,10 +80,20 @@ let rollFab = null;
 export function syncRollFab(tab, rerender) {
   if (!rollFab) {
     rollFab = el('button', { class: 'fab roll-fab', 'aria-label': 'Roll a test', title: 'Roll a test' },
-      icon('d20', { size: 28 }));
+      icon('d20', { size: 26 }), el('span', { class: 'fab-label', 'aria-hidden': 'true' }, 'Roll'));
     document.body.append(rollFab);
+    // Audit 2: an extended "Roll" pill at rest; it shrinks to a small d20 while you scroll down
+    // (so it never sits on the control you're reaching for) and grows back on scroll up / at the top.
+    let lastY = window.scrollY;
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) < 6) return;
+      rollFab.classList.toggle('mini', y > lastY && y > 80);
+      lastY = y;
+    }, { passive: true });
   }
   const c = activeCharacter();
   rollFab.hidden = !(c && (tab === 'sheet' || tab === 'table'));
+  rollFab.classList.remove('mini');
   rollFab.onclick = () => { const cur = activeCharacter(); if (cur) openRollDialog(cur, rerender); };
 }

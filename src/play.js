@@ -233,15 +233,14 @@ function phaseCard(phase) {
 function build(root) {
   const g = HELP.playGuide;
   root.append(
-    el('section', { class: 'card' },
-      el('h2', {}, 'How to play'),
-      el('p', { class: 'small muted' }, g.intro),
-      el('div', { class: 'cta-row' },
-        el('button', { class: 'btn secondary', onclick: async () => {
-          if (!await confirmModal('Clear the ticks on this guide? Nothing else is affected.', { okLabel: 'Reset' })) return;
-          Settings.resetPlayGuide(); showToast('Guide reset'); refresh();
-        } }, 'Reset my progress'))),
+    el('p', { class: 'screen-lead small muted' }, g.intro),
     ...g.phases.map(phaseCard),
+    // Audit 2: Reset is a quiet chip at the foot, not a button competing with the guide.
+    el('div', { class: 'foot-actions' },
+      el('button', { class: 'chip', onclick: async () => {
+        if (!await confirmModal('Clear the ticks on this guide? Nothing else is affected.', { okLabel: 'Reset' })) return;
+        Settings.resetPlayGuide(); showToast('Guide reset'); refresh();
+      } }, icon('undo', { size: 14 }), 'Reset my progress')),
   );
 }
 

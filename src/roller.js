@@ -62,6 +62,21 @@ function successRing(successes, diff, passed) {
   return wrap;
 }
 
+/** Pre-roll preview (audit 2): blank d20s for the pool and a 1–20 face gauge. Decorative. */
+export function rollPreview({ base, bought, tn, critTo, compFrom }) {
+  const dice = el('div', { class: 'dice-row preview-row' },
+    ...Array.from({ length: base + bought }, (_, i) => el('span', { class: 'die blank' + (i >= base ? ' bought' : '') }, '')));
+  const zone = (f) => f >= compFrom ? 'comp' : f <= critTo && f <= tn ? 'crit' : f <= tn ? 'hit' : 'miss';
+  const faces = Array.from({ length: 20 }, (_, i) => i + 1);
+  return el('div', { class: 'roll-preview', 'aria-hidden': 'true' },
+    dice,
+    el('div', { class: 'tn-gauge' }, ...faces.map((f) => el('span', { class: 'tn-face ' + zone(f) },
+      (f === 1 || f === tn || f === compFrom || f === 20 || (f === critTo && critTo > 1)) ? String(f) : ''))),
+    el('div', { class: 'tn-legend small muted' },
+      el('span', {}, el('i', { class: 'crit' }), 'Crit (2)'), el('span', {}, el('i', { class: 'hit' }), 'Success'),
+      el('span', {}, el('i', { class: 'miss' }), 'Miss'), el('span', {}, el('i', { class: 'comp' }), 'Complication')));
+}
+
 export function evaluateDice(values, { tn, skillRating, focus, complicationThreshold = 20 }) {
   return values.map((v) => {
     const success = v <= tn;
@@ -468,6 +483,9 @@ export function openRollDialog(character, onDone = null) {
           el('span', { class: 'field-hint' }, driveTag(cfg.drive)))),
       el('p', {}, el('span', { class: 'pill' }, `Target number ${tn()}`),
         el('span', { class: 'pill' }, `${BASE_DICE + cfg.bought} dice`)),
+      // Audit 2: what you're about to roll — the pool as blank d20s (bought dice tinted) and a
+      // 1–20 gauge marking crit / success / miss / complication faces. Same facts as the pills.
+      rollPreview({ base: BASE_DICE, bought: cfg.bought, tn: tn(), critTo: cfg.focus ? skillRating() : 1, compFrom: compThreshold() }),
       cfg.opposed.on
         ? el('p', { class: 'small muted' }, 'Opposed test — the defender’s successes set the Difficulty.')
         : el('div', { class: 'field' }, el('span', {}, 'Difficulty'), diffSel),
@@ -589,7 +607,7 @@ export function openRollDialog(character, onDone = null) {
       anyReroll ? el('p', { class: 'small muted' }, canReRoll
         ? `Tap dice to select, then re-roll (1 Determination each, ${detLeft} left${freeRerolls.length ? '; or a free talent re-roll' : ''}).`
         : 'Tap one die to select, then use a free talent re-roll below.') : null,
-      el('div', { class: 'modal-actions' },
+      el('div', { class: 'modal-actions result-actions' },
         canReRoll ? el('button', { class: 'btn secondary', onclick: () => {
           if (!selected.size) { showToast('Select at least one die to re-roll.'); return; }
           for (const i of selected) result.values[i] = rollD20s(1)[0];
@@ -603,7 +621,7 @@ export function openRollDialog(character, onDone = null) {
           result.talentRerolls.add(idx);
           render();
         } }, `Re-roll one · ${def.name}${t.skill ? ` (${SKILLS.find((s) => s.id === t.skill)?.name})` : ''}`)),
-        el('button', { class: 'btn', onclick: () => commit({ successes, complications, passed, momentum, opposedShortfall, predictions, assistSuccesses, succeedAtCost: sacOn }) }, 'Apply result')),
+        el('button', { class: 'btn apply-btn', onclick: () => commit({ successes, complications, passed, momentum, opposedShortfall, predictions, assistSuccesses, succeedAtCost: sacOn }) }, 'Apply result')),
     );
     // Roll feel (round 2 #6): bring the verdict into view and buzz once per new set of dice
     // (a re-roll buzzes again; toggling options on the same dice does not).

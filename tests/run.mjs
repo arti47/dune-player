@@ -1365,7 +1365,7 @@ console.log('— Visual layer: icons, dice, meters, fonts —');
     /'\.\/src\/icons\.js'/.test(src('service-worker.js')));
   check('d20 dice + pip meters styled', /\.die \{[^}]*clip-path/.test(css) && /\.pip\.on/.test(css));
   check('all motion disabled under prefers-reduced-motion', /prefers-reduced-motion: reduce[^}]*animation: none !important/.test(css));
-  check('meters used on pools, stats and chaos', /pips\(pools\.momentum/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /pips-chaos/.test(src('src/journal.js')));
+  check('meters used on pools, stats and chaos', /pips\(Math\.min\(d\.value, d\.max\)/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /dial\(j\.chaos/.test(src('src/journal.js')));
 }
 
 console.log('— Faction + archetype crests —');
@@ -1385,7 +1385,7 @@ console.log('— Faction + archetype crests —');
     /domainCrest\(d\.id/.test(readFileSync(join(root, 'src/house.js'), 'utf8')));
   const wz = readFileSync(join(root, 'src/wizard.js'), 'utf8');
   check('crests shown in the wizard and on the sheet', /factionCrest\(f\.id/.test(wz) && /archetypeCrest\(a\.id/.test(wz) &&
-    /archetypeCrest\(id\.archetype/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')) &&
+    /medallion\(id, 60\)/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')) && /archetypeCrest\(identity\.archetype/.test(readFileSync(join(root, 'src/crests.js'), 'utf8')) &&
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
@@ -1460,7 +1460,7 @@ console.log('— House banners —');
       return GG.landsraadHouses.every((h) => res.some((re) => re.test(String(h.crest).toLowerCase()))); })());
   check('banner on the Home House card and the House tab header',
     /houseBanner\(house, 22\)/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
-    /houseBanner\(house, 72\)/.test(readFileSync(join(root, 'src/house.js'), 'utf8')) &&
+    /houseBanner\(house, 88\)/.test(readFileSync(join(root, 'src/house.js'), 'utf8')) &&
     /'\.\/src\/banner\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
   check('crest lookup is case-insensitive (example-House domains are capitalised)',
     /k\.toLowerCase\(\) === String\(id/.test(readFileSync(join(root, 'src/crests.js'), 'utf8')));
@@ -1541,8 +1541,8 @@ console.log('— Novice guidance: help on every surface —');
     HELP.glossary.every(([, meaning]) => meaning.length > 15));
   const src = (f) => readFileSync(join(root, f), 'utf8');
   const wired = [
-    ['src/sheet.js', ["help('pools'", "help('sheet'", "help('advancement')", "help('rollLog')"]],
-    ['src/combat.js', ["help('lifecycle')", "help('tasks')", "help('conflict')", "help('defeat')"]],
+    ['src/sheet.js', ["HELP.pools", "help('sheet'", "help('advancement')", "help('rollLog')"]],
+    ['src/combat.js', ["help('lifecycle')", "help('tasks')", "help('conflict')", "HELP.defeat"]],
     ['src/roller.js', ["help('roller'"]],
     ['src/house.js', ["help('house')"]],
     ['src/gm.js', ["help('gm')"]],
@@ -1627,7 +1627,7 @@ console.log('— Journal (solo-play log; store + gating) —');
   })());
   check('S3: pools header shown in the Journal, re-rendering the Journal not the Sheet',
     /poolsHeader\(c, draw\)/.test(js2) &&
-    /export function poolsHeader\(current, onChange = refresh\)/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')));
+    /export function poolsHeader\(current, onChange = refresh, \{ threatFirst = false \} = \{\}\)/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')));
   check('S5: GM material (hooks + NPC compendium) reusable outside the GM screen',
     /export function hookCard/.test(readFileSync(join(root, 'src/gm.js'), 'utf8')) &&
     /export function npcCard/.test(readFileSync(join(root, 'src/gm.js'), 'utf8')) &&
@@ -1690,7 +1690,7 @@ console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dia
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
   check('Home leads with the active character + pools when one exists',
-    /homeHero\(current, chars\.length, rerender\)/.test(sc) && /poolChips\(current, rerender\)/.test(sc));
+    /homeHero\(current, chars\.length, rerender\)/.test(sc) && /poolsHeader\(current, rerender\)/.test(sc));
   check('Home quick actions: Open sheet · End scene (shared lifecycle) · Journal (gated)',
     /' Roll a test'/.test(sc) && /'Sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*tile\('scroll', 'Journal'/.test(sc));
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
@@ -1752,7 +1752,7 @@ console.log('\n— UI round 2 · #2 Conflict tracker as fighter cards —');
 {
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
   check('banner names the acting side', /class: 'conflict-acting' \}, `\$\{SIDE_NAME\[conflict\.currentSide\]\} to act`/.test(cb));
-  check('sides are cards; the acting side is marked', /'card side-card' \+ \(side === conflict\.currentSide \? ' acting' : ''\)/.test(cb));
+  check('sides are cards; the acting side is marked', /`card side-card side-\$\{side\}` \+ \(side === conflict\.currentSide \? ' acting' : ''\)/.test(cb));
   check('fighter card: Attack + Take turn + Keep up front', /class: 'fighter-actions'/.test(cb) && /attackDialog\(c\)/.test(cb) && /takeTurnWithCost\(c, keepBox\.checked\)/.test(cb));
   check('secondary actions in a ⋯ sheet (hit, requirement, extra action, remove)', /const moreSheet = \(\) =>/.test(cb) && /\{ sheet: true \}/.test(cb) && /'Remove from conflict'/.test(cb) && /Extra action \(1 Determination\)/.test(cb));
   check('defeat shown as a bar on every fighter', /class: 'fighter-track'/.test(cb));
@@ -1858,11 +1858,46 @@ console.log('\n— Home overhaul: session dashboard + first-run choices —');
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
   check('welcome: two big choices (Play now / Build my own) + quiet links', /choice\('star', 'Play now'/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
-  check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /class: 'pool-chip'/.test(sc) && /sheet: true/.test(sc) && /DATA\.momentumRules\.cap/.test(sc) && /DATA\.determination\.cap/.test(sc));
+  { const shp = readFileSync(join(root, 'src/sheet.js'), 'utf8');
+  check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /pool-chip pool-/.test(shp) && /sheet: true/.test(shp) && /DATA\.momentumRules\.cap/.test(shp) && /DATA\.determination\.cap/.test(shp)); }
   check('live tiles: conflict, tasks, last roll, House, journal/solo, rules', ['Conflict', 'Tasks', 'Last roll', 'House', 'Rules'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
   check('old explanation cards gone', !/function soloCard/.test(sc) && !/function firstRunCard/.test(sc) && !/function houseCard/.test(sc));
   const { HELP } = await import(join(root, 'data-help.js'));
   check('first-run copy in data-help', !!(HELP.home && HELP.home.welcome && HELP.home.playNow && HELP.home.buildOwn));
+}
+
+console.log('\n— Audit 2: UX/UI + visual polish —');
+{
+  const R = (f) => readFileSync(join(root, f), 'utf8');
+  const css = R('styles.css');
+  check('app bar shows the screen name + a "?" slot; router sets both', /id="app-screen"/.test(R('index.html')) && /id="app-help"/.test(R('index.html')) &&
+    /setAppHelp\(null\)/.test(R('src/router.js')) && /qs\('#app-screen'\)/.test(R('src/router.js')) && /export function setAppHelp/.test(R('src/help.js')));
+  check('title cards gone from Rules/GM/How to play/More/Journal/Settings', !/'Rules library'\), help\('rules'\)/.test(R('src/screens.js')) &&
+    !/'GM Screen'/.test(R('src/gm.js')) && !/el\('h2', \{\}, 'How to play'\)/.test(R('src/play.js')) && !/el\('h2', \{\}, 'More'\)/.test(R('src/hubs.js')) &&
+    !/el\('h2', \{\}, 'Journal'\)/.test(R('src/journal.js')) && !/el\('h2', \{\}, 'Settings'\)/.test(R('src/screens.js')));
+  check('pool chips everywhere (Home, Character, Table, Journal, GM threat-first)', /poolsHeader\(current, rerender\)/.test(R('src/screens.js')) &&
+    /poolsHeader\(null, refresh, \{ threatFirst: true \}\)/.test(R('src/gm.js')) && !/class: 'pools-bar'/.test(R('src/sheet.js') + R('src/gm.js')));
+  check('Roll FAB: pill at rest, shrinks while scrolling down', /classList\.toggle\('mini'/.test(R('src/hubs.js')) && /\.roll-fab\.mini/.test(css));
+  check('3-tier buttons: outlined secondary, outlined destructive (filled only in dialog actions), chips', /\.btn\.secondary \{\s*background: transparent/.test(css) &&
+    /\.modal-actions \.btn\.danger-btn/.test(css) && /export function actionChip/.test(R('src/ui.js')));
+  check('no underlined text-link actions left on the sheet, journal or conflict', !/class: 'link-btn/.test(R('src/sheet.js') + R('src/journal.js') + R('src/combat.js')));
+  check('assets: compact row, Quality badge, rider folds', /class: 'q-badge'/.test(R('src/sheet.js')) && /class: 'asset-rider'/.test(R('src/sheet.js')));
+  check('defeat block folds when idle; formula moved into the help sheet', /class: 'defeat-block'/.test(R('src/combat.js')) && /d\.open = live/.test(R('src/combat.js')));
+  check('roll dialog: dice preview + 1–20 face gauge; result actions in a grid', /rollPreview\(\{ base: BASE_DICE/.test(R('src/roller.js')) && /result-actions/.test(R('src/roller.js')) && /\.tn-gauge/.test(css));
+  check('verdict text white on darkened fills (contrast in both themes)', /\.roll-verdict \{ color: #fff; \}/.test(css));
+  check('conflict: End conflict in a ⋯ sheet, Next round primary, side colours, VS, zone strip', /const headMore = \(\) =>/.test(R('src/combat.js')) &&
+    /class: 'conflict-vs'/.test(R('src/combat.js')) && /class: 'zone-strip'/.test(R('src/combat.js')) && /--side-b/.test(css));
+  check('sandworm task bar: worm segments per requirement point', /class: 'task-bar worm', style: `--seg:/.test(R('src/combat.js')) && /\.task-bar\.worm/.test(css));
+  check('House hero + status meter; options sheet holds steppers + load/delete', /class: 'card house-hero'/.test(R('src/house.js')) && /const optionsSheet = \(\) =>/.test(R('src/house.js')) && /pips-status/.test(R('src/house.js')));
+  check('GM party as cards with medallions', /class: 'party-card'/.test(R('src/gm.js')) && /medallion\(c\.identity, 40\)/.test(R('src/gm.js')));
+  check('How to play: no strikethrough; Reset is a foot chip', /\.play-step\.done \.play-title \{ text-decoration: none/.test(css) && /class: 'foot-actions'/.test(R('src/play.js')));
+  check('rules groups carry colour bands + icons', /g-\$\{slug\(g\.name\)\}/.test(R('src/screens.js')) && /\.g-rule-house/.test(css));
+  check('graphics: medallion, radar compass, chaos dial, scene empty states', /export function medallion/.test(R('src/crests.js')) &&
+    /export function radar/.test(R('src/icons.js')) && /export function dial/.test(R('src/icons.js')) && /empty-medal/.test(R('src/icons.js')) && /class: 'radar-pair'/.test(R('src/sheet.js')));
+  check('backdrop: layered dunes + sand grain; dark horizon glow', /--grain:/.test(css) && /body::after \{ content: ""/.test(css) && /rgba\(224, 123, 57, \.14\)/.test(css));
+  check('dice: crit burst + complication crack + readable misses', /@keyframes crit-pulse/.test(css) && /@keyframes comp-shake/.test(css) && /\.die\.miss \{ opacity: 1/.test(css));
+  check('tabular numbers on counters', /font-variant-numeric: tabular-nums/.test(css));
+  check('new app icon (night sky, moons, d20) + splash colours', /linearGradient id="sky"/.test(R('icon.svg')) && /"background_color": "#1b140d"/.test(R('manifest.json')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

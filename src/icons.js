@@ -46,6 +46,12 @@ const PATHS = {
   group: '<circle cx="9" cy="8.5" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3.5 19.5c.6-3.4 2.8-5.3 5.5-5.3s4.9 1.9 5.5 5.3M14.5 14.5c2.6-.6 5.2.8 6 4.5"/>',
   up: '<path d="M12 20.5V4.5M6 10.5l6-6 6 6"/>',
   flag: '<path d="M5.5 21V3.5"/><path d="M5.5 4h12l-3 4 3 4h-12"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pencil: '<path d="M15.5 4.5 19.5 8.5 8.5 19.5H4.5v-4z"/><path d="M13 7l4 4"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  undo: '<path d="M8.5 5 4 9.5 8.5 14"/><path d="M4 9.5h10a5.5 5.5 0 0 1 0 11h-3"/>',
+  trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/>',
+  download: '<path d="M12 3.5v11M7 10l5 5 5-5"/><path d="M4.5 19.5h15"/>',
   worm: '<path d="M3.5 18c0-4 3-6 6.5-6s4.5-1.5 4.5-4 2-4 4.5-4"/><path d="M3.5 18c2 0 3 1.5 3 2.5M19 4c1.4.5 1.5 2 1 3"/><circle cx="18.2" cy="5.2" r=".8" fill="currentColor"/>',
 };
 
@@ -69,11 +75,19 @@ export function icon(name, { size = 20, label = null, cls = '' } = {}) {
 
 export const ICON_NAMES = Object.keys(PATHS);
 
-/** A small illustrated empty state: big faint icon + a line of text. */
+/** An illustrated empty state (audit 2: a small scene — the icon set in a medallion over a dune
+ *  horizon, drawn in CSS) + a line of text. */
 export function emptyState(name, text) {
   const wrap = document.createElement('div');
   wrap.className = 'empty-state';
-  wrap.append(icon(name, { size: 40 }));
+  const art = document.createElement('div');
+  art.className = 'empty-art';
+  art.setAttribute('aria-hidden', 'true');
+  const medal = document.createElement('span');
+  medal.className = 'empty-medal';
+  medal.append(icon(name, { size: 30 }));
+  art.append(medal);
+  wrap.append(art);
   const p = document.createElement('p');
   p.className = 'small muted';
   p.textContent = text;
@@ -96,4 +110,65 @@ export function pips(value, max, { label = '', cls = '' } = {}) {
     wrap.append(p);
   }
   return wrap;
+}
+
+/** Radar / compass chart (audit 2): `axes` = [{ label, value }] on a 4–8 scale, drawn as a
+ *  ringed pentagon with the character's shape filled in. Decorative — the numbers sit beside it. */
+export function radar(axes, { size = 150, min = 2, max = 8, cls = '', title = '' } = {}) {
+  // Wider than tall: room for full axis names left and right of the pentagon.
+  const W = size + 84, cx = W / 2, c = size / 2 + 4, r = size / 2 - 22, n = axes.length;
+  const pt = (i, f) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    return [cx + Math.cos(a) * r * f, c + Math.sin(a) * r * f];
+  };
+  const ring = (f) => axes.map((_, i) => pt(i, f).map((v) => v.toFixed(1)).join(',')).join(' ');
+  const frac = (v) => Math.max(0, Math.min(1, (v - min) / (max - min)));
+  const shape = axes.map((a, i) => pt(i, frac(a.value)).map((v) => v.toFixed(1)).join(',')).join(' ');
+  const labels = axes.map((a, i) => {
+    const [x, y] = pt(i, 1.24);
+    const anchor = Math.abs(x - cx) < 4 ? 'middle' : x < cx ? 'end' : 'start';
+    const esc = String(a.label).replace(/[<&]/g, '');
+    return `<text x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="${anchor}" class="radar-label">${esc}</text>`;
+  }).join('');
+  const dots = axes.map((a, i) => { const [x, y] = pt(i, frac(a.value)); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" class="radar-dot"/>`; }).join('');
+  const spokes = axes.map((_, i) => { const [x, y] = pt(i, 1); return `<path d="M${cx} ${c}L${x.toFixed(1)} ${y.toFixed(1)}"/>`; }).join('');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${size + 8}`);
+  svg.setAttribute('width', String(W));
+  svg.setAttribute('height', String(size + 8));
+  svg.setAttribute('class', ('radar ' + cls).trim());
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = `<g class="radar-grid"><polygon points="${ring(1)}"/><polygon points="${ring(2 / 3)}"/><polygon points="${ring(1 / 3)}"/>${spokes}</g>`
+    + `<polygon points="${shape}" class="radar-shape"/>${dots}${labels}`
+    + (title ? `<text x="${cx}" y="${c + 4}" text-anchor="middle" class="radar-title">${title.replace(/[<&]/g, '')}</text>` : '');
+  return svg;
+}
+
+/** Semicircle dial (audit 2: Chaos Factor) — `value` of `min…max`, ticks cool → hot, a needle and
+ *  the number in the hub. A labelled meter. */
+export function dial(value, { min = 1, max = 9, label = '', caption = '' } = {}) {
+  const n = max - min + 1, cx = 60, cy = 58, r = 46;
+  const ang = (v) => Math.PI + ((v - min) / (max - min)) * Math.PI;
+  const ticks = Array.from({ length: n }, (_, i) => {
+    const v = min + i, a = ang(v), heat = i < n / 3 ? 'cool' : i < (2 * n) / 3 ? 'warm' : 'hot';
+    const x1 = cx + Math.cos(a) * (r - 9), y1 = cy + Math.sin(a) * (r - 9), x2 = cx + Math.cos(a) * r, y2 = cy + Math.sin(a) * r;
+    return `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}" class="dial-tick ${heat}${v <= value ? ' on' : ''}"/>`;
+  }).join('');
+  const a = ang(Math.max(min, Math.min(max, value)));
+  const nx = cx + Math.cos(a) * (r - 14), ny = cy + Math.sin(a) * (r - 14);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 120 70');
+  svg.setAttribute('width', '120');
+  svg.setAttribute('height', '70');
+  svg.setAttribute('class', 'dial');
+  svg.setAttribute('role', 'meter');
+  svg.setAttribute('aria-valuemin', String(min));
+  svg.setAttribute('aria-valuemax', String(max));
+  svg.setAttribute('aria-valuenow', String(value));
+  if (label) svg.setAttribute('aria-label', label);
+  svg.innerHTML = `<path d="M${cx - r} ${cy}A${r} ${r} 0 0 1 ${cx + r} ${cy}" class="dial-arc"/>${ticks}`
+    + `<path d="M${cx} ${cy}L${nx.toFixed(1)} ${ny.toFixed(1)}" class="dial-needle"/><circle cx="${cx}" cy="${cy}" r="11" class="dial-hub"/>`
+    + `<text x="${cx}" y="${cy + 4.5}" text-anchor="middle" class="dial-num">${value}</text>`
+    + (caption ? `<text x="${cx}" y="${cy - 22}" text-anchor="middle" class="dial-cap">${caption.replace(/[<&]/g, '')}</text>` : '');
+  return svg;
 }

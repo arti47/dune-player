@@ -3,7 +3,10 @@
 // enemy generator). All read already-extracted data — no new rules content here.
 
 import { el, capitalize, d20 } from './core.js';
-import { help } from './help.js';
+import { help, setAppHelp } from './help.js';
+import { pips } from './icons.js';
+import { medallion } from './crests.js';
+import { poolsHeader } from './sheet.js';
 import { Settings } from './settings.js';
 import { getPools, savePools, listCharacters } from './store.js';
 import { confirmModal, showToast } from './ui.js';
@@ -27,19 +30,13 @@ export function rowForRoll(rows, roll) {
 let mountRoot = null;
 function refresh() { if (mountRoot) { mountRoot.replaceChildren(); renderGM(mountRoot); } }
 
-function stepper(value, onChange, { min = 0, max = 999, label = '' } = {}) {
-  const dec = el('button', { class: 'step-btn', 'aria-label': `Decrease ${label}`, onclick: () => onChange(Math.max(min, value - 1)) }, '−');
-  const inc = el('button', { class: 'step-btn', 'aria-label': `Increase ${label}`, onclick: () => onChange(Math.min(max, value + 1)) }, '+');
-  if (value <= min) dec.disabled = true;
-  return el('div', { class: 'stepper' }, dec, el('span', { class: 'stat-val' }, String(value)), inc);
-}
-
 export function renderGM(root) {
   mountRoot = root;
+  setAppHelp(help('gm'));
   root.append(...[
-    el('section', { class: 'card' }, el('h2', {}, 'GM Screen'),
-      help('gm'),
-      el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.')),
+    el('p', { class: 'screen-lead small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.'),
+    // Audit 2: the same pool chips as every in-play screen, Threat first for the GM.
+    poolsHeader(null, refresh, { threatFirst: true }),
     threatCard(),
     partyCard(),
     hookCard(),
@@ -69,16 +66,10 @@ function planetCard() {
 
 // ---------- Threat pool ----------
 function threatCard() {
-  const pools = getPools();
   const players = Math.max(1, listCharacters().length);
   const seed = players * DATA.threat.perPlayer;
   return el('section', { class: 'card' },
-    el('h3', {}, 'Pools'),
-    el('div', { class: 'pools-bar' },
-      el('div', { class: 'pool-cell' }, el('span', { class: 'pool-name' }, 'Threat'),
-        stepper(pools.threat, (v) => { savePools({ ...pools, threat: v }); refresh(); }, { min: 0, label: 'Threat' })),
-      el('div', { class: 'pool-cell' }, el('span', { class: 'pool-name' }, 'Momentum'),
-        stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: Math.min(DATA.momentumRules.cap, v) }); refresh(); }, { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' }))),
+    el('h3', {}, 'Starting Threat'),
     // Seed the adventure's starting Threat (§3.1: ~2 per player; House type may override).
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
@@ -89,19 +80,33 @@ function threatCard() {
 }
 
 // ---------- Party peek ----------
+// Audit 2: each character is a small card — medallion, name, archetype, Determination pips,
+// skill bars and defeat state; tap to open drives, traits and statements.
 function partyCard() {
   const chars = listCharacters();
+  const card = (c) => {
+    const st = c.state || {};
+    const track = st.defeatTrack || { req: 0, progress: 0 };
+    return el('details', { class: 'party-card' + (st.defeated ? ' defeated' : '') },
+      el('summary', {},
+        medallion(c.identity, 40),
+        el('span', { class: 'party-id' },
+          el('strong', {}, c.identity.name || 'Unnamed'),
+          el('span', { class: 'small muted' }, [c.identity.archetype, c.identity.factionTemplate].filter(Boolean).map(capitalize).join(' · ') || '—')),
+        el('span', { class: 'party-det', title: `Determination ${c.determination}` },
+          pips(c.determination, DATA.determination.cap, { label: `Determination ${c.determination}`, cls: 'pips-det' }),
+          st.defeated ? el('span', { class: 'tag danger-tag' }, 'defeated') : track.progress ? el('span', { class: 'tag num' }, `${track.progress}/${track.req}`) : null)),
+      el('div', { class: 'party-skills' }, ...SKILL.map((s) => el('div', { class: 'party-skill' },
+        el('span', { class: 'small muted' }, s.name.slice(0, 3)), el('strong', { class: 'num' }, String(c.skills[s.id])),
+        pips(Math.max(0, Math.min(5, c.skills[s.id] - 3)), 5, { cls: 'pips-stat' })))),
+      el('p', { class: 'small' }, el('strong', {}, 'Drives: '), Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((id) => `${driveName(id)} ${c.drives[id]}`).join(' · ')),
+      (c.traits || []).length ? el('p', { class: 'small muted' }, 'Traits: ' + c.traits.map((t) => t.name).join(', ')) : null,
+      Object.keys(c.driveStatements || {}).length
+        ? el('p', { class: 'small muted' }, 'Statements: ' + Object.entries(c.driveStatements).map(([d, s]) => `${capitalize(d)}${s.challenged ? ' (challenged)' : ''}`).join(', ')) : null);
+  };
   return el('section', { class: 'card' },
     el('h3', {}, `Party (${chars.length})`),
-    chars.length
-      ? el('div', {}, ...chars.map((c) => el('details', { class: 'tips' },
-          el('summary', {}, `${c.identity.name || 'Unnamed'}${c.state?.defeated ? ' · DEFEATED' : ''} — Det ${c.determination}`),
-          el('p', { class: 'small' }, el('strong', {}, 'Skills: '), SKILL.map((s) => `${s.name.slice(0, 3)} ${c.skills[s.id]}`).join(' · ')),
-          el('p', { class: 'small' }, el('strong', {}, 'Drives: '), Object.keys(c.drives).sort((a, b) => c.drives[b] - c.drives[a]).map((id) => `${driveName(id).slice(0, 3)} ${c.drives[id]}`).join(' · ')),
-          (c.traits || []).length ? el('p', { class: 'small muted' }, 'Traits: ' + c.traits.map((t) => t.name).join(', ')) : null,
-          Object.keys(c.driveStatements || {}).length
-            ? el('p', { class: 'small muted' }, 'Statements: ' + Object.entries(c.driveStatements).map(([d, s]) => `${capitalize(d)}${s.challenged ? ' (challenged)' : ''}`).join(', ')) : null)))
-      : el('p', { class: 'small muted' }, 'No characters yet.'));
+    chars.length ? el('div', { class: 'party-grid' }, ...chars.map(card)) : el('p', { class: 'small muted' }, 'No characters yet.'));
 }
 
 // ---------- Story Hook Generator (§3.16) ----------

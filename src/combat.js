@@ -9,14 +9,14 @@
 // Both apply immediately with a summary + one-step Undo (snapshot/restore).
 
 import { el, uid, d20 } from './core.js';
-import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
+import { modal, showToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
 import { HELP } from '../data-help.js';
 import {
   getPools, savePools, listCharacters, currentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
-import { help } from './help.js';
+import { help, helpFrom } from './help.js';
 import { icon, emptyState } from './icons.js';
 import { expansionNpcs, driveName } from './content.js';
 import { evaluateDice } from './roller.js';
@@ -220,11 +220,17 @@ function taskRow(task, onChange) {
   const pct = Math.min(100, Math.round((task.progress / Math.max(1, task.requirement)) * 100));
   return el('li', { class: 'task-item' + (done ? ' done' : '') },
     el('div', { class: 'task-head' },
+      el('span', { class: 'task-ico' }, icon(/sandworm/i.test(task.name) ? 'worm' : 'hourglass', { size: 18 })),
       el('strong', {}, task.name),
       done ? el('span', { class: 'tag' }, 'complete') : null,
-      el('button', { class: 'pill-x', 'aria-label': `Delete ${task.name}`,
-        onclick: () => { saveTasks(getTasks().filter((t) => t.id !== task.id)); onChange && onChange(); } }, '×')),
-    el('div', { class: 'task-bar' }, el('div', { class: 'task-fill', style: `width:${pct}%` })),
+      el('button', { class: 'chip chip-icon', 'aria-label': `Delete ${task.name}`, title: 'Delete',
+        onclick: () => {
+          const before = getTasks(); saveTasks(before.filter((t) => t.id !== task.id)); onChange && onChange();
+          undoToast(`Deleted ${task.name}`, () => { saveTasks(before); onChange && onChange(); });
+        } }, icon('trash', { size: 14 }))),
+    // Audit 2: the track is drawn as worm segments — one per point of the requirement (max 20).
+    el('div', { class: 'task-bar worm', style: `--seg:${Math.min(20, Math.max(1, task.requirement))}` },
+      el('div', { class: 'task-fill', style: `width:${pct}%` })),
     el('div', { class: 'task-foot' },
       el('span', { class: 'small muted' }, `${task.progress} / ${task.requirement}`),
       el('button', { class: 'btn small secondary', onclick: () => recordSuccessDialog(task, onChange) }, 'Record success')));
@@ -323,18 +329,26 @@ export function renderDefeat(character, onChange) {
     guided.push(el('button', { class: 'btn secondary', onclick: () => save({ defeated: false, lastingDefeat: false, stabilized: false, defeatTrack: { ...track, progress: 0 } }) }, 'Clear defeat'));
   }
 
-  return el('div', {},
-    el('h4', {}, 'Defeat & recovery', cite('Defeat & recovery')),
-    help('defeat'),
-    el('p', { class: 'small muted' }, 'Track = defender skill + defensive asset Quality; each hit scores 2 + attacker asset Quality (§3.7).'),
-    el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Requirement'),
-      stepper(track.req, (v) => save({ defeatTrack: { ...track, req: v } }), { min: 0, max: 40, label: 'requirement' })),
-    el('div', { class: 'task-bar defeat-bar' }, el('div', { class: 'task-fill' + (defeated ? ' danger' : ''), style: `width:${Math.min(100, Math.round((track.progress / Math.max(1, track.req)) * 100))}%` })),
+  // Audit 2: just the bar + actions; the formula lives in the "?" sheet. Folds to one line while
+  // nothing is happening (no hits, not defeated), opens itself once the track is in play.
+  const live = defeated || track.progress > 0 || !!st.lastingDefeat;
+  const pct = Math.min(100, Math.round((track.progress / Math.max(1, track.req)) * 100));
+  const d = el('details', { class: 'defeat-block' + (defeated ? ' is-defeated' : '') },
+    el('summary', {},
+      el('h4', {}, icon('shield', { size: 16 }), 'Defeat',
+        el('span', { class: 'defeat-sum num' + (defeated ? ' danger-text' : '') }, `${track.progress} / ${track.req || '—'}${defeated ? ' · DEFEATED' : ''}`),
+        cite('Defeat & recovery')),
+      helpFrom(HELP.defeat, 'How to use', () => el('p', { class: 'small muted' },
+        'Track = defender skill + defensive asset Quality; each hit scores 2 + attacker asset Quality (§3.7).'))),
+    el('div', { class: 'task-bar defeat-bar' }, el('div', { class: 'task-fill' + (defeated ? ' danger' : ''), style: `width:${pct}%` })),
     el('div', { class: 'task-foot' },
-      el('span', { class: 'small muted' + (defeated ? ' danger-text' : '') }, `${track.progress} / ${track.req}${defeated ? ' · DEFEATED' : ''}`),
+      el('span', { class: 'small muted' }, 'Requirement'),
+      stepper(track.req, (v) => save({ defeatTrack: { ...track, req: v } }), { min: 0, max: 40, label: 'requirement' }),
       el('button', { class: 'btn small secondary', onclick: recordHit }, 'Record a hit')),
     st.resistUsedThisScene ? el('p', { class: 'small muted' }, 'Resist Defeat used this scene (resets at End scene).') : null,
     ...guided);
+  d.open = live;
+  return d;
 }
 
 // ---------- Local conflict helper (§3.12) ----------
@@ -449,11 +463,11 @@ export function renderConflict(onChange) {
   // Combatants grouped by side.
   const sideBlock = (side) => {
     const members = conflict.combatants.filter((c) => c.side === side);
-    return el('section', { class: 'card side-card' + (side === conflict.currentSide ? ' acting' : ''), 'aria-label': SIDE_NAME[side] },
+    return el('section', { class: `card side-card side-${side}` + (side === conflict.currentSide ? ' acting' : ''), 'aria-label': SIDE_NAME[side] },
       el('div', { class: 'section-head' },
         el('h3', {}, SIDE_NAME[side], el('span', { class: 'tag' }, String(members.length)),
           side === conflict.currentSide ? el('span', { class: 'tag acting-tag' }, 'to act') : null),
-        el('button', { class: 'link-btn', onclick: () => addCombatantDialog(side) }, '+ Add')),
+        actionChip('plus', 'Add', () => addCombatantDialog(side), { aria: `Add to ${SIDE_NAME[side]}` })),
       members.length
         ? el('ul', { class: 'combatant-list' }, ...members.map((c) => combatantRow(c)))
         : el('p', { class: 'small muted' }, 'Nobody here yet — add a PC or an NPC.'));
@@ -716,24 +730,43 @@ export function renderConflict(onChange) {
     ]);
   }
 
+  // Audit 2: zone strip — a mini map of the zones with a dot per fighter, coloured by side.
+  const zoneStrip = el('div', { class: 'zone-strip', 'aria-hidden': 'true' }, ...conflict.zones.map((z) => {
+    const here = conflict.combatants.filter((c) => c.zoneId === z.id);
+    return el('div', { class: 'zone-cell' },
+      el('span', { class: 'zone-cell-name' }, z.name),
+      el('span', { class: 'zone-dots' }, ...here.map((c) => el('i', { class: `dot side-${c.side}` + (c.defeated ? ' out' : ''), title: c.name }))));
+  }));
+  const headMore = () => {
+    const close = modal([
+      el('h2', {}, 'Conflict'),
+      el('div', { class: 'sheet-actions' },
+        el('button', { class: 'btn secondary danger-btn', onclick: async () => {
+          close();
+          if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) save(null);
+        } }, 'End conflict')),
+      el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
+    ], { sheet: true });
+  };
+
   return el('div', { class: 'conflict-board' },
     el('section', { class: 'card conflict-head' },
-      el('h3', {}, 'Conflict', cite('Conflict turn order')),
-      help('conflict'),
+      el('div', { class: 'section-head' },
+        el('h3', {}, 'Conflict', cite('Conflict turn order')),
+        help('conflict'),
+        el('button', { class: 'more-btn', 'aria-label': 'Conflict options', onclick: headMore }, icon('more', { size: 20 }))),
       header,
+      zoneStrip,
       zonesUI,
       el('div', { class: 'cta-row' },
       // §6: default = the opposing side opens next round; pay 2 to keep the opener on your side.
-      el('button', { class: 'btn secondary', onclick: () => save(nextRound(conflict, false)) }, 'Next round'),
+      el('button', { class: 'btn', onclick: () => save(nextRound(conflict, false)) }, 'Next round'),
       conflict.lastActorId ? el('button', { class: 'btn secondary', onclick: () => {
         const last = conflict.combatants.find((x) => x.id === conflict.lastActorId);
         if (!spendKeepCost(last ? last.npc : false, 'Keep the opener')) return;
         save(nextRound(conflict, true));
-      } }, 'Keep opener (2)') : null,
-      el('button', { class: 'btn secondary danger-btn', onclick: async () => {
-        if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) save(null);
-      } }, 'End conflict'))),
-    el('div', { class: 'conflict-sides' }, sideBlock('a'), sideBlock('b')));
+      } }, 'Keep opener (2)') : null)),
+    el('div', { class: 'conflict-sides' }, sideBlock('a'), el('div', { class: 'conflict-vs', 'aria-hidden': 'true' }, el('span', {}, 'VS')), sideBlock('b')));
 }
 
 function capOf(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }

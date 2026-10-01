@@ -6,7 +6,9 @@
 import { el, rollD20s, clamp } from './core.js';
 import { domainCrest } from './crests.js';
 import { houseBanner } from './banner.js';
-import { help } from './help.js';
+import { help, setAppHelp } from './help.js';
+import { icon, pips } from './icons.js';
+import { DATA } from '../data.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { getHouse, saveHouse, deleteHouse } from './store.js';
 import { normalizeHouse } from './derived.js';
@@ -128,10 +130,10 @@ export function renderHouseManagement(root) {
 }
 
 function build(root, render) {
+  setAppHelp(help('house'));
   if (!Settings.greatGame()) {
     root.append(el('section', { class: 'card' },
       el('h2', {}, 'House management'),
-      help('house'),
       el('p', { class: 'small muted' }, 'The House Management system is part of The Great Game. Enable that toggle in Settings to use it.'),
       el('button', { class: 'btn', onclick: () => goto('settings') }, 'Open Settings')));
     return;
@@ -140,7 +142,6 @@ function build(root, render) {
   if (!house) {
     root.append(el('section', { class: 'card' },
       el('h2', {}, 'House management'),
-      help('house'),
       el('p', { class: 'small muted' }, 'You have no House yet. Create one, or load a ready-made House of the Landsraad to play.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => goto('home') }, 'Create a House'),
@@ -150,7 +151,6 @@ function build(root, render) {
   if (!house.management || !house.management.active) {
     root.append(el('section', { class: 'card' },
       el('div', { class: 'house-head' }, houseBanner(house, 64), el('h2', {}, house.name || 'Your House')),
-      help('house'),
       el('p', { class: 'small muted' }, 'Begin House management to run the yearly session (income, upkeep, ventures) with live Wealth, Resources, and Status.'),
       el('div', { class: 'cta-row' },
         el('button', { class: 'btn', onclick: () => { beginManagement(house); render(); } }, 'Begin House management'),
@@ -212,29 +212,39 @@ function renderTracker(root, house, render) {
       el('span', { class: 'stat-val' }, String(get())),
       el('button', { class: 'step-btn', 'aria-label': `More ${label}`, onclick: () => { set(get() + 1); persist(); } }, '+')));
 
-  // Header
-  root.append(el('section', { class: 'card' },
+  // House hero (audit 2): banner, name, type · year and a 6-step status meter. The pools strip
+  // below is the only place the numbers show; manual edits + load/delete sit in a ⋯ sheet.
+  const typeName = (DATA.houseTypes.find((t) => t.id === (house.type || 'major')) || {}).name || 'House';
+  const lvlIdx = Math.max(0, M.status.levels.findIndex((l) => l.name === lvl.name));
+  const optionsSheet = () => {
+    const close = modal([
+      el('h2', {}, 'House options'),
+      el('p', { class: 'small muted' }, 'Adjust the numbers by hand (GM rulings, events off the tables).'),
+      el('div', { class: 'grid-2' },
+        stepper('Wealth', () => house.wealth || 0, (v) => { house.wealth = v; }, 0),
+        stepper('Resources', () => house.resources || 0, (v) => { house.resources = v; }, 0),
+        stepper('Status', () => mgmt.status, (v) => { mgmt.status = v; }, 0)),
+      el('div', { class: 'sheet-actions' },
+        el('button', { class: 'btn secondary', onclick: () => { close(); openLoadExample(render); } }, 'Load another House'),
+        el('button', { class: 'btn secondary danger-btn', onclick: async () => {
+          close();
+          if (!await confirmModal(`Delete ${house.name || 'this House'}? This removes the House and its management state for everyone on this device.`, { okLabel: 'Delete' })) return;
+          deleteHouse(); showToast('House deleted'); render();
+        } }, 'Delete House')),
+      el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
+    ], { sheet: true, onClose: render });
+  };
+  setAppHelp(help('house'));
+  root.append(el('section', { class: 'card house-hero' },
     el('div', { class: 'house-head' },
-      houseBanner(house, 72),
-      el('div', {},
+      houseBanner(house, 88),
+      el('div', { class: 'house-id' },
+        el('p', { class: 'eyebrow' }, `${typeName} · Year ${p.year}`),
         el('h2', {}, house.name || 'Your House'),
-        el('p', { class: 'small muted' }, `${(house.type || 'major')} House · Year ${p.year}`))),
-    help('house'),
-    el('p', {},
-      el('span', { class: 'pill' }, `Status ${p.status} · ${lvl.name}`),
-      el('span', { class: 'pill' }, `Wealth ${p.wealth}`),
-      el('span', { class: 'pill' }, `Resources ${p.resources}`)),
-    el('p', { class: 'small muted' }, lvl.effect),
-    el('div', { class: 'grid-2' },
-      stepper('Wealth', () => house.wealth || 0, (v) => { house.wealth = v; }, 0),
-      stepper('Resources', () => house.resources || 0, (v) => { house.resources = v; }, 0),
-      stepper('Status', () => mgmt.status, (v) => { mgmt.status = v; }, 0)),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn secondary', onclick: () => openLoadExample(render) }, 'Load another House'),
-      el('button', { class: 'btn danger-btn', onclick: async () => {
-        if (!await confirmModal(`Delete ${house.name || 'this House'}? This removes the House and its management state for everyone on this device.`, { okLabel: 'Delete' })) return;
-        deleteHouse(); showToast('House deleted'); render();
-      } }, 'Delete House'))));
+        el('div', { class: 'status-meter' },
+          pips(lvlIdx + 1, M.status.levels.length, { label: `Status level ${lvl.name}`, cls: 'pips-status' }),
+          el('span', { class: 'small' }, el('strong', {}, lvl.name), ` · Status ${p.status}`)))),
+    el('p', { class: 'small muted' }, lvl.effect)));
 
   // The year as a stepper (UI round 2 #9): one step at a time in the book's order (M.steps).
   const STEPS = M.steps;
@@ -257,7 +267,7 @@ function renderTracker(root, house, render) {
   const body = [stepNews, stepIncome, stepEvent, stepUpkeep, stepVentures, stepEndYear][step]();
   // Pinned pools (phones): stay in view while you work through the steps.
   root.append(el('div', { class: 'house-pools', 'aria-label': 'House pools' },
-    el('span', { class: 'pill' }, `Status ${p.status} · ${lvl.name}`),
+    el('span', { class: 'pill' }, `Status ${p.status}`),
     el('span', { class: 'pill' }, `Wealth ${house.wealth || 0}`),
     el('span', { class: 'pill' }, `Resources ${house.resources || 0}`)));
   root.append(el('section', { class: 'card year-card' },
@@ -269,6 +279,7 @@ function renderTracker(root, house, render) {
     el('div', { class: 'year-nav' },
       el('button', { class: 'btn secondary', disabled: step === 0 ? '' : null, onclick: () => goStep(step - 1) }, 'Back'),
       step < STEPS.length - 1 ? el('button', { class: 'btn', onclick: next }, cur.optional ? 'Next (or skip)' : 'Next') : null)));
+  root.append(el('div', { class: 'foot-actions' }, el('button', { class: 'chip', onclick: optionsSheet }, icon('more', { size: 14 }), 'House options')));
 
   function stepNews() {
     return el('p', { class: 'small' }, 'Talk it through at the table, then tap Next. Rumours can become adventure hooks.');

@@ -13,11 +13,12 @@ import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayNam
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
-import { help } from './help.js';
+import { help, setAppHelp } from './help.js';
 import { icon } from './icons.js';
 import { allTalents } from './content.js';
-import { domainCrest, archetypeCrest, factionCrest } from './crests.js';
+import { domainCrest, archetypeCrest, factionCrest, medallion } from './crests.js';
 import { runLifecycle } from './combat.js';
+import { poolsHeader } from './sheet.js';
 import { houseBanner } from './banner.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
@@ -34,10 +35,11 @@ const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 export function renderHome(root, rerender = () => { root.replaceChildren(); renderHome(root); }) {
   const chars = listCharacters();
   const current = chars.find((c) => c.id === currentCharacterId()) || chars[0] || null;
+  setAppHelp(help('firstRun', 'What do I do here?'));
   if (!current) { root.append(welcome()); return; }
   root.append(...[
     homeHero(current, chars.length, rerender),
-    poolChips(current, rerender),
+    poolsHeader(current, rerender),
     nextUp(current, rerender),
     homeTiles(current, rerender),
   ].filter(Boolean));
@@ -63,7 +65,7 @@ function welcome() {
       choice('star', 'Play now', HELP.home.playNow, openPregenPicker, true),
       choice('person', 'Build my own', HELP.home.buildOwn, startCharacterWizard, false)),
     el('div', { class: 'home-links' }, ...links.map(([label, fn]) => { const b = link(label); b.onclick = fn; return b; })),
-    el('div', { class: 'help-row' }, help('firstRun', 'What do I do here?')));
+    );
 }
 
 function enableSolo() {
@@ -80,9 +82,7 @@ function homeHero(c, count, rerender) {
   const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate)].filter(Boolean).join(' · ');
   return el('section', { class: 'card home-hero' },
     el('div', { class: 'char-head' },
-      el('div', { class: 'char-crests' },
-        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 44) : null,
-        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 44) : null),
+      medallion(id, 64),
       el('div', { class: 'char-id' },
         el('p', { class: 'eyebrow' }, 'Now playing'),
         el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
@@ -93,40 +93,6 @@ function homeHero(c, count, rerender) {
       el('button', { class: 'btn home-roll', onclick: () => openRollDialog(c, rerender) }, icon('d20', { size: 22 }), ' Roll a test'),
       el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, 'Sheet'),
       el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene')));
-}
-
-// ----- pool chips (tap to adjust) -----
-function poolChips(c, rerender) {
-  const pools = getPools();
-  const defs = [
-    { key: 'momentum', name: 'Momentum', ico: 'momentum', value: pools.momentum, max: DATA.momentumRules.cap, blurb: HELP.pools.steps[0],
-      set: (v) => savePools({ ...getPools(), momentum: clampMomentum(v) }) },
-    { key: 'threat', name: 'Threat', ico: 'threat', value: pools.threat, max: null, blurb: HELP.pools.steps[1],
-      set: (v) => savePools({ ...getPools(), threat: Math.max(0, v) }) },
-    { key: 'determination', name: 'Determination', ico: 'determination', value: c.determination, max: DATA.determination.cap, blurb: HELP.pools.steps[2],
-      set: (v) => saveCharacter({ ...c, determination: clampDetermination(v) }) },
-  ];
-  const open = (d) => {
-    let v = d.value;
-    const val = el('span', { class: 'pool-sheet-val' }, String(v));
-    const bump = (n) => { v = d.max == null ? Math.max(0, v + n) : Math.max(0, Math.min(d.max, v + n)); val.textContent = String(v); d.set(v); };
-    const close = modal([
-      el('h2', {}, d.name),
-      el('p', { class: 'small' }, d.blurb),
-      el('div', { class: 'pool-sheet-step' },
-        el('button', { class: 'step-btn big', 'aria-label': `Less ${d.name}`, onclick: () => bump(-1) }, '−'),
-        val,
-        el('button', { class: 'step-btn big', 'aria-label': `More ${d.name}`, onclick: () => bump(1) }, '+')),
-      d.max != null ? el('p', { class: 'small muted' }, `Cap ${d.max}.`) : null,
-      el('p', { class: 'small muted' }, HELP.pools.steps[3]),
-      el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
-    ].filter(Boolean), { sheet: true, onClose: () => rerender() });
-  };
-  return el('div', { class: 'pool-chips', role: 'group', 'aria-label': 'Shared resources' },
-    ...defs.map((d) => el('button', { class: 'pool-chip', 'aria-label': `${d.name} ${d.value}${d.max != null ? ` of ${d.max}` : ''} — adjust`, onclick: () => open(d) },
-      el('span', { class: 'pool-chip-name' }, icon(d.ico, { size: 14 }), d.name),
-      el('strong', { class: 'pool-chip-val' }, String(d.value)),
-      d.max != null ? pips(Math.min(d.value, d.max), d.max, { cls: 'pips-' + (d.key === 'determination' ? 'det' : d.key) }) : el('span', { class: 'pips-spacer' }))));
 }
 
 // ----- one contextual next step -----
@@ -156,7 +122,7 @@ function nextUp(c, rerender) {
       el('p', { class: 'next-up-text' }, n.text),
       el('div', { class: 'next-up-actions' },
         el('button', { class: 'btn btn-sm', onclick: go }, n.action),
-        n.dismissible ? el('button', { class: 'link-btn small', onclick: () => {
+        n.dismissible ? el('button', { class: 'chip', onclick: () => {
           Settings.set('homeDismissed', [...dismissed, n.id]); rerender();
         } }, 'Not now') : null)));
 }
@@ -623,8 +589,10 @@ export function renderRules(root) {
   }
   const order = [...RULE_GROUPS.map(([n]) => n), 'Reference'];
   groups.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
-  const groupEls = groups.map((g) => el('section', { class: 'rule-group', 'aria-label': g.name },
-    el('h2', { class: 'rule-group-title' }, g.name, el('span', { class: 'tag' }, String(g.cards.length))), ...g.cards));
+  // Audit 2: each group carries its own colour band + icon (CSS keys off the group slug).
+  const GROUP_ICON = { 'Start here': 'flag', 'Dice & tests': 'd20', 'Conflict & scenes': 'swords', 'Growth & gear': 'up', Arrakis: 'dune', House: 'house', Reference: 'list' };
+  const groupEls = groups.map((g) => el('section', { class: `rule-group g-${slug(g.name)}`, 'aria-label': g.name },
+    el('h2', { class: 'rule-group-title' }, el('span', { class: 'group-ico' }, icon(GROUP_ICON[g.name] || 'rules', { size: 16 })), g.name, el('span', { class: 'tag' }, String(g.cards.length))), ...g.cards));
 
   const userOpen = new Set();   // cards opened by hand stay open when a search is cleared
   cards.forEach((c) => c.addEventListener('toggle', () => { if (!search.value) (c.open ? userOpen.add(c) : userOpen.delete(c)); }));
@@ -643,7 +611,8 @@ export function renderRules(root) {
   });
 
   // Only the search field pins (a slim bar under the section tabs); the title card scrolls away.
-  root.append(el('div', { class: 'card' }, el('h2', {}, 'Rules library'), help('rules')),
+  setAppHelp(help('rules'));
+  root.append(
     el('div', { class: 'rules-searchbar' }, search, empty), ...groupEls);
 
   // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
@@ -886,8 +855,8 @@ export function renderSettings(root) {
   const EXPANSION_FLAGS = TOGGLE_DEFS.map((d) => d.flag).filter((f) => !PLAY_FLAGS.includes(f));
 
   // Grouped (UI overhaul Stage 5): the everyday groups open, the rest folded to one line each.
+  setAppHelp(help('settings'));
   root.append(
-    el('section', { class: 'card' }, el('h2', {}, 'Settings'), help('settings')),
     foldCard('appearance', 'Appearance', true,
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),

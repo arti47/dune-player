@@ -2,6 +2,7 @@
 
 import { el, qs } from './core.js';
 import { Settings } from './settings.js';
+import { icon } from './icons.js';
 
 let lastFocused = null;
 let modalTitleSeq = 0;
@@ -149,4 +150,12 @@ export function foldCard(key, title, defaultOpen, ...body) {
   d.open = foldOpen.has(key) ? foldOpen.get(key) : !!defaultOpen;
   d.addEventListener('toggle', () => foldOpen.set(key, d.open));
   return d;
+}
+
+/** Compact action chip (audit 2): replaces underlined text-link actions. Icon + label; `danger`
+ *  tints it red; `on` marks a toggled state. Navigation + citations stay as links. */
+export function actionChip(ico, label, onclick, { danger = false, on = false, aria = null, title = null } = {}) {
+  return el('button', { type: 'button', class: 'chip' + (danger ? ' chip-danger' : '') + (on ? ' on' : ''),
+    'aria-label': aria, title, 'aria-pressed': on ? 'true' : null, onclick },
+  ico ? icon(ico, { size: 14 }) : null, label);
 }

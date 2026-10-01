@@ -18,14 +18,15 @@ import {
 } from './rules.js';
 import { allTalents, focusExamplesFor, driveName, findTalent } from './content.js';
 import { cite } from './cite.js';
-import { help } from './help.js';
-import { icon, pips, emptyState } from './icons.js';
-import { factionCrest, archetypeCrest } from './crests.js';
+import { help, setAppHelp } from './help.js';
+import { icon, pips, emptyState, radar } from './icons.js';
+import { factionCrest, archetypeCrest, medallion } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { renderDefeat } from './combat.js';
-import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
+import { modal, showToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
 import { setSwipe, animateIn, neighbours } from './swipe.js';
 import { DATA } from '../data.js';
+import { HELP } from '../data-help.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 
@@ -46,35 +47,42 @@ function stepper(value, onChange, { min = 0, max = 99, label = '' } = {}) {
   return el('div', { class: 'stepper' }, dec, el('span', { class: 'stat-val' }, String(value)), inc);
 }
 
-/** Persistent Momentum/Threat/Determination header (§ Phase 2 · on the in-play sheet). */
-/** The Momentum/Threat/Determination bar. `onChange` re-renders the HOST screen — the Journal
- *  reuses this bar, so it must not fall back to re-rendering the Sheet into a stale mount. */
-export function poolsHeader(current, onChange = refresh) {
+/** The Momentum/Threat/Determination chips (audit 2: the same chip row on Home, Character, Table,
+ *  Journal and GM). Tap a chip → slide-up sheet with big −/+ and the one-line meaning. `onChange`
+ *  re-renders the HOST screen (it runs when the sheet closes), never the Sheet's own mount.
+ *  `threatFirst` puts Threat first (GM screen). */
+export function poolsHeader(current, onChange = refresh, { threatFirst = false } = {}) {
   const pools = getPools();
-  const cell = (name, node, ico, meter) => el('div', { class: 'pool-cell' },
-    el('span', { class: 'pool-name' }, icon(ico, { size: 14 }), name), node, meter || null);
-
-  // The help accordion is a SIBLING of the flex row, never inside it: .pools-bar is a flex
-  // container, so an extra child squeezes the three cells past the viewport edge.
-  return el('div', { class: 'pools-block' },
-    el('section', { class: 'card pools-bar', 'aria-label': 'Shared resources' },
-      cell('Momentum',
-        stepper(pools.momentum, (v) => { savePools({ ...pools, momentum: clampMomentum(v) }); onChange(); },
-          { min: 0, max: DATA.momentumRules.cap, label: 'Momentum' }),
-        'momentum', pips(pools.momentum, DATA.momentumRules.cap, { label: 'Momentum', cls: 'pips-momentum' })),
-      cell('Threat',
-        stepper(pools.threat, (v) => { savePools({ ...pools, threat: Math.max(0, v) }); onChange(); },
-          { min: 0, max: 999, label: 'Threat' }),
-        'threat'),
-      cell(current ? 'Determination' : 'Det.',
-        current
-          ? stepper(current.determination, (v) => {
-              saveCharacter({ ...current, determination: clampDetermination(v) }); onChange();
-            }, { min: 0, max: DATA.determination.cap, label: 'Determination' })
-          : el('span', { class: 'stat-val muted' }, '—'),
-        'determination',
-        current ? pips(current.determination, DATA.determination.cap, { label: 'Determination', cls: 'pips-det' }) : null)),
-    el('div', { class: 'pools-help' }, help('pools', 'What are these three?')));
+  const defs = [
+    { key: 'momentum', name: 'Momentum', ico: 'momentum', value: pools.momentum, max: DATA.momentumRules.cap, blurb: HELP.pools.steps[0],
+      set: (v) => savePools({ ...getPools(), momentum: clampMomentum(v) }) },
+    { key: 'threat', name: 'Threat', ico: 'threat', value: pools.threat, max: null, blurb: HELP.pools.steps[1],
+      set: (v) => savePools({ ...getPools(), threat: Math.max(0, v) }) },
+    current ? { key: 'determination', name: 'Determination', ico: 'determination', value: current.determination, max: DATA.determination.cap, blurb: HELP.pools.steps[2],
+      set: (v) => saveCharacter({ ...current, determination: clampDetermination(v) }) } : null,
+  ].filter(Boolean);
+  if (threatFirst) defs.unshift(defs.splice(1, 1)[0]);
+  const open = (d) => {
+    let v = d.value;
+    const val = el('span', { class: 'pool-sheet-val num' }, String(v));
+    const bump = (n) => { v = d.max == null ? Math.max(0, v + n) : Math.max(0, Math.min(d.max, v + n)); val.textContent = String(v); d.set(v); };
+    const close = modal([
+      el('h2', {}, d.name),
+      el('p', { class: 'small' }, d.blurb),
+      el('div', { class: 'pool-sheet-step' },
+        el('button', { class: 'step-btn big', 'aria-label': `Less ${d.name}`, onclick: () => bump(-1) }, '−'),
+        val,
+        el('button', { class: 'step-btn big', 'aria-label': `More ${d.name}`, onclick: () => bump(1) }, '+')),
+      d.max != null ? el('p', { class: 'small muted' }, `Cap ${d.max}.`) : null,
+      el('p', { class: 'small muted' }, HELP.pools.steps[3]),
+      el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
+    ].filter(Boolean), { sheet: true, onClose: () => onChange() });
+  };
+  return el('div', { class: 'pool-chips' + (defs.length === 2 ? ' two' : ''), role: 'group', 'aria-label': 'Shared resources' },
+    ...defs.map((d) => el('button', { class: `pool-chip pool-${d.key}`, 'aria-label': `${d.name} ${d.value}${d.max != null ? ` of ${d.max}` : ''} — adjust`, onclick: () => open(d) },
+      el('span', { class: 'pool-chip-name' }, icon(d.ico, { size: 14 }), d.name),
+      el('strong', { class: 'pool-chip-val num' }, String(d.value)),
+      d.max != null ? pips(Math.min(d.value, d.max), d.max, { cls: 'pips-' + (d.key === 'determination' ? 'det' : d.key) }) : el('span', { class: 'pips-spacer' }))));
 }
 
 // Character screen (UI overhaul Stage 2): compact header → pools bar → sub-tabs. The open
@@ -106,6 +114,7 @@ export function renderSheet(root) {
   }
 
   const body = sheetBody(current);
+  setAppHelp(help('sheet', 'How to read this sheet'));
   root.append(importer.input, charHeader(current, chars, importer), poolsHeader(current), sheetTabBar(), body);
   // Swipe left/right walks the sub-tabs (round 2 #5); no wrap at the ends.
   const n = neighbours(SHEET_TABS.map(([tid]) => tid), sheetTab);
@@ -118,14 +127,12 @@ function charHeader(c, chars, importer) {
   const id = c.identity;
   return el('section', { class: 'card char-header' },
     el('div', { class: 'char-head' },
-      el('div', { class: 'char-crests' },
-        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 40) : null,
-        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 40) : null),
+      medallion(id, 60),
       el('div', { class: 'char-id' },
         el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
-        el('p', { class: 'small muted' },
-          [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
-           id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character')),
+        (() => { const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
+          id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ');
+          return meta ? el('p', { class: 'small muted' }, meta) : null; })()),
       el('button', { class: 'btn secondary btn-sm', 'aria-label': `Switch character (${chars.length})`,
         onclick: () => charactersDialog(chars, c, importer) }, icon('group', { size: 18 }), ` ${chars.length}`)));
 }
@@ -167,6 +174,10 @@ function sheetBody(c) {
   switch (sheetTab) {
     case 'stats':
       return panel(
+        // Audit 2: the character's shape at a glance — skills and drives as two compasses.
+        el('div', { class: 'radar-pair' },
+          radar(DATA.skills.map((s) => ({ label: s.name, value: c.skills[s.id] })), { cls: 'radar-skills', size: 130 }),
+          radar(Object.keys(c.drives).map((d) => ({ label: driveName(d), value: c.drives[d] })), { cls: 'radar-drives', size: 130 })),
         el('h4', {}, 'Skills'),
         el('div', { class: 'stat-grid' }, ...DATA.skills.map((s) => statChip(s.name, c.skills[s.id]))),
         el('h4', {}, 'Drives'),
@@ -200,7 +211,6 @@ function sheetBody(c) {
             } }, 'Delete character')));
     default:
       return panel(
-        help('sheet', 'How to read this sheet'),
         creationInPlaySection(c),
         statementsSection(c),
         renderDefeat(c, refresh),
@@ -310,11 +320,11 @@ function rollLogSection() {
       el('h4', {}, 'Roll log'),
       help('rollLog'),
       log.length
-        ? el('button', { class: 'link-btn', onclick: async () => {
+        ? el('button', { class: 'chip', onclick: async () => {
             if (await confirmModal('Clear the entire roll log?', { okLabel: 'Clear all' })) {
               clearRollLog(); showToast('Roll log cleared'); refresh();
             }
-          } }, 'Clear all')
+          } }, icon('trash', { size: 14 }), 'Clear all')
         : null),
     log.length
       ? el('ul', { class: 'roll-log' }, ...log.map((r, i) => el('li', { class: 'small roll-log-item' },
@@ -348,13 +358,13 @@ function statementsSection(c) {
         (challengeLocked && !s.challenged)
           ? el('span', { class: 'small muted' }, 'locked until complete')
           : s.challenged
-            ? el('button', { class: 'link-btn', onclick: () => recoverStatementDialog(c, drive) }, 'Recover…')
-            : el('button', { class: 'link-btn',
+            ? el('button', { class: 'chip', onclick: () => recoverStatementDialog(c, drive) }, icon('undo', { size: 14 }), 'Recover…')
+            : el('button', { class: 'chip',
                 onclick: () => {
                   const next = { ...c.driveStatements, [drive]: { ...s, challenged: true } };
                   saveCharacter({ ...c, driveStatements: next });
                   showToast('Statement challenged'); refresh();
-                } }, 'Challenge')))));
+                } }, icon('threat', { size: 14 }), 'Challenge')))));
 }
 
 /** §3.8 guided recovery of a challenged statement: write a new statement (drive unchanged), or
@@ -431,8 +441,8 @@ function traitsSection(c) {
     el('div', { class: 'section-head' },
       el('h4', {}, 'Traits'),
       el('div', {},
-        el('button', { class: 'link-btn', onclick: () => declarationDialog(c) }, 'Declaration'),
-        el('button', { class: 'link-btn', onclick: () => addTraitDialog(c) }, '+ Add'))),
+        actionChip('determination', 'Declaration', () => declarationDialog(c)),
+        actionChip('plus', 'Add', () => addTraitDialog(c), { aria: 'Add trait' }))),
     (c.traits || []).length
       ? el('div', { class: 'trait-list' }, ...c.traits.map((t, i) =>
           el('span', { class: 'pill' + (t.negative ? ' neg' : '') }, t.name,
@@ -513,7 +523,7 @@ function assetsSection(c) {
   return el('div', {},
     el('div', { class: 'section-head' },
       el('h4', {}, `Assets · ${permCount}/${cap} permanent`, cite('Assets & wealth')),
-      el('button', { class: 'link-btn', onclick: () => addAssetDialog(c) }, '+ Add')),
+      actionChip('plus', 'Add', () => addAssetDialog(c), { aria: 'Add asset' })),
     (c.assets || []).length
       ? el('ul', { class: 'asset-list' }, ...c.assets.map((a, i) => assetRow(c, a, i, cap, permCount)))
       : el('p', { class: 'small muted' }, 'No assets.'));
@@ -522,29 +532,33 @@ function assetsSection(c) {
 function assetRow(c, a, i, cap, permCount) {
   const update = (patch) => { const assets = c.assets.map((x, j) => j === i ? { ...x, ...patch } : x); saveCharacter({ ...c, assets }); refresh(); };
   const atCap = permCount >= cap && !a.permanent;
-  const permBtn = el('button', { class: 'link-btn' + (a.permanent ? ' on' : ''),
-    onclick: () => {
-      if (atCap) { showToast(`Permanent asset cap reached (${cap}).`); return; }
-      update({ permanent: !a.permanent });
-    } }, a.permanent ? 'permanent' : 'make permanent');
+  // Audit 2: one compact row — name · tags · permanence chip · Quality badge with −/+ · remove;
+  // the catalogue rider folds behind a tap so gear stays scannable.
+  const permBtn = actionChip(a.permanent ? 'check' : 'plus', a.permanent ? 'Permanent' : 'Temporary', () => {
+    if (atCap) { showToast(`Permanent asset cap reached (${cap}).`); return; }
+    update({ permanent: !a.permanent });
+  }, { on: !!a.permanent, aria: a.permanent ? `${a.name}: permanent — make temporary` : `${a.name}: temporary — make permanent`,
+    title: atCap ? `Permanent cap reached (${cap})` : null });
   if (atCap) permBtn.classList.add('disabled');
-
+  const q = a.quality || 0;
+  const qBtn = (n, sym) => el('button', { class: 'q-btn', 'aria-label': `${n < 0 ? 'Decrease' : 'Increase'} ${a.name} Quality`,
+    disabled: (n < 0 ? q <= 0 : q >= 5) ? '' : null, onclick: () => update({ quality: q + n }) }, sym);
+  const def = DATA.assets.find((x) => x.name === a.name);
+  const remove = el('button', { class: 'chip chip-icon', 'aria-label': `Remove ${a.name}`, title: 'Remove',
+    onclick: () => {
+      saveCharacter({ ...c, assets: c.assets.filter((_, j) => j !== i) }); refresh();
+      undoToast(`Removed ${a.name}`, () => { saveCharacter(c); refresh(); });
+    } }, icon('trash', { size: 14 }));
   return el('li', { class: 'asset-item' },
     el('div', { class: 'asset-main' },
-      el('strong', {}, a.name),
-      a.tangible === false ? el('span', { class: 'tag' }, 'intangible') : null,
-      permBtn),
-    // Show the book's note for a catalogue asset, so gear is readable without leaving the sheet.
-    (() => { const def = DATA.assets.find((x) => x.name === a.name);
-      return def && def.rider ? el('p', { class: 'small muted' }, def.rider) : null; })(),
+      el('strong', { class: 'asset-name' }, a.name),
+      a.tangible === false ? el('span', { class: 'tag' }, 'intangible') : null),
     el('div', { class: 'asset-controls' },
-      el('span', { class: 'small muted' }, 'Quality'),
-      stepper(a.quality || 0, (v) => update({ quality: v }), { min: 0, max: 5, label: 'Quality' }),
-      el('button', { class: 'pill-x', 'aria-label': `Remove ${a.name}`,
-        onclick: () => {
-          saveCharacter({ ...c, assets: c.assets.filter((_, j) => j !== i) }); refresh();
-          undoToast(`Removed ${a.name}`, () => { saveCharacter(c); refresh(); });
-        } }, '×')));
+      permBtn,
+      el('span', { class: 'q-badge', role: 'group', 'aria-label': `${a.name} Quality ${q}` },
+        qBtn(-1, '−'), el('span', { class: 'q-val num' }, el('span', { class: 'q-lbl' }, 'Q'), String(q)), qBtn(1, '+')),
+      remove),
+    def && def.rider ? el('details', { class: 'asset-rider' }, el('summary', {}, 'What it does'), el('p', { class: 'small muted' }, def.rider)) : null);
 }
 
 function addAssetDialog(c) {

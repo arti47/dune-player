@@ -17,6 +17,7 @@ import { renderJournal } from './journal.js';
 import { renderPlay } from './play.js';
 import { renderScene, renderTaskSeg, renderConflictSeg, renderMore, syncRollFab } from './hubs.js';
 import { setSwipe, animateIn, neighbours } from './swipe.js';
+import { setAppHelp } from './help.js';
 
 const TABS = [
   { id: 'home',    label: 'Home',      ico: 'home' },
@@ -27,19 +28,19 @@ const TABS = [
 ];
 
 const ROUTES = [
-  { id: 'home',     label: 'Home',      render: renderHome },
+  { id: 'home',     label: 'Home',      title: 'Imperium Player', render: renderHome },
   { id: 'sheet',    label: 'Character', render: renderSheet },
-  { id: 'scene',    label: 'Scene',     hub: 'table', render: renderScene },
-  { id: 'tasks',    label: 'Tasks',     hub: 'table', render: renderTaskSeg },
+  { id: 'scene',    label: 'Scene',     title: 'Scene', hub: 'table', render: renderScene },
+  { id: 'tasks',    label: 'Tasks',     title: 'Extended tasks', hub: 'table', render: renderTaskSeg },
   { id: 'conflict', label: 'Conflict',  hub: 'table', render: renderConflictSeg },
   { id: 'journal',  label: 'Journal',   hub: 'table', render: renderJournal, gated: () => Settings.journal() },
-  { id: 'rules',    label: 'Rules',     hub: 'library', render: renderRules },
+  { id: 'rules',    label: 'Rules',     title: 'Rules library', hub: 'library', render: renderRules },
   { id: 'play',     label: 'How to play', hub: 'library', render: renderPlay },
   // Onboarding tutorial (Phase 7, §13 #4): a Library segment, never its own tab.
-  { id: 'tutorial', label: 'Tutorial',  hub: 'library', render: renderTutorial },
+  { id: 'tutorial', label: 'Tutorial',  title: 'Learn to play', hub: 'library', render: renderTutorial },
   { id: 'more',     label: 'More',      render: renderMore },
   { id: 'house',    label: 'House',     parent: 'more', render: renderHouseManagement, gated: () => Settings.greatGame() },
-  { id: 'gm',       label: 'GM',        parent: 'more', render: renderGM, gated: () => Settings.gmScreen() },
+  { id: 'gm',       label: 'GM',        title: 'GM screen', parent: 'more', render: renderGM, gated: () => Settings.gmScreen() },
   { id: 'settings', label: 'Settings',  parent: 'more', render: renderSettings },
 ];
 
@@ -108,6 +109,10 @@ export function renderScreen() {
     screen.append(mount);
   }
   setSwipe(null); // each screen opts in; the Character screen sets its own
+  setAppHelp(null); // each screen puts its own "?" in the app bar
+  const title = qs('#app-screen');
+  if (title) title.textContent = route.title || route.label;
+  document.title = route.id === 'home' ? 'Imperium Player' : `${route.title || route.label} · Imperium Player`;
   route.render(mount, renderScreen);
   // Table segments: swipe left/right walks Scene · Tasks · Conflict · Journal (round 2 #5).
   if (route.hub === 'table') {
