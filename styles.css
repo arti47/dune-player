@@ -819,4 +819,30 @@ html[data-theme="dark"] body::before { opacity: .6; }
 .rule-card[open] > summary::after { transform: rotate(180deg); }
 .rule-card[open] { padding-bottom: 14px; }
 .rule-card[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
-@media (min-width: 900px) { .hub-body:has(> .rule-group) { columns: auto; } .hub-body > .rules-searchbar { column-span: all; } }
+@media (min-width: 900px) { .hub-body:has(> .rule-group), .hub-body:has(> .conflict-board) { columns: auto; } .hub-body > .rules-searchbar { column-span: all; } }
+
+/* ---------- Round 2 #2: conflict tracker as fighter cards by side ---------- */
+.conflict-turn { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.conflict-acting { font-family: 'Josefin Sans', system-ui, sans-serif; font-size: 1.25rem; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.conflict-sides { display: grid; gap: 0 14px; }
+@media (min-width: 640px) { .conflict-sides { grid-template-columns: 1fr 1fr; align-items: start; } }
+.side-card { border-left: 3px solid var(--border); }
+.side-card.acting { border-left-color: var(--accent); }
+.side-card .section-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; }
+.acting-tag { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.fighter { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: var(--surface); list-style: none; }
+.fighter.turn { border-color: var(--accent); }
+.fighter.defeated { opacity: .6; }
+.fighter .combatant-head strong { margin-right: auto; font-size: 1rem; }
+.more-btn { background: none; border: none; color: var(--muted); min-width: 36px; min-height: 36px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.more-btn:hover { background: var(--surface-2); color: var(--text); }
+.fighter-track { margin: 6px 0 8px; }
+.fighter-track .task-bar { margin: 0 0 2px; }
+.fighter-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fighter-actions .btn { display: inline-flex; align-items: center; gap: 4px; }
+.keep-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; min-height: 36px; font-size: .85rem; cursor: pointer; }
+.sheet-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.sheet-actions .btn { width: 100%; }
+.fighter .combatant-head { flex-wrap: nowrap; }
+.fighter .combatant-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fighter .combatant-head .tag { flex: 0 0 auto; }

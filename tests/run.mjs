@@ -1748,5 +1748,16 @@ console.log('\n— UI round 2 · #1 Rules library index —');
   check('only the search field pins', /class: 'rules-searchbar'/.test(sc) && /\.rules-searchbar \{ position: sticky/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
 }
 
+console.log('\n— UI round 2 · #2 Conflict tracker as fighter cards —');
+{
+  const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
+  check('banner names the acting side', /class: 'conflict-acting' \}, `\$\{SIDE_NAME\[conflict\.currentSide\]\} to act`/.test(cb));
+  check('sides are cards; the acting side is marked', /'card side-card' \+ \(side === conflict\.currentSide \? ' acting' : ''\)/.test(cb));
+  check('fighter card: Attack + Take turn + Keep up front', /class: 'fighter-actions'/.test(cb) && /attackDialog\(c\)/.test(cb) && /takeTurnWithCost\(c, keepBox\.checked\)/.test(cb));
+  check('secondary actions in a ⋯ sheet (hit, requirement, extra action, remove)', /const moreSheet = \(\) =>/.test(cb) && /\{ sheet: true \}/.test(cb) && /'Remove from conflict'/.test(cb) && /Extra action \(1 Determination\)/.test(cb));
+  check('defeat shown as a bar on every fighter', /class: 'fighter-track'/.test(cb));
+  check('zones fold away into one line', /el\('details', \{ class: 'disclose' \},\s*el\('summary', \{\}, `Zones/.test(cb));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

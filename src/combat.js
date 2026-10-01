@@ -16,6 +16,7 @@ import {
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
 import { help } from './help.js';
+import { icon } from './icons.js';
 import { expansionNpcs, driveName } from './content.js';
 import { evaluateDice } from './roller.js';
 import { DATA } from '../data.js';
@@ -389,17 +390,16 @@ export function renderConflict(onChange) {
   const zoneName = (id) => (conflict.zones.find((z) => z.id === id) || {}).name || '—';
 
   // Header: type · round · whose initiative.
-  const header = el('div', {},
-    el('p', {},
-      el('span', { class: 'pill' }, typeDef.name || conflict.type),
-      el('span', { class: 'pill' }, `Round ${conflict.round}`),
-      el('span', { class: 'pill' }, `${SIDE_NAME[conflict.currentSide]} to act`),
+  const header = el('div', { class: 'conflict-banner' },
+    el('div', { class: 'conflict-turn' },
+      el('span', { class: 'eyebrow' }, `${typeDef.name || conflict.type} · Round ${conflict.round}`),
+      el('strong', { class: 'conflict-acting' }, `${SIDE_NAME[conflict.currentSide]} to act`),
       conflict.keptInitiative ? el('span', { class: 'pill danger-pill' }, 'kept — ally +1 Difficulty') : null),
     el('p', { class: 'small muted' }, `Attack skill: ${typeDef.attackSkill ? capOf(typeDef.attackSkill) : '—'} · lasting defeat: ${typeDef.lastingDefeat || '—'}`));
 
   // Zones editor.
-  const zonesUI = el('div', {},
-    el('h4', {}, 'Zones'),
+  const zonesUI = el('details', { class: 'disclose' },
+    el('summary', {}, `Zones (${conflict.zones.length}): ${conflict.zones.map((z) => z.name).join(' · ')}`),
     el('div', { class: 'zone-row' }, ...conflict.zones.map((z) => {
       const inp = el('input', { type: 'text', value: z.name, 'aria-label': 'Zone name' });
       inp.addEventListener('change', () => save({ ...conflict, zones: conflict.zones.map((x) => x.id === z.id ? { ...x, name: inp.value } : x) }));
@@ -413,12 +413,17 @@ export function renderConflict(onChange) {
     el('button', { class: 'btn small secondary', onclick: () => save({ ...conflict, zones: [...conflict.zones, { id: uid(), name: `Zone ${conflict.zones.length + 1}` }] }) }, '+ Zone'));
 
   // Combatants grouped by side.
-  const sideBlock = (side) => el('div', { class: 'side-block' },
-    el('h4', {}, SIDE_NAME[side]),
-    el('ul', { class: 'combatant-list' },
-      ...conflict.combatants.filter((c) => c.side === side).map((c) => combatantRow(c))),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn small secondary', onclick: () => addCombatantDialog(side) }, '+ Add')));
+  const sideBlock = (side) => {
+    const members = conflict.combatants.filter((c) => c.side === side);
+    return el('section', { class: 'card side-card' + (side === conflict.currentSide ? ' acting' : ''), 'aria-label': SIDE_NAME[side] },
+      el('div', { class: 'section-head' },
+        el('h3', {}, SIDE_NAME[side], el('span', { class: 'tag' }, String(members.length)),
+          side === conflict.currentSide ? el('span', { class: 'tag acting-tag' }, 'to act') : null),
+        el('button', { class: 'link-btn', onclick: () => addCombatantDialog(side) }, '+ Add')),
+      members.length
+        ? el('ul', { class: 'combatant-list' }, ...members.map((c) => combatantRow(c)))
+        : el('p', { class: 'small muted' }, 'Nobody here yet — add a PC or an NPC.'));
+  };
 
   /** §6 Keep-the-Initiative / round-opener cost: a PC spends 2 Momentum (or adds 2 Threat when
    *  short); an enemy NPC spends 2 Threat. Returns false (and toasts) if an NPC can't afford it. */
@@ -455,28 +460,40 @@ export function renderConflict(onChange) {
       save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === c.id ? { ...x, defeatTrack: { ...track, progress }, defeated } : x) });
     };
 
-    return el('li', { class: 'combatant-item' + (c.defeated ? ' defeated' : '') },
+    // Fighter card (round 2 #2): the two actions you use every turn up front; the rest in a ⋯ sheet.
+    const pct = Math.min(100, Math.round((track.progress / Math.max(1, track.req)) * 100));
+    const moreSheet = () => {
+      const close = modal([
+        el('h2', {}, c.name),
+        el('div', { class: 'stat-row' }, el('span', { class: 'stat-name small' }, 'Defeat requirement'),
+          stepper(track.req, (v) => { close(); save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === c.id ? { ...x, defeatTrack: { ...track, req: v } } : x) }); }, { min: 0, max: 40, label: 'requirement' })),
+        el('div', { class: 'sheet-actions' },
+          el('button', { class: 'btn secondary', onclick: () => { close(); recordHit(); } }, `Record a hit (+${DATA.defeat.pointsPerHitBase})`),
+          (!c.npc && c.charId) ? el('button', { class: 'btn secondary', disabled: c.defeated ? '' : null,
+            onclick: () => { close(); extraAction(c.charId); } }, 'Extra action (1 Determination)') : null,
+          el('button', { class: 'btn secondary danger-btn', onclick: () => { close(); save({ ...conflict, combatants: conflict.combatants.filter((x) => x.id !== c.id) }); } }, 'Remove from conflict')),
+        el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
+      ].filter((n) => n != null), { sheet: true });
+    };
+
+    return el('li', { class: 'fighter' + (c.defeated ? ' defeated' : '') + (isTurn ? ' turn' : '') },
       el('div', { class: 'combatant-head' },
         el('strong', {}, c.name),
         c.npc ? el('span', { class: 'tag' }, c.tier || 'npc') : el('span', { class: 'tag' }, 'PC'),
         c.actedThisRound ? el('span', { class: 'tag' }, 'acted') : null,
         c.defeated ? el('span', { class: 'tag danger-tag' }, 'defeated') : null,
-        el('button', { class: 'pill-x', 'aria-label': `Remove ${c.name}`, onclick: () => save({ ...conflict, combatants: conflict.combatants.filter((x) => x.id !== c.id) }) }, '×')),
-      el('div', { class: 'combatant-ctl' },
-        el('span', { class: 'small muted' }, 'Zone'), zoneSel),
-      el('div', { class: 'combatant-ctl' },
-        el('span', { class: 'small muted', title: 'Hits taken / requirement to be defeated (§3.7)' },
-          `Defeat ${track.progress} / ${track.req || '—'}`),
-        stepper(track.req, (v) => save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === c.id ? { ...x, defeatTrack: { ...track, req: v } } : x) }), { min: 0, max: 40, label: 'requirement' }),
-        el('button', { class: 'btn small secondary', onclick: recordHit }, 'Hit +2')),
-      el('div', { class: 'cta-row' },
-        el('button', { class: 'btn small', disabled: c.defeated ? '' : null,
-          onclick: () => attackDialog(c) }, '⚔ Attack'),
-        el('button', { class: 'btn small' + (isTurn ? '' : ' secondary'), disabled: c.defeated ? '' : null,
+        el('button', { class: 'more-btn', 'aria-label': `More actions for ${c.name}`, onclick: moreSheet }, icon('more', { size: 20 }))),
+      el('div', { class: 'combatant-ctl' }, el('span', { class: 'small muted' }, 'Zone'), zoneSel),
+      el('div', { class: 'fighter-track', title: 'Hits taken / requirement to be defeated (§3.7)' },
+        el('div', { class: 'task-bar defeat-bar' }, el('div', { class: 'task-fill' + (c.defeated ? ' danger' : ''), style: `width:${pct}%` })),
+        el('span', { class: 'small muted' }, `Defeat ${track.progress} / ${track.req || '—'}`)),
+      el('div', { class: 'fighter-actions' },
+        el('button', { class: 'btn', disabled: c.defeated ? '' : null, onclick: () => attackDialog(c) },
+          icon('swords', { size: 18 }), ' Attack'),
+        el('button', { class: 'btn' + (isTurn ? '' : ' secondary'), disabled: c.defeated ? '' : null,
           onclick: () => takeTurnWithCost(c, keepBox.checked) }, 'Take turn'),
-        el('label', { class: 'small', for: `keep-${c.id}` }, keepBox, ` Keep initiative (2 ${typeDef.attackSkill ? 'Mom/Threat' : ''})`),
-        (!c.npc && c.charId) ? el('button', { class: 'btn small secondary', disabled: c.defeated ? '' : null,
-          onclick: () => extraAction(c.charId) }, 'Extra action (1 Det)') : null));
+        el('label', { class: 'keep-chip', for: `keep-${c.id}`, title: `Keep the Initiative: costs ${DATA.initiative.keepInitiativeCost} Momentum (or Threat for NPCs); not twice in a row` },
+          keepBox, ' Keep')));
   }
 
   // ---- Resolve a combatant to a "fighter" with rollable skills/drives/focuses ----
@@ -662,14 +679,13 @@ export function renderConflict(onChange) {
     ]);
   }
 
-  return el('section', { class: 'card' },
-    el('h3', {}, 'Conflict'),
-    help('conflict'),
-    header,
-    zonesUI,
-    sideBlock('a'),
-    sideBlock('b'),
-    el('div', { class: 'cta-row', style: 'margin-top:10px' },
+  return el('div', { class: 'conflict-board' },
+    el('section', { class: 'card conflict-head' },
+      el('h3', {}, 'Conflict', cite('Conflict turn order')),
+      help('conflict'),
+      header,
+      zonesUI,
+      el('div', { class: 'cta-row' },
       // §6: default = the opposing side opens next round; pay 2 to keep the opener on your side.
       el('button', { class: 'btn secondary', onclick: () => save(nextRound(conflict, false)) }, 'Next round'),
       conflict.lastActorId ? el('button', { class: 'btn secondary', onclick: () => {
@@ -679,7 +695,8 @@ export function renderConflict(onChange) {
       } }, 'Keep opener (2)') : null,
       el('button', { class: 'btn secondary danger-btn', onclick: async () => {
         if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) save(null);
-      } }, 'End conflict')));
+      } }, 'End conflict'))),
+    el('div', { class: 'conflict-sides' }, sideBlock('a'), sideBlock('b')));
 }
 
 function capOf(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
