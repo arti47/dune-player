@@ -1389,6 +1389,27 @@ console.log('— Faction + archetype crests —');
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
+console.log('— House banners —');
+{
+  const { parseColours } = await import(join(root, 'src/banner.js'));
+  const { EXPANSION: GG } = await import(join(root, 'data-great-game.js'));
+  check('every example House colour text resolves to at least one palette colour',
+    GG.landsraadHouses.every((h) => parseColours(h.colors).length >= 1));
+  check('two-colour Houses parse both, in written order; longest phrase wins',
+    JSON.stringify(parseColours('Green and Black')) === JSON.stringify(['#3e6b3a', '#1d1813']) &&
+    parseColours('Sea Green')[0] === '#3f8f7a' && parseColours('').length === 0);
+  const bn = readFileSync(join(root, 'src/banner.js'), 'utf8');
+  check('every example House crest text matches a bespoke emblem',
+    (() => { const res = [...bn.matchAll(/^  \[\/(.+?)\/,/gm)].map((m) => new RegExp(m[1]));
+      return GG.landsraadHouses.every((h) => res.some((re) => re.test(String(h.crest).toLowerCase()))); })());
+  check('banner on the Home House card and the House tab header',
+    /houseBanner\(house, 56\)/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
+    /houseBanner\(house, 72\)/.test(readFileSync(join(root, 'src/house.js'), 'utf8')) &&
+    /'\.\/src\/banner\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
+  check('crest lookup is case-insensitive (example-House domains are capitalised)',
+    /k\.toLowerCase\(\) === String\(id/.test(readFileSync(join(root, 'src/crests.js'), 'utf8')));
+}
+
 console.log('— How to play guide (start / sustain / end) —');
 {
   const { HELP } = await import(join(root, 'data-help.js'));

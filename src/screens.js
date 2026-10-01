@@ -12,6 +12,7 @@ import { slug, takeCiteTarget } from './cite.js';
 import { help } from './help.js';
 import { allTalents } from './content.js';
 import { domainCrest } from './crests.js';
+import { houseBanner } from './banner.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
@@ -90,9 +91,12 @@ function houseCard(house) {
     .map((d) => (DATA.houseDomains.find((x) => x.id === d.id) || {}).name)
     .filter(Boolean).join(', ');
   return el('section', { class: 'card' },
-    el('h3', {}, house.name || 'Your House'),
-    el('p', { class: 'small muted' },
-      [HOUSE_TYPE_NAME[house.type], domainNames].filter(Boolean).join(' · ') || 'House'),
+    el('div', { class: 'house-head' },
+      houseBanner(house, 56),
+      el('div', {},
+        el('h3', {}, house.name || 'Your House'),
+        el('p', { class: 'small muted' },
+          [HOUSE_TYPE_NAME[house.type], domainNames].filter(Boolean).join(' · ') || 'House'))),
     house.resources != null
       ? el('p', {},
           el('span', { class: 'pill' }, `${house.resources} Resources`),

@@ -609,3 +609,12 @@ body:has(.oracle-fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) 
 .crest-label { display: inline-flex; align-items: center; gap: 8px; }
 summary.crest-label { display: list-item; }
 summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
+
+/* ---------- House banner (banner.js) ---------- */
+.house-head { display: flex; align-items: center; gap: 14px; }
+.house-head h2, .house-head h3 { margin: 0 0 2px; }
+.house-head p { margin: 0; }
+.house-banner { flex: 0 0 auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.house-banner.themed .banner-field { fill: var(--accent); }
+.house-banner.themed .banner-ink { stroke: var(--accent-contrast); color: var(--accent-contrast); }
+.house-head h2::after { display: none; }

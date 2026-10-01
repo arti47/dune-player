@@ -88,7 +88,9 @@ function build(kind, id, name, size) {
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', `${name || id} ${kind} crest`);
   const table = { faction: FACTION, archetype: ARCHETYPE, domain: DOMAIN, role: ROLE }[kind];
-  const emblem = table[id]
+  // Case-insensitive: example Houses store domains as "Farming", core as "farming".
+  const key = Object.keys(table).find((k) => k.toLowerCase() === String(id || '').toLowerCase());
+  const emblem = (key && table[key])
     || `<text x="16" y="20.5" text-anchor="middle" fill="currentColor" stroke="none" font-size="12" font-weight="600">${
       String(name || id || '?').trim().charAt(0).toUpperCase().replace(/[<&]/g, '')}</text>`;
   svg.innerHTML = FRAMES[kind] + emblem;

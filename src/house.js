@@ -5,6 +5,7 @@
 
 import { el, rollD20s, clamp } from './core.js';
 import { domainCrest } from './crests.js';
+import { houseBanner } from './banner.js';
 import { help } from './help.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { getHouse, saveHouse, deleteHouse } from './store.js';
@@ -148,7 +149,7 @@ function build(root, render) {
   }
   if (!house.management || !house.management.active) {
     root.append(el('section', { class: 'card' },
-      el('h2', {}, house.name || 'Your House'),
+      el('div', { class: 'house-head' }, houseBanner(house, 64), el('h2', {}, house.name || 'Your House')),
       help('house'),
       el('p', { class: 'small muted' }, 'Begin House management to run the yearly session (income, upkeep, ventures) with live Wealth, Resources, and Status.'),
       el('div', { class: 'cta-row' },
@@ -213,9 +214,12 @@ function renderTracker(root, house, render) {
 
   // Header
   root.append(el('section', { class: 'card' },
-    el('h2', {}, house.name || 'Your House'),
+    el('div', { class: 'house-head' },
+      houseBanner(house, 72),
+      el('div', {},
+        el('h2', {}, house.name || 'Your House'),
+        el('p', { class: 'small muted' }, `${(house.type || 'major')} House · Year ${p.year}`))),
     help('house'),
-    el('p', { class: 'small muted' }, `${(house.type || 'major')} House · Year ${p.year}`),
     el('p', {},
       el('span', { class: 'pill' }, `Status ${p.status} · ${lvl.name}`),
       el('span', { class: 'pill' }, `Wealth ${p.wealth}`),
