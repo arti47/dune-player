@@ -20,6 +20,13 @@ export const HELP = {
     example: 'Never played before? Tutorial → "Play an iconic" → Character → tap the d20. You are playing within five minutes.',
   },
 
+  // ---------- Home (overhaul 2026-10-01) — first-run copy ----------
+  home: {
+    welcome: 'A companion for playing Dune: Adventures in the Imperium — your character, the dice and the table in one place.',
+    playNow: 'Pick one of the iconic characters and start rolling in seconds.',
+    buildOwn: 'Make your own character step by step. The app explains each choice.',
+  },
+
   // ---------- Table empty states (UI round 2 #8) — guidance only; any numbers come from DATA ----------
   starters: {
     scene: {

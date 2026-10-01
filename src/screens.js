@@ -3,7 +3,11 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { listCharacters, currentCharacterId, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
+import { listCharacters, currentCharacterId, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES,
+  getPools, savePools, saveCharacter, getConflict, getTasks, getRollLog } from './store.js';
+import { clampMomentum, clampDetermination } from './derived.js';
+import { openRollDialog } from './roller.js';
+import { pips } from './icons.js';
 import { confirmModal, promptModal, modal, foldCard } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
@@ -13,7 +17,6 @@ import { help } from './help.js';
 import { icon } from './icons.js';
 import { allTalents } from './content.js';
 import { domainCrest, archetypeCrest, factionCrest } from './crests.js';
-import { poolsHeader } from './sheet.js';
 import { runLifecycle } from './combat.js';
 import { houseBanner } from './banner.js';
 import { HELP } from '../data-help.js';
@@ -25,117 +28,171 @@ const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 
 // ---------- Home ----------
-// Dashboard (UI overhaul Stage 3): with a character, the active character leads — crest, name,
-// pools and the three things you do most. A brand-new install gets the ordered first-run path.
+// Home overhaul (2026-10-01): with a character, a session dashboard — hero (who you are + Roll),
+// pool chips, one contextual "Next up", and live tiles for the table. With no character, two big
+// choices (play an iconic now / build your own) and a quiet row of links.
 export function renderHome(root, rerender = () => { root.replaceChildren(); renderHome(root); }) {
   const chars = listCharacters();
-  const house = getHouse();
   const current = chars.find((c) => c.id === currentCharacterId()) || chars[0] || null;
-
+  if (!current) { root.append(welcome()); return; }
   root.append(...[
-    current ? activeCharacterCard(current, chars.length, rerender) : firstRunCard(),
-    current ? poolsHeader(current, rerender) : null,
-    houseCard(house),
-    // With the Journal on, the character card's quick action already opens it.
-    current && Settings.journal() ? null : soloCard(),
-    el('div', { class: 'help-row' }, help('firstRun', 'What do I do here?')),
-  ].filter((n) => n != null));
+    homeHero(current, chars.length, rerender),
+    poolChips(current, rerender),
+    nextUp(current, rerender),
+    homeTiles(current, rerender),
+  ].filter(Boolean));
 }
 
-function activeCharacterCard(c, count, rerender) {
+// ----- first run -----
+function welcome() {
+  const choice = (ico, title, text, onclick, primary) => el('button', { class: 'home-choice' + (primary ? ' primary' : ''), onclick },
+    el('span', { class: 'home-choice-ico' }, icon(ico, { size: 30 })),
+    el('span', { class: 'home-choice-text' }, el('strong', {}, title), el('span', { class: 'small' }, text)));
+  const link = (label, onclick) => el('button', { class: 'link-btn' }, label);
+  const links = [
+    ['Learn the dice', () => { location.hash = '#/tutorial'; }],
+    ['How to play', () => { location.hash = '#/play'; }],
+    ['Playing solo?', enableSolo],
+    ['Create a House', startHouseWizard],
+  ];
+  return el('section', { class: 'home-welcome' },
+    el('p', { class: 'eyebrow' }, 'Welcome to'),
+    el('h2', { class: 'home-welcome-title' }, 'Imperium Player'),
+    el('p', { class: 'muted' }, HELP.home.welcome),
+    el('div', { class: 'home-choices' },
+      choice('star', 'Play now', HELP.home.playNow, openPregenPicker, true),
+      choice('person', 'Build my own', HELP.home.buildOwn, startCharacterWizard, false)),
+    el('div', { class: 'home-links' }, ...links.map(([label, fn]) => { const b = link(label); b.onclick = fn; return b; })),
+    el('div', { class: 'help-row' }, help('firstRun', 'What do I do here?')));
+}
+
+function enableSolo() {
+  Settings.set('journal', true);
+  Settings.set('oracle', true);
+  showToast('Solo play enabled');
+  location.hash = '#/journal';
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+}
+
+// ----- hero -----
+function homeHero(c, count, rerender) {
   const id = c.identity;
+  const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate)].filter(Boolean).join(' · ');
   return el('section', { class: 'card home-hero' },
     el('div', { class: 'char-head' },
       el('div', { class: 'char-crests' },
-        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 48) : null,
-        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 48) : null),
+        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 44) : null,
+        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 44) : null),
       el('div', { class: 'char-id' },
         el('p', { class: 'eyebrow' }, 'Now playing'),
         el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
-        el('p', { class: 'small muted' },
-          [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
-           count > 1 ? `${count} characters` : null].filter(Boolean).join(' · ') || 'Character'))),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => { location.hash = '#/sheet'; } }, 'Open sheet'),
-      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene'),
-      Settings.journal()
-        ? el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/journal'; } }, 'Journal')
-        : null));
+        meta ? el('p', { class: 'small muted' }, meta) : null),
+      count > 1 ? el('button', { class: 'btn secondary btn-sm', 'aria-label': `Switch character (${count})`,
+        onclick: () => { location.hash = '#/sheet'; } }, icon('group', { size: 18 }), ` ${count}`) : null),
+    el('div', { class: 'home-hero-actions' },
+      el('button', { class: 'btn home-roll', onclick: () => openRollDialog(c, rerender) }, icon('d20', { size: 22 }), ' Roll a test'),
+      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, 'Sheet'),
+      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene')));
 }
 
-/** Brand-new install: an ordered path so a first-timer is never guessing what to press (N1). */
-function firstRunCard() {
-  return el('section', { class: 'card' },
-    el('h2', {}, 'New here? Start here'),
-    el('p', { class: 'small muted' },
-      'You do not need to have read anything. Follow these in order and the app explains the rest as you go.'),
-    el('ol', { class: 'small' }, ...HELP.firstRun.steps.map((t) => el('li', {}, t))),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => { location.hash = '#/play'; } }, 'How to play'),
-      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } }, 'Teach me the dice'),
-      el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Just start playing'),
-      el('button', { class: 'btn secondary', onclick: startCharacterWizard }, '+ New character')));
+// ----- pool chips (tap to adjust) -----
+function poolChips(c, rerender) {
+  const pools = getPools();
+  const defs = [
+    { key: 'momentum', name: 'Momentum', ico: 'momentum', value: pools.momentum, max: DATA.momentumRules.cap, blurb: HELP.pools.steps[0],
+      set: (v) => savePools({ ...getPools(), momentum: clampMomentum(v) }) },
+    { key: 'threat', name: 'Threat', ico: 'threat', value: pools.threat, max: null, blurb: HELP.pools.steps[1],
+      set: (v) => savePools({ ...getPools(), threat: Math.max(0, v) }) },
+    { key: 'determination', name: 'Determination', ico: 'determination', value: c.determination, max: DATA.determination.cap, blurb: HELP.pools.steps[2],
+      set: (v) => saveCharacter({ ...c, determination: clampDetermination(v) }) },
+  ];
+  const open = (d) => {
+    let v = d.value;
+    const val = el('span', { class: 'pool-sheet-val' }, String(v));
+    const bump = (n) => { v = d.max == null ? Math.max(0, v + n) : Math.max(0, Math.min(d.max, v + n)); val.textContent = String(v); d.set(v); };
+    const close = modal([
+      el('h2', {}, d.name),
+      el('p', { class: 'small' }, d.blurb),
+      el('div', { class: 'pool-sheet-step' },
+        el('button', { class: 'step-btn big', 'aria-label': `Less ${d.name}`, onclick: () => bump(-1) }, '−'),
+        val,
+        el('button', { class: 'step-btn big', 'aria-label': `More ${d.name}`, onclick: () => bump(1) }, '+')),
+      d.max != null ? el('p', { class: 'small muted' }, `Cap ${d.max}.`) : null,
+      el('p', { class: 'small muted' }, HELP.pools.steps[3]),
+      el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
+    ].filter(Boolean), { sheet: true, onClose: () => rerender() });
+  };
+  return el('div', { class: 'pool-chips', role: 'group', 'aria-label': 'Shared resources' },
+    ...defs.map((d) => el('button', { class: 'pool-chip', 'aria-label': `${d.name} ${d.value}${d.max != null ? ` of ${d.max}` : ''} — adjust`, onclick: () => open(d) },
+      el('span', { class: 'pool-chip-name' }, icon(d.ico, { size: 14 }), d.name),
+      el('strong', { class: 'pool-chip-val' }, String(d.value)),
+      d.max != null ? pips(Math.min(d.value, d.max), d.max, { cls: 'pips-' + (d.key === 'determination' ? 'det' : d.key) }) : el('span', { class: 'pips-spacer' }))));
 }
 
-/** The House is a shared, group-level entity: usually one person builds it, others join.
- *  Recommend it first when none exists, but never gate character creation behind it. */
-function houseCard(house) {
-  if (!house) {
-    return el('section', { class: 'card' },
-      el('h3', {}, 'Your House'),
-      el('p', { class: 'small muted' },
-        'The House is your group’s shared foundation — normally one person creates it and everyone else joins. Recommended first, but you can skip and add it later.'),
-      el('div', { class: 'cta-row' },
-        el('button', { class: 'btn', onclick: startHouseWizard }, 'Create your House'),
-        Settings.greatGame()
-          ? el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/house'; } }, 'Load an example House')
-          : null));
-  }
-  const domainNames = (house.domains || [])
-    .map((d) => (DATA.houseDomains.find((x) => x.id === d.id) || {}).name)
-    .filter(Boolean).join(', ');
-  return el('section', { class: 'card' },
-    el('div', { class: 'house-head' },
-      houseBanner(house, 56),
-      el('div', {},
-        el('h3', {}, house.name || 'Your House'),
-        el('p', { class: 'small muted' },
-          [HOUSE_TYPE_NAME[house.type], domainNames].filter(Boolean).join(' · ') || 'House'))),
-    house.resources != null
-      ? el('p', {},
-          el('span', { class: 'pill' }, `${house.resources} Resources`),
-          el('span', { class: 'pill' }, `${house.wealth} Wealth`))
-      : null,
-    el('div', { class: 'cta-row' },
-      Settings.greatGame()
-        ? el('button', { class: 'btn', onclick: () => { location.hash = '#/house'; } }, 'Manage House')
-        : null,
-      el('button', { class: 'btn secondary', onclick: startHouseWizard }, 'Edit House')));
+// ----- one contextual next step -----
+/** The single most useful thing to do next, or null. Pure (exported for tests). */
+export function nextUpFor(c, { house, rolls, dismissed = [] } = {}) {
+  const st = c.state || {};
+  const stmts = Object.entries(c.driveStatements || {});
+  if (c.creationInPlay && c.creationInPlay.active && !c.creationInPlay.complete)
+    return { id: 'cip', text: 'Finish defining your character as you play.', action: 'Open sheet', go: 'sheet' };
+  if (st.defeated) return { id: 'defeat', text: 'You are defeated — resist, stabilise or start recovery.', action: 'Open sheet', go: 'sheet' };
+  const challenged = stmts.find(([, s]) => s && s.challenged);
+  if (challenged) return { id: 'challenged', text: 'A drive statement is challenged — recover it when you get the chance.', action: 'Open sheet', go: 'sheet' };
+  if (!rolls) return { id: 'firstRoll', text: 'Try your first test — tap Roll whenever you attempt something risky.', action: 'Roll a test', go: 'roll' };
+  if (!house && !dismissed.includes('house')) return { id: 'house', text: 'Your group has no House yet — it’s the shared home base for your characters.', action: 'Create a House', go: 'house', dismissible: true };
+  return null;
 }
 
-/** Solo play is toggle-gated and otherwise invisible — surface it from Home (S4). */
-function soloCard() {
-  if (Settings.journal()) {
-    return el('section', { class: 'card' },
-      el('h3', {}, 'Playing solo'),
-      el('p', { class: 'small muted' },
-        'Frame scenes, check them against the Chaos Factor, and ask the oracle when only the world can answer.'),
-      el('div', { class: 'cta-row' },
-        el('button', { class: 'btn', onclick: () => { location.hash = '#/journal'; } }, 'Open the Journal'),
-        el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } }, 'How to play solo')));
-  }
-  return el('section', { class: 'card' },
-    el('h3', {}, 'Playing solo?'),
-    el('p', { class: 'small muted' },
-      'No GM? Switch on the Journal and the Meaning Tables and the app runs the world for you — scene framing, a Chaos Factor, a yes/no oracle, and random events.'),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => {
-        Settings.set('journal', true);
-        Settings.set('oracle', true);
-        showToast('Solo play enabled');
-        location.hash = '#/journal';
-        window.dispatchEvent(new HashChangeEvent('hashchange'));
-      } }, 'Enable solo play')));
+function nextUp(c, rerender) {
+  const dismissed = Settings.get('homeDismissed') || [];
+  const n = nextUpFor(c, { house: getHouse(), rolls: getRollLog().length, dismissed });
+  if (!n) return null;
+  const go = () => n.go === 'roll' ? openRollDialog(c, rerender) : n.go === 'house' ? startHouseWizard() : (location.hash = `#/${n.go}`);
+  return el('section', { class: 'card next-up' },
+    el('span', { class: 'next-up-ico' }, icon('flag', { size: 20 })),
+    el('div', { class: 'next-up-body' },
+      el('p', { class: 'eyebrow' }, 'Next up'),
+      el('p', { class: 'next-up-text' }, n.text),
+      el('div', { class: 'next-up-actions' },
+        el('button', { class: 'btn btn-sm', onclick: go }, n.action),
+        n.dismissible ? el('button', { class: 'link-btn small', onclick: () => {
+          Settings.set('homeDismissed', [...dismissed, n.id]); rerender();
+        } }, 'Not now') : null)));
+}
+
+// ----- live tiles -----
+function homeTiles(c, rerender) {
+  const tile = (ico, title, value, sub, onclick, cls = '') => el('button', { class: 'home-tile ' + cls, onclick },
+    el('span', { class: 'home-tile-head' }, typeof ico === 'string' ? icon(ico, { size: 18 }) : ico, title),
+    el('strong', { class: 'home-tile-val' }, value),
+    sub ? el('span', { class: 'small muted home-tile-sub' }, sub) : null);
+  const go = (id) => () => { location.hash = `#/${id}`; };
+
+  const conflict = getConflict();
+  const cType = conflict && conflict.active ? (DATA.conflictTypes.find((t) => t.id === conflict.type) || {}).name : null;
+  const tasks = getTasks();
+  const openTasks = tasks.filter((t) => t.progress < t.requirement);
+  const top = openTasks[0];
+  const last = getRollLog()[0];
+  const house = getHouse();
+
+  return el('div', { class: 'home-tiles' }, ...[
+    tile('swords', 'Conflict', cType ? `${cType} · R${conflict.round}` : 'None', cType ? `Side ${conflict.currentSide.toUpperCase()} to act` : 'Tap to start one', go('conflict'), cType ? 'live' : ''),
+    tile('hourglass', 'Tasks', openTasks.length ? `${openTasks.length} open` : 'None',
+      top ? `${top.name} ${top.progress}/${top.requirement}` : 'Sandworms, recovery…', go('tasks'), openTasks.length ? 'live' : ''),
+    tile('d20', 'Last roll', last ? `${last.successes} success${last.successes === 1 ? '' : 'es'}` : '—',
+      last ? `${SKILL_NAME[last.skill] || last.skill} + ${DRIVE_NAME[last.drive] || last.drive}${last.complications ? ` · ${last.complications} comp.` : ''}` : 'No rolls yet', go('sheet')),
+    house
+      ? tile(houseBanner(house, 22), 'House', house.name || 'Your House',
+          house.management && house.management.active ? `Year ${house.management.year} · Wealth ${house.wealth || 0}` : (HOUSE_TYPE_NAME[house.type] || 'House'),
+          Settings.greatGame() ? go('house') : startHouseWizard)
+      : tile('house', 'House', 'None yet', 'Tap to create', startHouseWizard),
+    Settings.journal()
+      ? tile('scroll', 'Journal', 'Solo play', 'Scene, oracle, threads', go('journal'))
+      : tile('scroll', 'Solo play', 'Off', 'Tap to switch on', enableSolo),
+    tile('rules', 'Rules', 'Library', 'Search any rule', go('rules')),
+  ]);
 }
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------

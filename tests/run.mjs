@@ -1459,7 +1459,7 @@ console.log('— House banners —');
     (() => { const res = [...bn.matchAll(/^  \[\/(.+?)\/,/gm)].map((m) => new RegExp(m[1]));
       return GG.landsraadHouses.every((h) => res.some((re) => re.test(String(h.crest).toLowerCase()))); })());
   check('banner on the Home House card and the House tab header',
-    /houseBanner\(house, 56\)/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
+    /houseBanner\(house, 22\)/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
     /houseBanner\(house, 72\)/.test(readFileSync(join(root, 'src/house.js'), 'utf8')) &&
     /'\.\/src\/banner\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
   check('crest lookup is case-insensitive (example-House domains are capitalised)',
@@ -1546,7 +1546,7 @@ console.log('— Novice guidance: help on every surface —');
     ['src/roller.js', ["help('roller'"]],
     ['src/house.js', ["help('house')"]],
     ['src/gm.js', ["help('gm')"]],
-    ['src/screens.js', ["help('rules')", "help('settings')", 'firstRunCard()', 'Jargon buster']],
+    ['src/screens.js', ["help('rules')", "help('settings')", "help('firstRun'", 'Jargon buster']],
     ['src/tutorial.js', ['How the tutorial works']],
     ['src/journal.js', ['helpFrom(']],
   ];
@@ -1557,7 +1557,7 @@ console.log('— Novice guidance: help on every surface —');
     !src('src/journal.js').includes("class: 'journal-help'"));
   check('help never renders inline open (it is a button that opens a sheet)',
     !/help-acc/.test(src('src/help.js')) && /class: 'help-btn'/.test(src('src/help.js')));
-  check('first-run card only shows on an empty install', /current \? activeCharacterCard\(current, chars\.length, rerender\) : firstRunCard\(\)/.test(src('src/screens.js')));
+  check('first-run welcome only shows on an empty install', /if \(!current\) \{ root\.append\(welcome\(\)\); return; \}/.test(src('src/screens.js')));
 }
 
 console.log('— Journal (solo-play log; store + gating) —');
@@ -1634,7 +1634,7 @@ console.log('— Journal (solo-play log; store + gating) —');
     /hookCard\(\)/.test(js2) && /npcCard\(\)/.test(js2));
   check('S4: Home surfaces solo play and can enable it', (() => {
     const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
-    return /function soloCard/.test(sc) && /soloCard\(\)/.test(sc) &&
+    return /function enableSolo/.test(sc) && /enableSolo\)/.test(sc) &&
       /Settings\.set\('journal', true\)/.test(sc) && /Settings\.set\('oracle', true\)/.test(sc);
   })());
   check('S6: journal entries stamp the character who played the scene', (() => {
@@ -1690,9 +1690,9 @@ console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dia
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
   check('Home leads with the active character + pools when one exists',
-    /current \? activeCharacterCard\(/.test(sc) && /current \? poolsHeader\(current, rerender\) : null/.test(sc));
+    /homeHero\(current, chars\.length, rerender\)/.test(sc) && /poolChips\(current, rerender\)/.test(sc));
   check('Home quick actions: Open sheet · End scene (shared lifecycle) · Journal (gated)',
-    /'Open sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*el\('button', \{ class: 'btn secondary', onclick: \(\) => \{ location\.hash = '#\/journal'; \} \}, 'Journal'\)/.test(sc));
+    /' Roll a test'/.test(sc) && /'Sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*tile\('scroll', 'Journal'/.test(sc));
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
   check('End scene / End adventure share one confirm → apply → Undo path', /export async function runLifecycle\(kind, onChange\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb));
   const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
@@ -1852,6 +1852,17 @@ console.log('\n— UI round 2 #9: House yearly stepper —');
   check('normalize: step 0, no done steps, no event by default', nh.management.step === 0 && Array.isArray(nh.management.doneSteps) && nh.management.lastEvent === null);
   const hs = readFileSync(join(root, 'src/house.js'), 'utf8');
   check('end of year returns to step 1 and clears ticks', /mgmt\.step = 0; mgmt\.doneSteps = \[\]; mgmt\.lastEvent = null;/.test(hs));
+}
+
+console.log('\n— Home overhaul: session dashboard + first-run choices —');
+{
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  check('welcome: two big choices (Play now / Build my own) + quiet links', /choice\('star', 'Play now'/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
+  check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /class: 'pool-chip'/.test(sc) && /sheet: true/.test(sc) && /DATA\.momentumRules\.cap/.test(sc) && /DATA\.determination\.cap/.test(sc));
+  check('live tiles: conflict, tasks, last roll, House, journal/solo, rules', ['Conflict', 'Tasks', 'Last roll', 'House', 'Rules'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
+  check('old explanation cards gone', !/function soloCard/.test(sc) && !/function firstRunCard/.test(sc) && !/function houseCard/.test(sc));
+  const { HELP } = await import(join(root, 'data-help.js'));
+  check('first-run copy in data-help', !!(HELP.home && HELP.home.welcome && HELP.home.playNow && HELP.home.buildOwn));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
