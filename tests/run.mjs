@@ -1079,8 +1079,8 @@ console.log('— Phase 2: Creation-in-Play interactive tracker (T40) —');
   // Redesign: Creation in Play is an alternative creation MODE entered in the wizard,
   // not a post-creation toggle on a finished sheet.
   const { stepsFor, buildCharacterInPlay } = await import(join(root, 'src/wizard.js'));
-  check('wizard stepsFor: complete mode = 8 steps, inPlay mode = Concept+Archetype only',
-    stepsFor({ mode: 'complete' }).length === 8 &&
+  check('wizard stepsFor: complete mode = 8 rules steps + Review, inPlay mode = Concept+Archetype only',
+    stepsFor({ mode: 'complete' }).length === 9 && stepsFor({ mode: 'complete' })[8].title === 'Review' &&
     stepsFor({ mode: 'inPlay' }).length === 2 &&
     stepsFor({ mode: 'inPlay' }).map((s) => s.title).join(',') === 'Concept,Archetype');
   {
@@ -1757,6 +1757,15 @@ console.log('\n— UI round 2 · #2 Conflict tracker as fighter cards —');
   check('secondary actions in a ⋯ sheet (hit, requirement, extra action, remove)', /const moreSheet = \(\) =>/.test(cb) && /\{ sheet: true \}/.test(cb) && /'Remove from conflict'/.test(cb) && /Extra action \(1 Determination\)/.test(cb));
   check('defeat shown as a bar on every fighter', /class: 'fighter-track'/.test(cb));
   check('zones fold away into one line', /el\('details', \{ class: 'disclose' \},\s*el\('summary', \{\}, `Zones/.test(cb));
+}
+
+console.log('\n— UI round 2 · #3 Wizard step names + review —');
+{
+  const wz = readFileSync(join(root, 'src/wizard.js'), 'utf8');
+  check('progress names the step ("Step N of M" + title)', /`Step \$\{state\.step \+ 1\} of \$\{steps\.length\}`/.test(wz) && /el\('h2', \{\}, step\.title\)/.test(wz));
+  check('progress dots are buttons that jump to any reached step', /el\('button', \{\s*type: 'button', class: 'wizard-dot'/.test(wz) && /onclick: \(\) => jumpTo\(i\)/.test(wz));
+  check('jumping forward re-validates each step on the way', /for \(let k = state\.step; k < i; k\+\+\)/.test(wz));
+  check('review step summarises the same build the save uses, with Edit per section', /function stepReview\(/.test(wz) && /const c = buildCharacter\(state\)/.test(wz) && /'Edit'/.test(wz));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

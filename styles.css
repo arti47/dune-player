@@ -846,3 +846,14 @@ html[data-theme="dark"] body::before { opacity: .6; }
 .fighter .combatant-head { flex-wrap: nowrap; }
 .fighter .combatant-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fighter .combatant-head .tag { flex: 0 0 auto; }
+
+/* ---------- Round 2 #3: wizard step names + review ---------- */
+.wizard-steptitle { margin: 0 0 4px; }
+button.wizard-dot { font: inherit; font-size: .8rem; cursor: pointer; padding: 0; width: 30px; height: 30px; flex: 0 0 auto; }
+.wizard-progress:has(button.wizard-dot) { gap: 4px; flex-wrap: nowrap; }
+button.wizard-dot:disabled { cursor: default; }
+button.wizard-dot.done:not(:disabled):hover { background: var(--surface-2); }
+.wizard > h2 { margin-top: 4px; }
+.review-block { border-top: 1px solid var(--border); padding: 8px 0 4px; }
+.review-block:first-of-type { border-top: none; }
+.review-block h4 { margin: 4px 0; }

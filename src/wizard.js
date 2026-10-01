@@ -69,6 +69,7 @@ const STEPS = [
   { title: 'Drives', render: stepDrives, validate: validateDrives },
   { title: 'Assets', render: stepAssets, validate: validateAssets },
   { title: 'Finishing', render: stepFinishing, validate: validateFinishing },
+  { title: 'Review', render: stepReview, validate: () => null },
 ];
 
 /** Active step list for the chosen creation mode: full 8 steps normally, or just
@@ -84,13 +85,28 @@ function renderWizard(state, rerender) {
   const isLast = state.step === steps.length - 1;
   const wrap = el('div', { class: 'wizard' });
 
-  // Progress
+  // Progress (round 2 #3): named step + tappable dots. Any step you've reached can be reopened;
+  // jumping forward re-checks each step on the way, stopping at the first that isn't finished.
+  state.maxStep = Math.max(state.maxStep || 0, state.step);
+  const jumpTo = (i) => {
+    for (let k = state.step; k < i; k++) {
+      const err = steps[k].validate(state);
+      if (err) { state.step = k; showToast(err); rerender(); return; }
+    }
+    state.step = i; rerender();
+  };
   wrap.append(
-    el('div', { class: 'wizard-progress', 'aria-label': `Step ${state.step + 1} of ${steps.length}` },
-      ...steps.map((st, i) =>
-        el('span', { class: 'wizard-dot' + (i === state.step ? ' active' : i < state.step ? ' done' : ''), title: st.title },
-          String(i + 1)))),
-    el('h2', {}, `${state.step + 1}. ${step.title}`),
+    el('p', { class: 'wizard-steptitle' }, el('span', { class: 'eyebrow' }, `Step ${state.step + 1} of ${steps.length}`)),
+    el('nav', { class: 'wizard-progress', 'aria-label': 'Wizard steps' },
+      ...steps.map((st, i) => {
+        const reachable = i <= state.maxStep && i !== state.step;
+        return el('button', {
+          type: 'button', class: 'wizard-dot' + (i === state.step ? ' active' : i < state.maxStep || i < state.step ? ' done' : ''),
+          title: st.title, 'aria-label': `Step ${i + 1}: ${st.title}`, 'aria-current': i === state.step ? 'step' : null,
+          disabled: reachable ? null : '', onclick: () => jumpTo(i),
+        }, String(i + 1));
+      })),
+    el('h2', {}, step.title),
   );
 
   // Body
@@ -122,6 +138,38 @@ function renderWizard(state, rerender) {
 async function cancelWizard(rerender) {
   const ok = await confirmModal('Discard this character and leave the wizard?', { okLabel: 'Discard' });
   if (ok) location.hash = '#/home';
+}
+
+// ---------- Final step: Review (round 2 #3) ----------
+/** Everything you chose, from the same build the save uses, with an Edit jump per section. */
+function stepReview(state, body, rerender) {
+  const c = buildCharacter(state);
+  const edit = (title) => {
+    const i = STEPS.findIndex((st) => st.title === title);
+    return el('button', { type: 'button', class: 'link-btn', onclick: () => { state.step = i; rerender(); } }, 'Edit');
+  };
+  const block = (title, stepTitle, ...kids) => el('section', { class: 'review-block' },
+    el('div', { class: 'section-head' }, el('h4', {}, title), edit(stepTitle)), ...kids);
+  const line = (txt) => el('p', { class: 'small' }, txt || '—');
+  const SN = Object.fromEntries(DATA.skills.map((x) => [x.id, x.name]));
+  const a = archetypeById(state.archetype);
+  const f = factionById(state.factionTemplate);
+  body.append(
+    el('p', { class: 'small muted' }, 'Check everything before you save. Tap Edit to change a section — your other choices stay.'),
+    block('Who', 'Finishing',
+      el('p', {}, el('strong', {}, c.identity.name || 'Unnamed')),
+      line([a && a.name, f && f.name].filter(Boolean).join(' · '))),
+    block('Skills', 'Skills', line(DATA.skills.map((x) => `${x.name} ${c.skills[x.id]}`).join(' · '))),
+    block('Focuses', 'Focuses', line(c.focuses.map((fo) => `${fo.name} (${SN[fo.skill]})`).join(', '))),
+    block('Talents', 'Talents', line(c.talents.map((t) => t.skill ? `${t.name} (${SN[t.skill]})` : t.drive ? `${t.name} (${driveName(t.drive)})` : t.category ? `${t.name} (${t.category})` : t.name).join(', '))),
+    block('Drives', 'Drives',
+      line(Object.keys(c.drives).sort((x, y) => c.drives[y] - c.drives[x]).map((d) => `${driveName(d)} ${c.drives[d]}`).join(' · ')),
+      ...Object.entries(c.driveStatements).map(([d, st]) => el('p', { class: 'small' }, el('strong', {}, `${driveName(d)}: `), st.text))),
+    block('Assets', 'Assets', line(c.assets.map((x) => x.name).join(', '))),
+    block('Traits & ambition', 'Finishing',
+      line(c.traits.map((t) => t.name).join(', ')),
+      c.identity.ambition ? el('p', { class: 'small' }, el('strong', {}, 'Ambition: '), c.identity.ambition) : null),
+  );
 }
 
 // ---------- Step 1: Concept (creation mode + optional faction template) ----------
