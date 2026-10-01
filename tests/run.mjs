@@ -1810,7 +1810,19 @@ console.log('\n— UI round 2 #6: roll feel —');
   check('haptics on by default (explicit false turns it off)', /haptics\(\)\s*\{ return read\(\)\.haptics !== false; \}/.test(st));
   check('roller buzzes once per set of dice and scrolls the verdict into view', /result\.feltKey !== key/.test(rl) && /verdict\.scrollIntoView/.test(rl) && /rollHaptic\(/.test(rl));
   check('Settings has a Roll vibration toggle', /tg-haptics/.test(sc) && /Roll vibration/.test(sc));
-  check('bigger result + pop off under reduced motion', /\.roll-verdict h2 \{ font-size: 1\.65rem/.test(css) && /prefers-reduced-motion[^}]*roll-verdict/.test(css) && /width="84"/.test(rl));
+  check('bigger result + pop off under reduced motion', /\.roll-verdict h2 \{ font-size: var\(--fs-2xl\)/.test(css) && /prefers-reduced-motion[^}]*roll-verdict/.test(css) && /width="84"/.test(rl));
+}
+
+console.log('\n— UI round 2 #7: type + spacing scale —');
+{
+  const css = readFileSync(join(root, 'styles.css'), 'utf8');
+  check('type + spacing tokens defined', /--fs-2xs:[^;]+;[^]*--fs-2xl:/.test(css) && /--sp-1: 4px;[^]*--sp-6: 24px;/.test(css));
+  const rawFs = css.match(/font-size: *[0-9.]+rem|font: *[0-9]+ [0-9.]+rem/g) || [];
+  check('every rem font size goes through a --fs token', rawFs.length === 0, rawFs.join(', '));
+  const rawGap = (css.match(/\bgap: *[0-9]+px/g) || []).filter((g) => !/\b[23]px/.test(g));
+  check('every gap ≥4px goes through a --sp token (2–3px meter gaps exempt)', rawGap.length === 0, rawGap.join(', '));
+  check('cards + screen gutter on the scale', /padding: var\(--sp-4\); margin: 0 0 var\(--sp-4\);/.test(css) && /var\(--header-h\) \+ var\(--sp-3\)\) var\(--sp-4\)/.test(css));
+  check('stat chip labels fit (narrow padding, tight tracking)', /\.stat-chip \{[^}]*padding: 6px var\(--sp-1\)/.test(css) && /\.stat-chip span \{ font-size: var\(--fs-2xs\); letter-spacing: -\.02em/.test(css));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
