@@ -250,3 +250,22 @@ export function deleteRollAt(index) {
   notify('rollLog');
 }
 export function clearRollLog() { writeJSON(K_ROLLLOG, []); notify('rollLog'); }
+
+// ---------- Wipe (Settings → Backup & transfer) ----------
+// Category → localStorage keys. The device id is never wiped (it's an identity, not data).
+export const WIPE_CATEGORIES = {
+  game: { label: 'Game data', desc: 'Characters, House, Momentum/Threat pools, roll log, extended tasks, conflict tracker.',
+    keys: [K_CHARS, K_CURRENT, K_HOUSE, K_POOLS, K_ROLLLOG, K_TASKS, K_CONFLICT] },
+  journal: { label: 'Solo Journal', desc: 'Entries, threads, NPCs & places, scene pad, Chaos Factor.', keys: [K_JOURNAL] },
+  campaign: { label: 'Campaign membership', desc: 'Forget the campaign on this device. The cloud copy is untouched.', keys: [K_CAMPAIGN] },
+  settings: { label: 'Settings & progress', desc: 'Theme, toggles, tutorial progress and How to play ticks.', keys: ['imperium.settings'] },
+};
+/** Remove the chosen categories from this device. Returns the keys removed. */
+export function wipeData(categories = []) {
+  const removed = [];
+  for (const c of categories) {
+    for (const k of (WIPE_CATEGORIES[c]?.keys || [])) { localStorage.removeItem(k); removed.push(k); }
+  }
+  ['characters', 'current', 'house', 'pools', 'rollLog', 'tasks', 'conflict', 'journal', 'campaign'].forEach(notify);
+  return removed;
+}

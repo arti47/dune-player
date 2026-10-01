@@ -1389,6 +1389,25 @@ console.log('— Faction + archetype crests —');
     /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
+console.log('— Wipe data (pick categories, typed confirm) —');
+{
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const st = await import(join(root, 'src/store.js') + '?wipe');
+  const seed = () => ['imperium.characters', 'imperium.house', 'imperium.pools', 'imperium.journal', 'imperium.campaign', 'imperium.settings', 'imperium.deviceUid']
+    .forEach((k) => mem.set(k, '{}'));
+  seed(); st.wipeData(['journal']);
+  check('wiping one category removes only its keys', !mem.has('imperium.journal') && mem.has('imperium.characters') && mem.has('imperium.settings'));
+  seed(); st.wipeData(['game', 'journal', 'campaign', 'settings']);
+  check('wiping all four clears every data key but keeps the device id',
+    ['imperium.characters', 'imperium.house', 'imperium.pools', 'imperium.journal', 'imperium.campaign', 'imperium.settings'].every((k) => !mem.has(k)) &&
+    mem.has('imperium.deviceUid'));
+  check('four wipe categories offered', Object.keys(st.WIPE_CATEGORIES).join(',') === 'game,journal,campaign,settings');
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  check('wipe button arms only with a tick AND the typed word WIPE', /picked\.size && confirmInput\.value\.trim\(\) === 'WIPE'/.test(sc) && /'Export backup first'/.test(sc));
+  delete globalThis.localStorage;
+}
+
 console.log('— Rules library card icons —');
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');

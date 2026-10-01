@@ -3,8 +3,8 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { getPools, listCharacters, getHouse, exportAll, importAll } from './store.js';
-import { confirmModal, promptModal } from './ui.js';
+import { getPools, listCharacters, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
+import { confirmModal, promptModal, modal } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
 import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
@@ -559,6 +559,42 @@ export function renderRules(root) {
 }
 
 // ---------- Data backup (JSON export / import) ----------
+/** Wipe chosen categories from this device. Typed confirmation: the Wipe button only arms once
+ *  at least one box is ticked AND the field reads exactly "WIPE". Reloads afterwards so every
+ *  screen (and in-memory state) starts clean. */
+function openWipeDialog(doExport) {
+  const picked = new Set();
+  const confirmInput = el('input', { type: 'text', autocomplete: 'off', placeholder: 'Type WIPE', 'aria-label': 'Type WIPE to confirm' });
+  const wipeBtn = el('button', { class: 'btn danger-btn', disabled: '' }, 'Wipe');
+  const arm = () => { wipeBtn.disabled = !(picked.size && confirmInput.value.trim() === 'WIPE'); };
+  confirmInput.addEventListener('input', arm);
+
+  const rows = Object.entries(WIPE_CATEGORIES).map(([id, c]) => {
+    const box = el('input', { type: 'checkbox', id: `wipe-${id}` });
+    box.addEventListener('change', () => { box.checked ? picked.add(id) : picked.delete(id); arm(); });
+    return el('div', { class: 'toggle-row' },
+      el('label', { for: `wipe-${id}` }, el('div', {}, c.label), el('div', { class: 'small muted' }, c.desc)), box);
+  });
+
+  const close = modal([
+    el('h3', {}, 'Wipe data'),
+    el('p', { class: 'small muted' }, 'Tick what to erase from this device. This cannot be undone — export a backup first if you might want it back.'),
+    el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: doExport }, 'Export backup first')),
+    ...rows,
+    el('label', { class: 'field' }, el('span', {}, 'Type WIPE to confirm'), confirmInput),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      wipeBtn),
+  ]);
+  wipeBtn.addEventListener('click', () => {
+    if (wipeBtn.disabled) return;
+    wipeData([...picked]);
+    close();
+    showToast('Data wiped');
+    setTimeout(() => { location.hash = '#/home'; location.reload(); }, 400);
+  });
+}
+
 function dataCard() {
   const doExport = () => {
     const bundle = exportAll();
@@ -595,7 +631,9 @@ function dataCard() {
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: doExport }, 'Export JSON'),
       el('button', { class: 'btn secondary', onclick: () => fileInput.click() }, 'Import JSON'),
-      fileInput));
+      fileInput),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn danger-btn', onclick: () => openWipeDialog(doExport) }, 'Wipe data…')));
 }
 
 // ---------- Campaign & party (Phase 5 foundation: local-first campaigns + roles) ----------
