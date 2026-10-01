@@ -3,7 +3,7 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { getPools, listCharacters, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
+import { listCharacters, currentCharacterId, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
 import { confirmModal, promptModal, modal } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
@@ -12,7 +12,9 @@ import { slug, takeCiteTarget } from './cite.js';
 import { help } from './help.js';
 import { icon } from './icons.js';
 import { allTalents } from './content.js';
-import { domainCrest } from './crests.js';
+import { domainCrest, archetypeCrest, factionCrest } from './crests.js';
+import { poolsHeader } from './sheet.js';
+import { runLifecycle } from './combat.js';
 import { houseBanner } from './banner.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
@@ -23,42 +25,42 @@ const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 
 // ---------- Home ----------
-export function renderHome(root) {
-  const pools = getPools();
+// Dashboard (UI overhaul Stage 3): with a character, the active character leads — crest, name,
+// pools and the three things you do most. A brand-new install gets the ordered first-run path.
+export function renderHome(root, rerender = () => { root.replaceChildren(); renderHome(root); }) {
   const chars = listCharacters();
   const house = getHouse();
+  const current = chars.find((c) => c.id === currentCharacterId()) || chars[0] || null;
 
   root.append(...[
-    chars.length ? null : firstRunCard(),
-
-    el('section', { class: 'card' },
-      el('h2', {}, 'Welcome, Agent of the Imperium'),
-      el('p', { class: 'muted' },
-        'Your companion for Dune: Adventures in the Imperium — character creation, in-play tracking, and a native 2d20 dice engine.'),
-      el('p', {},
-        el('span', { class: 'pill' }, `Momentum ${pools.momentum}/${DATA.momentumRules.cap}`),
-        el('span', { class: 'pill' }, `Threat ${pools.threat}`),
-        el('span', { class: 'pill' }, `${chars.length} character${chars.length === 1 ? '' : 's'}`)),
-      help('firstRun', 'What do I do here?'),
-    ),
-
+    current ? activeCharacterCard(current, chars.length, rerender) : firstRunCard(),
+    current ? poolsHeader(current, rerender) : null,
     houseCard(house),
-
-    soloCard(),
-
-    el('section', { class: 'card' },
-      el('h3', {}, chars.length ? 'Your characters' : 'Create a character'),
-      el('div', { class: 'cta-row' },
-        el('button', { class: 'btn', onclick: startCharacterWizard }, '+ New character'),
-        el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic')),
-      chars.length
-        ? el('ul', { class: 'char-list' }, ...chars.map((c) =>
-            el('li', {},
-              el('a', { href: '#/sheet' }, c.identity.name || 'Unnamed'),
-              c.identity.archetype ? el('span', { class: 'small muted' }, ' · ' + capitalize(c.identity.archetype)) : null)))
-        : el('p', { class: 'small muted' }, 'Build a character with the 8-step wizard, or jump in as an iconic pregen.'),
-    ),
+    // With the Journal on, the character card's quick action already opens it.
+    current && Settings.journal() ? null : soloCard(),
+    el('section', { class: 'card' }, help('firstRun', 'What do I do here?')),
   ].filter((n) => n != null));
+}
+
+function activeCharacterCard(c, count, rerender) {
+  const id = c.identity;
+  return el('section', { class: 'card home-hero' },
+    el('div', { class: 'char-head' },
+      el('div', { class: 'char-crests' },
+        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 48) : null,
+        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 48) : null),
+      el('div', { class: 'char-id' },
+        el('p', { class: 'eyebrow' }, 'Now playing'),
+        el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
+        el('p', { class: 'small muted' },
+          [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
+           count > 1 ? `${count} characters` : null].filter(Boolean).join(' · ') || 'Character'))),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => { location.hash = '#/sheet'; } }, 'Open sheet'),
+      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene'),
+      Settings.journal()
+        ? el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/journal'; } }, 'Journal')
+        : null));
 }
 
 /** Brand-new install: an ordered path so a first-timer is never guessing what to press (N1). */
@@ -71,7 +73,8 @@ function firstRunCard() {
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: () => { location.hash = '#/play'; } }, 'How to play'),
       el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } }, 'Teach me the dice'),
-      el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Just start playing')));
+      el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Just start playing'),
+      el('button', { class: 'btn secondary', onclick: startCharacterWizard }, '+ New character')));
 }
 
 /** The House is a shared, group-level entity: usually one person builds it, others join.

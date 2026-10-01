@@ -431,37 +431,53 @@ export function openRollDialog(character, onDone = null) {
     } }, cfg.coolAuto ? 'Auto-succeed' : 'Roll');
     if (oppNeedsRoll) rollBtn.disabled = true;
 
+    // Progressive layout (UI overhaul Stage 3): Skill · Drive · Difficulty · Focus up front; every
+    // other option in one "Advanced options" group whose open state survives re-renders.
+    const advOn = [cfg.bought > 0, cfg.autoOne, cfg.appliedTraits.size > 0, cfg.voice > 0, cfg.mentatAutoOne,
+      cfg.otherMemory, cfg.coolAuto, cfg.talentDiffs.size > 0, cfg.opposed.on, cfg.assists.length > 0,
+      cfg.architect, cfg.calcPred, cfg.compRange !== 'normal'].filter(Boolean).length;
+    const adv = el('details', { class: 'roll-adv' },
+      el('summary', {}, 'Advanced options', advOn ? el('span', { class: 'tag' }, `${advOn} on`) : null),
+      ...[
+        architectSection,
+        calcPredSection,
+        el('div', { class: 'field' }, el('span', {}, `Buy extra dice (max ${MAX_DICE - BASE_DICE})`),
+          el('div', { class: 'stepper' }, buyDec, el('span', { class: 'stat-val' }, String(cfg.bought)), buyInc)),
+        cfg.bought ? el('div', { class: 'field' }, el('span', {}, `Cost: ${cost} ${cfg.buyWith === 'momentum' ? 'Momentum' : 'Threat'}`), buyWithSel) : null,
+        el('label', { class: 'toggle-row', for: 'roll-auto1' },
+          el('span', {}, eligible ? 'Spend 1 Determination: one automatic 1' : 'Determination: needs an unchallenged statement on this drive'),
+          detBox),
+        traitSection,
+        talentSection,
+        diffTalentSection,
+        opposedSection,
+        assistSection,
+        el('div', { class: 'field' }, el('span', {}, 'Complication range'), compSel,
+          el('span', { class: 'field-hint' }, cfg.compRange === 'normal' ? 'Complications on a natural 20 (default)' : `Complications on ${DATA.complications.ranges.find((r) => r.id === cfg.compRange).occursOn} — the GM raises this for riskier situations`)),
+      ].filter((k) => k != null));
+    adv.open = !!cfg.advOpen;
+    adv.addEventListener('toggle', () => { cfg.advOpen = adv.open; });
+
     setUI(
       el('h2', { id: 'roll-title' }, 'Roll a test', cite('Skill test basics', close)),
       help('roller', 'New to this? How a test works'),
-      el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel,
-        el('span', { class: 'field-hint' }, skillTag(cfg.skill))),
-      el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel,
-        el('span', { class: 'field-hint' }, driveTag(cfg.drive))),
+      el('div', { class: 'grid-2' },
+        el('div', { class: 'field' }, el('span', {}, 'Skill'), skillSel,
+          el('span', { class: 'field-hint' }, skillTag(cfg.skill))),
+        el('div', { class: 'field' }, el('span', {}, 'Drive'), driveSel,
+          el('span', { class: 'field-hint' }, driveTag(cfg.drive)))),
       el('p', {}, el('span', { class: 'pill' }, `Target number ${tn()}`),
         el('span', { class: 'pill' }, `${BASE_DICE + cfg.bought} dice`)),
-      architectSection,
-      calcPredSection,
-      cfg.opposed.on ? null : el('div', { class: 'field' }, el('span', {}, 'Difficulty'), diffSel),
+      cfg.opposed.on
+        ? el('p', { class: 'small muted' }, 'Opposed test — the defender’s successes set the Difficulty.')
+        : el('div', { class: 'field' }, el('span', {}, 'Difficulty'), diffSel),
       (!cfg.opposed.on && (traitDelta() + talentDiffDelta()) !== 0) ? (() => {
         const tot = traitDelta() + talentDiffDelta();
         return el('p', {}, el('span', { class: 'pill' }, `Effective Difficulty ${effDiff()} (${tot > 0 ? '+' : ''}${tot})`));
       })() : null,
-      traitSection,
-      talentSection,
-      diffTalentSection,
-      opposedSection,
-      assistSection,
-      el('div', { class: 'field' }, el('span', {}, `Buy extra dice (max ${MAX_DICE - BASE_DICE})`),
-        el('div', { class: 'stepper' }, buyDec, el('span', { class: 'stat-val' }, String(cfg.bought)), buyInc)),
-      cfg.bought ? el('div', { class: 'field' }, el('span', {}, `Cost: ${cost} ${cfg.buyWith === 'momentum' ? 'Momentum' : 'Threat'}`), buyWithSel) : null,
-      el('div', { class: 'field' }, el('span', {}, 'Complication range'), compSel,
-        el('span', { class: 'field-hint' }, cfg.compRange === 'normal' ? 'Complications on a natural 20 (default)' : `Complications on ${DATA.complications.ranges.find((r) => r.id === cfg.compRange).occursOn} — the GM raises this for riskier situations`)),
       el('label', { class: 'toggle-row', for: 'roll-focus' }, el('span', {}, `Applicable focus (crit on ≤ ${skillRating()})`), focusBox),
-      el('label', { class: 'toggle-row', for: 'roll-auto1' },
-        el('span', {}, eligible ? 'Spend 1 Determination: one automatic 1' : 'Determination: needs an unchallenged statement on this drive'),
-        detBox),
-      el('div', { class: 'modal-actions' },
+      adv,
+      el('div', { class: 'modal-actions sticky-actions' },
         el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
         rollBtn),
     );

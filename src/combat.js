@@ -122,23 +122,34 @@ function showSummary(title, summary, undo, onChange) {
   ]);
 }
 
+const LIFECYCLE_ACTIONS = {
+  scene: ['End scene', () => endScene(),
+    'End the scene? Momentum −1, temporary assets expire, and Resist Defeat resets for everyone.'],
+  adventure: ['End adventure', () => endAdventure(),
+    'End the adventure? Determination resets to its start value, challenged statements recover, and the advance-purchase gate resets.'],
+};
+
+/** Confirm → apply → summary with one-step Undo. Shared by the Scene card and Home's quick action. */
+export async function runLifecycle(kind, onChange) {
+  const [label, applyFn, confirmMsg] = LIFECYCLE_ACTIONS[kind];
+  if (!await confirmModal(confirmMsg, { okLabel: label })) return;
+  const { summary, undo } = applyFn();
+  onChange && onChange();
+  showSummary(label, summary, undo, onChange);
+}
+
 /** A card with the End scene / End adventure controls. `onChange` re-renders the caller. */
 export function renderLifecycle(onChange) {
-  const control = (label, applyFn, confirmMsg) =>
-    el('button', { class: 'btn secondary', onclick: async () => {
-      if (!await confirmModal(confirmMsg, { okLabel: label })) return;
-      const { summary, undo } = applyFn();
-      onChange && onChange();
-      showSummary(label, summary, undo, onChange);
-    } }, label);
+  const control = (kind) => el('button', { class: 'btn secondary', onclick: () => runLifecycle(kind, onChange) },
+    LIFECYCLE_ACTIONS[kind][0]);
 
   return el('section', { class: 'card' },
     el('h3', {}, 'Scene & adventure', cite('Scene & adventure lifecycle')),
     help('lifecycle'),
     el('p', { class: 'small muted' }, 'End-of-scene and end-of-adventure bookkeeping (§3.17). Each shows what changed with one-step Undo.'),
     el('div', { class: 'cta-row' },
-      control('End scene', endScene, 'End the scene? Momentum −1, temporary assets expire, and Resist Defeat resets for everyone.'),
-      control('End adventure', endAdventure, 'End the adventure? Determination resets to its start value, challenged statements recover, and the advance-purchase gate resets.')));
+      control('scene'),
+      control('adventure')));
 }
 
 // ---------- Generic extended-task tracker (§3.1) ----------

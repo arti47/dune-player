@@ -1557,7 +1557,7 @@ console.log('— Novice guidance: help accordions on every surface —');
     !src('src/journal.js').includes("class: 'journal-help'"));
   check('help accordions ship collapsed everywhere (no open attribute)',
     !/class: 'help-acc', open/.test(src('src/help.js')));
-  check('first-run card only shows on an empty install', /chars\.length \? null : firstRunCard\(\)/.test(src('src/screens.js')));
+  check('first-run card only shows on an empty install', /current \? activeCharacterCard\(current, chars\.length, rerender\) : firstRunCard\(\)/.test(src('src/screens.js')));
 }
 
 console.log('— Journal (solo-play log; store + gating) —');
@@ -1684,6 +1684,20 @@ console.log('\n— UI overhaul · Stage 2: Character screen + floating Roll —'
   check('floating Roll shows on Character + Table only, with a character', /tab === 'sheet' \|\| tab === 'table'/.test(hb) && /aria-label': 'Roll a test'/.test(hb));
   const mn = readFileSync(join(root, 'src/main.js'), 'utf8');
   check('Meaning Tables no longer a global floating button', !/initOracle/.test(mn) && !/oracle-fab/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
+}
+
+console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dialog —');
+{
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
+  check('Home leads with the active character + pools when one exists',
+    /current \? activeCharacterCard\(/.test(sc) && /current \? poolsHeader\(current, rerender\) : null/.test(sc));
+  check('Home quick actions: Open sheet · End scene (shared lifecycle) · Journal (gated)',
+    /'Open sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*el\('button', \{ class: 'btn secondary', onclick: \(\) => \{ location\.hash = '#\/journal'; \} \}, 'Journal'\)/.test(sc));
+  const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
+  check('End scene / End adventure share one confirm → apply → Undo path', /export async function runLifecycle\(kind, onChange\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb));
+  const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
+  check('roll dialog: advanced options collapsed in one group with an "N on" count', /class: 'roll-adv'/.test(rl) && /`\$\{advOn\} on`/.test(rl) && /adv\.open = !!cfg\.advOpen/.test(rl));
+  check('roll dialog: Roll/Cancel bar is sticky', /modal-actions sticky-actions/.test(rl) && /\.sticky-actions \{[^}]*position: sticky/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
