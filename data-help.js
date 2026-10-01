@@ -13,11 +13,11 @@ export const HELP = {
     steps: [
       'Take the tutorial if you have never played this game — it teaches the dice in a few minutes and nothing you do there is saved.',
       'Make a character: use the 8-step wizard, or tap "Play an iconic" to start instantly as a character from the novels.',
-      'Open the Sheet tab. That is your character and every button you need in play.',
+      'Open the Character tab. That is your character and every button you need in play.',
       'Press "⚂ Roll a test" whenever you try something risky. The app does the maths.',
       'Playing without a gamemaster? Switch on solo play and the app runs the world for you.',
     ],
-    example: 'Never played before? Tutorial → "Play an iconic" → Sheet → ⚂ Roll a test. You are playing within five minutes.',
+    example: 'Never played before? Tutorial → "Play an iconic" → Character → ⚂ Roll a test. You are playing within five minutes.',
   },
 
   // ---------- the persistent resource bar ----------

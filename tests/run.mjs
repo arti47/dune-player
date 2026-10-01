@@ -22,7 +22,7 @@ const SHELL_FILES = [
   'firebase-config.js', 'database.rules.json', 'README.md', 'CLAUDE.md',
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
   'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/content.js', 'src/sheet.js',
-  'src/combat.js', 'src/gm.js', 'src/house.js', 'src/tutorial.js', 'src/screens.js', 'src/router.js', 'src/main.js',
+  'src/combat.js', 'src/gm.js', 'src/house.js', 'src/tutorial.js', 'src/screens.js', 'src/router.js', 'src/main.js', 'src/hubs.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
 
@@ -1358,7 +1358,7 @@ console.log('— Visual layer: icons, dice, meters, fonts —');
   check('icon set covers every nav route + game concepts', ['home','play','sheet','rules','journal','house','settings','gm','learn','d20','momentum','threat','determination','chaos','oracle']
     .every((n) => new RegExp(`\\b${n}: '`).test(ic)));
   check('icons are currentColor + aria-hidden unless labelled', /'stroke', 'currentColor'/.test(ic) && /aria-hidden/.test(ic));
-  check('nav uses SVG icons, no emoji glyphs', /icon\(r\.id === 'tutorial' \? 'learn' : r\.id/.test(src('src/router.js')));
+  check('nav uses SVG icons, no emoji glyphs', /icon\(t\.ico, \{ size: 22 \}\)/.test(src('src/router.js')) && !/ico: '[^a-z]/.test(src('src/router.js')));
   const css = src('styles.css');
   check('fonts self-hosted + cached offline', existsSync(join(root, 'fonts/josefin-sans-latin-400-normal.woff2')) &&
     existsSync(join(root, 'fonts/OFL-josefin-sans.txt')) && /fonts\/josefin-sans-latin-600-normal\.woff2/.test(src('service-worker.js')) &&
@@ -1392,7 +1392,6 @@ console.log('— Faction + archetype crests —');
 console.log('— Final visual review guards —');
 {
   const css = readFileSync(join(root, 'styles.css'), 'utf8');
-  check('crowded nav (7+ tabs) drops caps + tracking', /\.bottom-nav:has\(a:nth-child\(7\)\) a \{[^}]*letter-spacing: 0; text-transform: none/.test(css));
   check('Meaning Tables button hidden over dialogs and wizards', /body:has\(\.modal-overlay\) \.oracle-fab, body:has\(\.wizard\) \.oracle-fab \{ display: none; \}/.test(css));
   check('toggle-row selects size to content (labels keep their width)', /\.toggle-row select \{ flex: 0 0 auto; width: auto; max-width: 55%; \}/.test(css));
   check('sticky wizard bar has a solid backing and sits flush on the nav', /\.wizard-nav \{\s*background: linear-gradient/.test(css) && /\.wizard-nav \{ bottom: var\(--nav-h\); padding-bottom: 12px; \}/.test(css));
@@ -1495,7 +1494,7 @@ console.log('— How to play guide (start / sustain / end) —');
     /r\.undo\(\)/.test(psrc));
   check('Play is a permanent nav route (never gated)', (() => {
     const r = readFileSync(join(root, 'src/router.js'), 'utf8');
-    return /id: 'play'[^}]*render: renderPlay \}/.test(r);
+    return /id: 'play'[^}]*hub: 'library', render: renderPlay \}/.test(r);
   })());
   check('play-guide progress persists via Settings', (() => {
     const st = readFileSync(join(root, 'src/settings.js'), 'utf8');
@@ -1651,6 +1650,25 @@ console.log('— Journal (solo-play log; store + gating) —');
     /roll === 100 \|\| \(roll >= 11 && roll <= 99 && roll % 11 === 0\)/.test(jsrc));
   check('journal oracle offers Add-to-scene + Log-as-entry', /Add to scene/.test(jsrc) && /Log as entry/.test(jsrc));
   delete globalThis.localStorage;
+}
+
+// ---------- UI overhaul · Stage 1: five-tab navigation ----------
+console.log('\n— UI overhaul · Stage 1: five tabs + hubs —');
+{
+  const r = readFileSync(join(root, 'src/router.js'), 'utf8');
+  const tabs = [...r.matchAll(/\{ id: '(\w+)',\s+label: '[^']+',\s+ico: /g)].map((m) => m[1]);
+  check('nav is exactly Home · Character · Table · Library · More', tabs.join() === 'home,sheet,table,library,more');
+  check('every legacy route id still routable (deep links, cite)',
+    ['home', 'sheet', 'journal', 'rules', 'play', 'tutorial', 'house', 'gm', 'settings'].every((id) => new RegExp(`id: '${id}',`).test(r)));
+  check('Table hub holds Scene · Tasks · Conflict · Journal', ['scene', 'tasks', 'conflict', 'journal'].every((id) => new RegExp(`id: '${id}',[^}]*hub: 'table'`).test(r)));
+  check('Library hub holds Rules · How to play · Tutorial', ['rules', 'play', 'tutorial'].every((id) => new RegExp(`id: '${id}',[^}]*hub: 'library'`).test(r)));
+  check('House · GM · Settings light the More tab', ['house', 'gm', 'settings'].every((id) => new RegExp(`id: '${id}',[^}]*parent: 'more'`).test(r)));
+  check('hub tab opens the last-used segment', /function lastSegment\(hub\)/.test(r) && /rememberSegment\(route\)/.test(r));
+  const sh = readFileSync(join(root, 'src/sheet.js'), 'utf8');
+  check('scene/tasks/conflict cards moved off the Character screen', !/renderLifecycle\(|renderTasks\(|renderConflict\(/.test(sh));
+  const hb = readFileSync(join(root, 'src/hubs.js'), 'utf8');
+  check('hubs reuse the real combat renderers + pools header', /renderLifecycle\(rerender\)/.test(hb) && /renderTasks\(rerender\)/.test(hb) && /renderConflict\(rerender\)/.test(hb) && /poolsHeader\(activeCharacter\(\), rerender\)/.test(hb));
+  check('hubs.js in the SW app shell', /'\.\/src\/hubs\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

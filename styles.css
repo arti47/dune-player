@@ -652,7 +652,6 @@ summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }
 
 /* ---------- Final visual review fixes (v0.105) ---------- */
 /* 1. Crowded nav (7+ tabs at phone width): drop caps + tracking so labels don't run together. */
-.bottom-nav:has(a:nth-child(7)) a { font-size: .58rem; letter-spacing: 0; text-transform: none; }
 /* 2. The Meaning Tables button never sits over a dialog or the creation wizards. */
 body:has(.modal-overlay) .oracle-fab, body:has(.wizard) .oracle-fab { display: none; }
 /* 3. Night moons: quieter so they never read as stray shapes behind full-screen flows. */
@@ -665,3 +664,28 @@ html[data-theme="dark"] body::before { opacity: .6; }
   padding: 14px 0 6px; margin: 0 -14px; padding-left: 14px; padding-right: 14px;
 }
 .wizard-nav { bottom: var(--nav-h); padding-bottom: 12px; }
+
+/* ---------- UI overhaul · Stage 1: hub segments + More list ---------- */
+.segmented {
+  display: flex; gap: 4px; padding: 4px; margin: 0 0 12px;
+  background: var(--surface-2); border-radius: 10px;
+  position: sticky; top: 0; z-index: 5;
+  overflow-x: auto; scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar { display: none; }
+.segmented a {
+  flex: 1 0 auto; text-align: center; padding: 8px 12px; min-height: 36px;
+  border-radius: 7px; text-decoration: none; color: var(--muted);
+  font-size: .85rem; font-weight: 600; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center;
+}
+.segmented a[aria-current="page"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.more-list { list-style: none; margin: 0; padding: 0; }
+.more-list li + li { border-top: 1px solid var(--border); }
+.more-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 2px; min-height: 52px;
+  text-decoration: none; color: var(--text);
+}
+.more-ico { color: var(--accent); display: flex; }
+.more-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.more-chev { color: var(--muted); font-size: 1.4rem; line-height: 1; }

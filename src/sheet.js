@@ -23,7 +23,7 @@ import { icon, pips, emptyState } from './icons.js';
 import { factionCrest, archetypeCrest } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
-import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
+import { renderDefeat } from './combat.js';
 import { modal, showToast, confirmModal, promptModal } from './ui.js';
 import { DATA } from '../data.js';
 
@@ -102,10 +102,6 @@ export function renderSheet(root) {
               c.id === (current && current.id) ? el('span', { class: 'tag' }, 'active') : null)))
         : emptyState('person', 'No characters yet. Make one, or play an iconic.')),
   );
-
-  if (chars.length) root.append(renderLifecycle(refresh));
-  if (chars.length) root.append(renderTasks(refresh));
-  if (chars.length) root.append(renderConflict(refresh));
 
   if (current) root.append(liveSheet(current));
   else root.append(el('section', { class: 'card' },

@@ -17,6 +17,8 @@ const PATHS = {
   house: '<path d="M4 20.5h16"/><path d="M5.5 20.5V10l6.5-5.5 6.5 5.5v10.5"/><path d="M9 20.5v-6h6v6"/><path d="M12 4.5V2.5"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
   gm: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  table: '<path d="M3 9h18"/><path d="M5 9l-1 11M19 9l1 11"/><path d="M7 13.5h10"/><path d="M9 9V5.5h6V9"/>',
+  more: '<circle cx="5.5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18.5" cy="12" r="1.3" fill="currentColor"/>',
   learn: '<path d="M2.5 9 12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v5c1.5 1.5 3.5 2 5.5 2s4-.5 5.5-2v-5"/>',
   // game concepts
   d20: '<path d="M12 2.5 20.5 7.5v9L12 21.5 3.5 16.5v-9z"/><path d="M12 2.5 7.5 15h9z"/><path d="M3.5 7.5 7.5 15 3.5 16.5M20.5 7.5 16.5 15l4 1.5M7.5 15 12 21.5 16.5 15"/>',

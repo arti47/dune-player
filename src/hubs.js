@@ -1,0 +1,56 @@
+// hubs.js — the in-play "Table" segments and the "More" menu (UI overhaul, Stage 1).
+//
+// No rules live here: each segment reuses an existing renderer (combat.js / sheet.js poolsHeader).
+// `rerender` is the router's renderScreen, passed in so this module never imports the router.
+
+import { el } from './core.js';
+import { icon, emptyState } from './icons.js';
+import { Settings } from './settings.js';
+import { listCharacters, currentCharacterId } from './store.js';
+import { poolsHeader } from './sheet.js';
+import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
+import { startCharacterWizard, openPregenPicker } from './wizard.js';
+
+function activeCharacter() {
+  const chars = listCharacters();
+  return chars.find((c) => c.id === currentCharacterId()) || chars[0] || null;
+}
+
+// Scene and conflict act on the party; with nobody to play there is nothing to show yet.
+function needCharacter(root) {
+  root.append(el('section', { class: 'card' },
+    emptyState('person', 'Make or pick a character first — the table tools act on your party.'),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: startCharacterWizard }, '+ New character'),
+      el('button', { class: 'btn secondary', onclick: openPregenPicker }, 'Play an iconic'))));
+}
+
+export function renderScene(root, rerender) {
+  if (!listCharacters().length) return needCharacter(root);
+  root.append(poolsHeader(activeCharacter(), rerender), renderLifecycle(rerender));
+}
+
+export function renderTaskSeg(root, rerender) {
+  root.append(renderTasks(rerender));
+}
+
+export function renderConflictSeg(root, rerender) {
+  if (!listCharacters().length) return needCharacter(root);
+  root.append(poolsHeader(activeCharacter(), rerender), renderConflict(rerender));
+}
+
+// "More": the occasional destinations, as a tappable list.
+export function renderMore(root) {
+  const row = (href, ico, title, desc) =>
+    el('li', {},
+      el('a', { class: 'more-row', href },
+        el('span', { class: 'more-ico' }, icon(ico, { size: 22 })),
+        el('span', { class: 'more-text' }, el('strong', {}, title), el('span', { class: 'small muted' }, desc)),
+        el('span', { class: 'more-chev', 'aria-hidden': 'true' }, '›')));
+  root.append(el('section', { class: 'card' },
+    el('h2', {}, 'More'),
+    el('ul', { class: 'more-list' },
+      Settings.greatGame() ? row('#/house', 'house', 'House', 'Run your House’s yearly session') : null,
+      Settings.gmScreen() ? row('#/gm', 'gm', 'GM screen', 'Threat, party peek, tables, NPCs') : null,
+      row('#/settings', 'settings', 'Settings', 'Toggles, theme, campaign, backup'))));
+}
