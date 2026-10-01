@@ -38,7 +38,7 @@ export function renderHome(root, rerender = () => { root.replaceChildren(); rend
     houseCard(house),
     // With the Journal on, the character card's quick action already opens it.
     current && Settings.journal() ? null : soloCard(),
-    el('section', { class: 'card' }, help('firstRun', 'What do I do here?')),
+    el('div', { class: 'help-row' }, help('firstRun', 'What do I do here?')),
   ].filter((n) => n != null));
 }
 
@@ -546,7 +546,7 @@ export function renderRules(root) {
     });
   });
 
-  root.append(el('div', { class: 'card' }, help('rules'), search), ...cards);
+  root.append(el('div', { class: 'card' }, el('h2', {}, 'Rules library'), help('rules'), search), ...cards);
 
   // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
   const target = takeCiteTarget();

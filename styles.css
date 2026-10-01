@@ -423,14 +423,10 @@ img, svg, table, pre { max-width: 100%; }
 .journal-compose[open] summary { margin-bottom: 8px; }
 
 /* ---------- Shared "How to use" accordion (help.js) ---------- */
-.help-acc { margin: 6px 0 10px; border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
-.help-acc summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
-.help-acc[open] summary { margin-bottom: 6px; }
-.help-acc ol { margin: 0 0 6px; padding-left: 18px; }
-.help-acc li { margin-bottom: 3px; }
+.disclose { margin: 6px 0 10px; border-left: 2px solid var(--accent); padding: 4px 0 4px 10px; }
+.disclose summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+.disclose[open] summary { margin-bottom: 6px; }
 .pools-block { display: contents; }
-.pools-help { padding-top: 6px; padding-bottom: 6px; }
-.pools-help .help-acc { margin: 0; }
 
 /* ---------- How to play guide (play.js) ---------- */
 .play-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 12px; }
@@ -721,3 +717,38 @@ html[data-theme="dark"] body::before { opacity: .6; }
 .roll-adv > summary::-webkit-details-marker { display: none; }
 .roll-adv > summary::after { content: '▾'; margin-left: auto; color: var(--muted); transition: transform .15s; }
 .roll-adv[open] > summary::after { transform: rotate(180deg); }
+
+/* ---------- UI overhaul · Stage 4: "?" help buttons + slide-up sheets ---------- */
+.help-btn {
+  display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 0;
+  font: inherit; font-size: .85rem; color: var(--accent); cursor: pointer; min-height: 32px;
+  text-transform: none; letter-spacing: 0;
+}
+.help-q {
+  width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid currentColor; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 700;
+  font-family: system-ui, sans-serif;
+}
+.help-btn:hover .help-q { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+:is(h2, h3, h4) > .help-btn { margin-left: auto; padding: 0; min-height: 32px; min-width: 32px; justify-content: center; }
+:is(h2, h3, h4) > .help-btn .help-label { display: none; }
+:is(h2, h3, h4):has(> .help-btn) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.card > h2:has(> .help-btn)::after { flex-basis: 100%; -webkit-mask-position: left center; mask-position: left center; }
+.pools-help, .help-row { display: flex; justify-content: flex-end; margin: -6px 4px 8px; }
+.modal-overlay.sheet { align-items: flex-end; padding: 0; }
+.modal-overlay.sheet .modal {
+  max-width: 640px; border-radius: 18px 18px 0 0; max-height: 82dvh;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom)); animation: sheet-up .22s ease-out;
+}
+.modal-overlay.sheet .modal::before {
+  content: ""; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: -6px auto 12px;
+}
+.help-steps li { margin-bottom: 6px; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .modal-overlay.sheet .modal { animation: none; } }
+.collapse-card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; min-height: 44px; margin: -4px 0; }
+.collapse-card > summary::-webkit-details-marker { display: none; }
+.collapse-card > summary h3 { flex: 1; margin: 0; display: flex; align-items: center; gap: 6px; }
+.collapse-card > summary::after { content: '▾'; color: var(--muted); margin-left: 8px; transition: transform .15s; }
+.collapse-card[open] > summary::after { transform: rotate(180deg); }
+.collapse-card[open] > summary { margin-bottom: 10px; }

@@ -9,7 +9,7 @@ let modalTitleSeq = 0;
  * Open a modal. content: Node | Node[]. Returns close().
  * Accessible: focus trap, Escape closes, aria-modal, focus restore.
  */
-export function modal(content, { labelledBy = null, onClose = null } = {}) {
+export function modal(content, { labelledBy = null, onClose = null, sheet = false } = {}) {
   lastFocused = document.activeElement;
   const box = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' });
   box.append(...[content].flat());
@@ -24,7 +24,7 @@ export function modal(content, { labelledBy = null, onClose = null } = {}) {
       box.setAttribute('aria-labelledby', heading.id);
     }
   }
-  const overlay = el('div', { class: 'modal-overlay' }, box);
+  const overlay = el('div', { class: sheet ? 'modal-overlay sheet' : 'modal-overlay' }, box);
 
   function close() {
     overlay.remove();
@@ -46,8 +46,10 @@ export function modal(content, { labelledBy = null, onClose = null } = {}) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', onKey);
   document.body.append(overlay);
-  const firstFocus = box.querySelector('button, [href], input, select, textarea');
-  (firstFocus || box).focus?.();
+  // A slide-up sheet opens at its top (focusing a button lower down would scroll past the title).
+  if (sheet) box.setAttribute('tabindex', '-1');
+  const firstFocus = sheet ? null : box.querySelector('button, [href], input, select, textarea');
+  (firstFocus || box).focus?.({ preventScroll: true });
   return close;
 }
 

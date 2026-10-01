@@ -25,23 +25,17 @@ import { hookCard, npcCard } from './gm.js';
 import { helpFrom } from './help.js';
 import { icon, pips, emptyState } from './icons.js';
 
-/** Collapsed "How to use" accordion for a section — shared renderer, solo copy from ORACLE.help. */
+/** "?" help for a section — shared renderer, solo copy from ORACLE.help. */
 function helpBlock(id, label = 'How to use') {
   return helpFrom(ORACLE.help.sections[id], label);
 }
 
-/** The whole solo loop, collapsed, at the top of the tab. */
+/** The whole solo loop, as the Journal heading's "?" sheet. */
 function overviewBlock() {
   const o = ORACLE.help.overview;
-  return el('details', { class: 'help-acc' },
-    el('summary', {}, o.title),
-    el('p', { class: 'small' }, o.intro),
-    el('ol', { class: 'small' }, ...o.steps.map((s) => el('li', {}, s))),
-    el('p', { class: 'small muted' }, el('strong', {}, 'Example: '), o.example),
-    el('p', { class: 'small muted' }, o.closing),
-    el('div', { class: 'cta-row' },
-      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/tutorial'; } },
-        'Walk me through it')));
+  return helpFrom(o, o.title, (close) => el('div', { class: 'cta-row' },
+    el('button', { class: 'btn secondary', onclick: () => { close(); location.hash = '#/tutorial'; } },
+      'Walk me through it')));
 }
 
 function fmtDate(ts) {
@@ -65,9 +59,9 @@ export function renderJournal(root) {
       c ? poolsHeader(c, draw) : null,
       el('section', { class: 'card' },
         el('h2', {}, 'Journal'),
+        overviewBlock(),
         el('p', { class: 'small muted' },
-          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.'),
-        overviewBlock()),
+          'Solo play, in order: frame a scene, check it against Chaos, play it with the oracle, then end the scene and log it.')),
       sceneCard(j, c, draw),
       consultCard(j, draw),
       entriesCard(j, draw),
@@ -79,15 +73,26 @@ export function renderJournal(root) {
   draw();
 }
 
+// Long-tail cards (Entries, Threads, NPCs & places, Opposition) fold to a one-line header with
+// a count, so Scene + Oracle — the live loop — stay on screen. Open state lasts the session.
+const openCards = new Set();
+function collapseCard(key, title, helpNode, ...body) {
+  const d = el('details', { class: 'card collapse-card' },
+    el('summary', {}, el('h3', {}, title), helpNode),
+    ...body.filter((n) => n != null));
+  d.open = openCards.has(key);
+  d.addEventListener('toggle', () => { d.open ? openCards.add(key) : openCards.delete(key); });
+  return d;
+}
+
 // ---------- GM material a solo player needs without enabling the GM screen (S5) ----------
 function gmToolsCard() {
-  return el('section', { class: 'card' },
-    el('h3', {}, '6 · Opposition & sparks'),
+  return collapseCard('gm', '6 · Opposition & sparks', null,
     el('p', { class: 'small muted' },
       'Solo you are the GM too: pull a stat block for whoever opposes you, or roll a story hook when you need a scene from nothing.'),
-    el('details', { class: 'help-acc' },
+    el('details', { class: 'disclose' },
       el('summary', {}, 'Story hook generator'), hookCard()),
-    el('details', { class: 'help-acc' },
+    el('details', { class: 'disclose' },
       el('summary', {}, 'NPC compendium'), npcCard()));
 }
 
@@ -341,9 +346,7 @@ function newEntryFields(j, draw) {
 
 function entriesCard(j, draw) {
   const threadName = (id) => (j.threads.find((t) => t.id === id) || {}).title;
-  return el('section', { class: 'card' },
-    el('h3', {}, `3 · Entries (${j.entries.length})`),
-    helpBlock('entries'),
+  return collapseCard('entries', `3 · Entries (${j.entries.length})`, helpBlock('entries'),
     newEntryFields(j, draw),
     j.entries.length
       ? el('ul', { class: 'journal-list' }, ...j.entries.map((e) => el('li', { class: 'journal-entry' },
@@ -383,9 +386,7 @@ function threadsCard(j, draw) {
         const cur = getJournal(); cur.threads = cur.threads.filter((y) => y.id !== t.id); saveJournal(cur); draw();
       } }, '×')));
 
-  return el('section', { class: 'card' },
-    el('h3', {}, `4 · Threads (${open.length} open)`),
-    helpBlock('threads'),
+  return collapseCard('threads', `4 · Threads (${open.length} open)`, helpBlock('threads'),
     el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
@@ -421,9 +422,7 @@ function contactsCard(j, draw) {
     const cur = getJournal(); cur.contacts.push({ id: uid(), name, type, note: '' }); saveJournal(cur); draw();
   };
 
-  return el('section', { class: 'card' },
-    el('h3', {}, `5 · NPCs & places (${j.contacts.length})`),
-    helpBlock('contacts'),
+  return collapseCard('contacts', `5 · NPCs & places (${j.contacts.length})`, helpBlock('contacts'),
     el('p', { class: 'small muted' }, 'Who and what you’ve met. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: add('npc') }, '+ NPC'),

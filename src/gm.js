@@ -38,8 +38,8 @@ export function renderGM(root) {
   mountRoot = root;
   root.append(...[
     el('section', { class: 'card' }, el('h2', {}, 'GM Screen'),
-      el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.'),
-      help('gm')),
+      help('gm'),
+      el('p', { class: 'small muted' }, 'Run the table: Threat, the party at a glance, the NPC compendium, and rollable story/enemy tables.')),
     threatCard(),
     partyCard(),
     hookCard(),

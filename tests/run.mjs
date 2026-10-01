@@ -1525,7 +1525,7 @@ console.log('— Reachability: extracted content must have a UI path —');
   })());
 }
 
-console.log('— Novice guidance: help accordions on every surface —');
+console.log('— Novice guidance: help on every surface —');
 {
   const { HELP } = await import(join(root, 'data-help.js'));
   const keys = ['firstRun', 'pools', 'sheet', 'roller', 'lifecycle', 'tasks', 'conflict', 'defeat',
@@ -1550,13 +1550,13 @@ console.log('— Novice guidance: help accordions on every surface —');
     ['src/tutorial.js', ['How the tutorial works']],
     ['src/journal.js', ['helpFrom(']],
   ];
-  check('every major surface renders its help accordion',
+  check('every major surface renders its help',
     wired.every(([file, needles]) => { const t = src(file); return needles.every((n) => t.includes(n)); }));
-  check('one shared help renderer; no per-screen copies of the accordion markup',
+  check('one shared help renderer; no per-screen copies of the help markup',
     /export function helpFrom/.test(src('src/help.js')) && /export function help\(/.test(src('src/help.js')) &&
     !src('src/journal.js').includes("class: 'journal-help'"));
-  check('help accordions ship collapsed everywhere (no open attribute)',
-    !/class: 'help-acc', open/.test(src('src/help.js')));
+  check('help never renders inline open (it is a button that opens a sheet)',
+    !/help-acc/.test(src('src/help.js')) && /class: 'help-btn'/.test(src('src/help.js')));
   check('first-run card only shows on an empty install', /current \? activeCharacterCard\(current, chars\.length, rerender\) : firstRunCard\(\)/.test(src('src/screens.js')));
 }
 
@@ -1606,7 +1606,7 @@ console.log('— Journal (solo-play log; store + gating) —');
       return h && h.steps.length >= 3 && h.steps.every((x) => typeof x === 'string' && x.length) && !!h.example;
     }));
   const jsrc0 = readFileSync(join(root, 'src/journal.js'), 'utf8');
-  check('every journal section renders a collapsed How-to-use accordion',
+  check('every journal section renders its ? help',
     ['scene', 'oracle', 'entries', 'threads', 'contacts'].every((k) => jsrc0.includes(`helpBlock('${k}')`)) &&
     /overviewBlock\(\)/.test(jsrc0) && !/journal-help[^]*?open:/.test(jsrc0));
   const tsrc = readFileSync(join(root, 'src/tutorial.js'), 'utf8');
@@ -1698,6 +1698,21 @@ console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dia
   const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
   check('roll dialog: advanced options collapsed in one group with an "N on" count', /class: 'roll-adv'/.test(rl) && /`\$\{advOn\} on`/.test(rl) && /adv\.open = !!cfg\.advOpen/.test(rl));
   check('roll dialog: Roll/Cancel bar is sticky', /modal-actions sticky-actions/.test(rl) && /\.sticky-actions \{[^}]*position: sticky/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
+}
+
+console.log('\n— UI overhaul · Stage 4: ? help sheets + collapsible Journal —');
+{
+  const hp = readFileSync(join(root, 'src/help.js'), 'utf8');
+  check('help is a "?" button opening a slide-up sheet', /class: 'help-btn'/.test(hp) && /\{ sheet: true \}/.test(hp) && /export function openHelpSheet/.test(hp));
+  check('help docks into the heading it follows', /\/\^H\[2-4\]\$\/\.test\(prev\.tagName\)\) prev\.append\(btn\)/.test(hp));
+  check('help button inside a <summary> does not toggle it', /e\.preventDefault\(\); e\.stopPropagation\(\); openHelpSheet/.test(hp));
+  const ui = readFileSync(join(root, 'src/ui.js'), 'utf8');
+  check('sheet variant of modal opens at its top', /sheet \? 'modal-overlay sheet' : 'modal-overlay'/.test(ui) && /const firstFocus = sheet \? null/.test(ui));
+  check('no inline help accordions remain anywhere', ['sheet', 'screens', 'journal', 'combat', 'gm', 'house', 'roller', 'tutorial']
+    .every((f) => !readFileSync(join(root, `src/${f}.js`), 'utf8').includes("'help-acc'")));
+  const js = readFileSync(join(root, 'src/journal.js'), 'utf8');
+  check('Journal long-tail cards collapse (Entries, Threads, NPCs & places, Opposition)',
+    ['entries', 'threads', 'contacts', 'gm'].every((k) => js.includes(`collapseCard('${k}'`)) && /const openCards = new Set\(\)/.test(js));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

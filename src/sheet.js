@@ -73,7 +73,7 @@ export function poolsHeader(current, onChange = refresh) {
           : el('span', { class: 'stat-val muted' }, '—'),
         'determination',
         current ? pips(current.determination, DATA.determination.cap, { label: 'Determination', cls: 'pips-det' }) : null)),
-    el('div', { class: 'card pools-help' }, help('pools', 'What are these three?')));
+    el('div', { class: 'pools-help' }, help('pools', 'What are these three?')));
 }
 
 // Character screen (UI overhaul Stage 2): compact header → pools bar → sub-tabs. The open
