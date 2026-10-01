@@ -11,6 +11,7 @@ import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wiza
 import { slug, takeCiteTarget } from './cite.js';
 import { help } from './help.js';
 import { allTalents } from './content.js';
+import { domainCrest } from './crests.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
@@ -412,7 +413,7 @@ export function renderRules(root) {
     ...DATA.houseDomains.map((dom) => {
       const d = DATA.houseDomainDetails[dom.id];
       return el('details', { class: 'tips' },
-        el('summary', {}, dom.name),
+        el('summary', { class: 'crest-label' }, domainCrest(dom.id, dom.name, 24), dom.name),
         el('p', { class: 'small' }, d.desc),
         ...Object.entries(d.examples).map(([st, list]) => el('p', { class: 'small muted' },
           el('strong', {}, capitalize(st) + ': '), list.join(', '))));

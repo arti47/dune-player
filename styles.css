@@ -606,3 +606,6 @@ body:has(.oracle-fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) 
 .char-crests { display: flex; gap: 4px; }
 .char-crests:empty { display: none; }
 .stat-chip span { font-size: .6rem; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crest-label { display: inline-flex; align-items: center; gap: 8px; }
+summary.crest-label { display: list-item; }
+summary.crest-label .crest { vertical-align: middle; margin: 0 6px 0 2px; }

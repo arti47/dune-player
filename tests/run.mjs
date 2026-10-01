@@ -1376,6 +1376,13 @@ console.log('— Faction + archetype crests —');
   check('a bespoke crest for all 20 core archetypes', DATA.archetypes.length === 20 && DATA.archetypes.every((a) => ids('ARCHETYPE').includes(a.id)));
   check('expansion ids fall back to a monogram, crests are labelled images',
     /\|\| `<text/.test(cr) && /'role', 'img'/.test(cr) && /aria-label/.test(cr));
+  check('a bespoke crest for all 9 House domains and 13 House roles',
+    DATA.houseDomains.every((d) => ids('DOMAIN').includes(d.id)) && DATA.houseRoles.every((r) => ids('ROLE').includes(r.id)));
+  check('domain/role crests wired into the House wizard, rules library and House tab',
+    /domainCrest\(dom\.id/.test(readFileSync(join(root, 'src/wizard.js'), 'utf8')) &&
+    /roleCrest\(role\.id/.test(readFileSync(join(root, 'src/wizard.js'), 'utf8')) &&
+    /domainCrest\(dom\.id/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
+    /domainCrest\(d\.id/.test(readFileSync(join(root, 'src/house.js'), 'utf8')));
   const wz = readFileSync(join(root, 'src/wizard.js'), 'utf8');
   check('crests shown in the wizard and on the sheet', /factionCrest\(f\.id/.test(wz) && /archetypeCrest\(a\.id/.test(wz) &&
     /archetypeCrest\(id\.archetype/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')) &&

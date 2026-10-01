@@ -4,6 +4,7 @@
 // (data-great-game.js); this module only computes and applies them. greatGame-gated.
 
 import { el, rollD20s, clamp } from './core.js';
+import { domainCrest } from './crests.js';
 import { help } from './help.js';
 import { modal, showToast, confirmModal } from './ui.js';
 import { getHouse, saveHouse, deleteHouse } from './store.js';
@@ -237,7 +238,7 @@ function renderTracker(root, house, render) {
     (house.domains || []).length
       ? el('ul', { class: 'char-list' }, ...house.domains.map((d) => {
           const inc = domainIncome(d.subtype, d.category || resolveCategory(d.id), d.tier);
-          return el('li', {}, el('span', {}, `${d.id} · ${d.tier} (${d.subtype})`),
+          return el('li', {}, el('span', { class: 'crest-label' }, domainCrest(d.id, d.id, 24), `${d.id} · ${d.tier} (${d.subtype})`),
             el('span', { class: 'small muted' }, ` +${inc.resources}R / +${inc.wealth}W`));
         }))
       : el('p', { class: 'small muted' }, 'No domains recorded.'),

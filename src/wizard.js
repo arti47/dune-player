@@ -12,7 +12,7 @@ import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived
 import { rankDrivesFromComparisons } from './rules.js';
 import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor, allDrives, driveName, driveStatementExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
-import { factionCrest, archetypeCrest } from './crests.js';
+import { factionCrest, archetypeCrest, domainCrest, roleCrest } from './crests.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
@@ -1190,7 +1190,7 @@ function hStepDomains(state, body, rerender) {
       if (tierSel.value) state.domains.push({ id: dom.id, tier: tierSel.value, subtype: cur?.subtype || (gg ? SUBTYPES[0] : undefined) });
       rerender();
     });
-    const row = el('div', { class: 'stat-row' }, el('span', { class: 'stat-name' }, dom.name), tierSel);
+    const row = el('div', { class: 'stat-row' }, el('span', { class: 'stat-name crest-label' }, domainCrest(dom.id, dom.name, 26), dom.name), tierSel);
     const detail = DATA.houseDomainDetails[dom.id];   // Core: description + example lists.
     if (gg && cur?.tier) {
       const sub = el('select', { 'aria-label': `${dom.name} subtype` },
@@ -1280,7 +1280,7 @@ function hStepRoles(state, body) {
       const v = input.value.trim();
       if (v) state.roles[role.id] = v; else delete state.roles[role.id];
     });
-    body.append(el('label', { class: 'field' }, el('span', {}, role.name), input));
+    body.append(el('label', { class: 'field' }, el('span', { class: 'crest-label' }, roleCrest(role.id, role.name, 26), role.name), input));
   }
   body.append(el('datalist', { id: 'role-chars' }, ...chars.map((c) => el('option', { value: c.identity.name || 'Unnamed' }))));
 }
