@@ -15,7 +15,7 @@ import {
   getJournal, saveJournal, addJournalEntry, appendToSceneNotes, setChaos, clampChaos,
   listCharacters, currentCharacterId, getCharacter, getRollLog,
 } from './store.js';
-import { confirmModal, promptModal, showToast, modal } from './ui.js';
+import { promptModal, showToast, modal, undoToast } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
 import { poolsHeader } from './sheet.js';
 import { openOracle } from './oracle.js';
@@ -264,9 +264,9 @@ function sceneCard(j, character, draw) {
       } }, 'Add last roll')),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: endScene }, 'End scene → log entry'),
-      el('button', { class: 'btn secondary', onclick: async () => {
-        if (!await confirmModal('Clear the current scene pad?', { okLabel: 'Clear' })) return;
-        const cur = getJournal(); cur.scene = { setup: '', notes: '' }; saveJournal(cur); draw();
+      el('button', { class: 'btn secondary', onclick: () => {
+        const before = getJournal(); const cur = getJournal(); cur.scene = { setup: '', notes: '' }; saveJournal(cur); draw();
+        undoToast('Scene pad cleared', () => { saveJournal(before); draw(); });
       } }, 'Clear scene')));
 }
 
@@ -354,9 +354,9 @@ function entriesCard(j, draw) {
             el('span', { class: 'small muted' }, fmtDate(e.ts)),
             e.characterName ? el('span', { class: 'pill' }, e.characterName) : null,
             e.threadId && threadName(e.threadId) ? el('span', { class: 'pill' }, threadName(e.threadId)) : null,
-            el('button', { class: 'link-btn small', 'aria-label': 'Delete entry', onclick: async () => {
-              if (!await confirmModal('Delete this entry?', { okLabel: 'Delete' })) return;
-              const cur = getJournal(); cur.entries = cur.entries.filter((x) => x.id !== e.id); saveJournal(cur); draw();
+            el('button', { class: 'link-btn small', 'aria-label': 'Delete entry', onclick: () => {
+              const before = getJournal(); const cur = getJournal(); cur.entries = cur.entries.filter((x) => x.id !== e.id); saveJournal(cur); draw();
+              undoToast('Entry deleted', () => { saveJournal(before); draw(); });
             } }, '× delete')),
           e.title ? el('div', { class: 'journal-title' }, e.title) : null,
           e.body ? el('div', { class: 'journal-body' }, e.body) : null)))
@@ -381,9 +381,9 @@ function threadsCard(j, draw) {
         if (note == null) return;
         const cur = getJournal(); cur.threads.find((y) => y.id === t.id).note = note; saveJournal(cur); draw();
       } }, 'note'),
-      el('button', { class: 'link-btn small', 'aria-label': 'Delete thread', onclick: async () => {
-        if (!await confirmModal('Delete this thread?', { okLabel: 'Delete' })) return;
-        const cur = getJournal(); cur.threads = cur.threads.filter((y) => y.id !== t.id); saveJournal(cur); draw();
+      el('button', { class: 'link-btn small', 'aria-label': 'Delete thread', onclick: () => {
+        const before = getJournal(); const cur = getJournal(); cur.threads = cur.threads.filter((y) => y.id !== t.id); saveJournal(cur); draw();
+        undoToast('Thread deleted', () => { saveJournal(before); draw(); });
       } }, '×')));
 
   return collapseCard('threads', `4 · Threads (${open.length} open)`, helpBlock('threads'),
@@ -411,9 +411,9 @@ function contactsCard(j, draw) {
         if (note == null) return;
         const cur = getJournal(); cur.contacts.find((y) => y.id === c.id).note = note; saveJournal(cur); draw();
       } }, 'note'),
-      el('button', { class: 'link-btn small', 'aria-label': 'Delete', onclick: async () => {
-        if (!await confirmModal(`Delete ${c.name}?`, { okLabel: 'Delete' })) return;
-        const cur = getJournal(); cur.contacts = cur.contacts.filter((y) => y.id !== c.id); saveJournal(cur); draw();
+      el('button', { class: 'link-btn small', 'aria-label': 'Delete', onclick: () => {
+        const before = getJournal(); const cur = getJournal(); cur.contacts = cur.contacts.filter((y) => y.id !== c.id); saveJournal(cur); draw();
+        undoToast(`Deleted ${c.name}`, () => { saveJournal(before); draw(); });
       } }, '×')));
 
   const add = (type) => async () => {

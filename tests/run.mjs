@@ -1768,5 +1768,17 @@ console.log('\n— UI round 2 · #3 Wizard step names + review —');
   check('review step summarises the same build the save uses, with Edit per section', /function stepReview\(/.test(wz) && /const c = buildCharacter\(state\)/.test(wz) && /'Edit'/.test(wz));
 }
 
+console.log('\n— UI round 2 #4: undo toasts —');
+{
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const ui = src('src/ui.js'), sh = src('src/sheet.js'), cb = src('src/combat.js'), jn = src('src/journal.js'), st = src('src/store.js');
+  check('ui.undoToast auto-dismisses and offers Undo', /export function undoToast\(message, undo, ms = 6000\)/.test(ui) && /'Undo'/.test(ui) && /setTimeout\(dismiss, ms\)/.test(ui));
+  check('sheet: trait, asset and roll removals offer Undo', (sh.match(/undoToast\(/g) || []).length >= 3 && /restoreRollLog\(before\)/.test(sh));
+  check('combat: removing a combatant offers Undo', /undoToast\(`Removed \$\{c\.name\}`, \(\) => save\(conflict\)\)/.test(cb));
+  check('journal: entry/thread/contact/scene-clear use Undo, no confirm dialogs', (jn.match(/undoToast\(/g) || []).length >= 4 && !/confirmModal\(/.test(jn));
+  check('big actions keep their confirm (delete character, end conflict)', /confirmModal\(/.test(sh) && /End the conflict\?/.test(cb));
+  check('store.restoreRollLog exists', /export function restoreRollLog/.test(st));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

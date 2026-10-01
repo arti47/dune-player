@@ -75,6 +75,23 @@ export function showActionToast(message, actionLabel, onAction) {
   return dismiss;
 }
 
+/** "Removed — Undo" toast: the removal has already happened; Undo calls `undo()` once.
+ *  Auto-dismisses after `ms`. Only one undo toast at a time (a newer removal replaces it). */
+let undoDismiss = null;
+export function undoToast(message, undo, ms = 6000) {
+  if (undoDismiss) undoDismiss();
+  const region = qs('#toast-region');
+  const t = el('div', { class: 'toast toast-action toast-undo', role: 'status', 'aria-live': 'polite' },
+    el('span', {}, message));
+  let timer = null;
+  const dismiss = () => { clearTimeout(timer); t.remove(); if (undoDismiss === dismiss) undoDismiss = null; };
+  t.append(el('button', { class: 'toast-btn', onclick: () => { dismiss(); undo(); } }, 'Undo'));
+  region.append(t);
+  timer = setTimeout(dismiss, ms);
+  undoDismiss = dismiss;
+  return dismiss;
+}
+
 /** Themed confirm → Promise<boolean>. */
 export function confirmModal(message, { okLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {
   return new Promise((resolve) => {

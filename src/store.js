@@ -250,6 +250,8 @@ export function deleteRollAt(index) {
   notify('rollLog');
 }
 export function clearRollLog() { writeJSON(K_ROLLLOG, []); notify('rollLog'); }
+/** Put a whole roll log back (Undo after a delete). */
+export function restoreRollLog(log) { writeJSON(K_ROLLLOG, Array.isArray(log) ? log : []); notify('rollLog'); }
 
 // ---------- Wipe (Settings → Backup & transfer) ----------
 // Category → localStorage keys. The device id is never wiped (it's an identity, not data).

@@ -6,7 +6,7 @@
 import { el, capitalize, uid } from './core.js';
 import {
   listCharacters, currentCharacterId, setCurrentCharacterId,
-  saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog,
+  saveCharacter, deleteCharacter, getPools, savePools, getRollLog, deleteRollAt, clearRollLog, restoreRollLog,
   characterToMarkdown, characterFromMarkdown,
 } from './store.js';
 import {
@@ -23,7 +23,7 @@ import { icon, pips, emptyState } from './icons.js';
 import { factionCrest, archetypeCrest } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { renderDefeat } from './combat.js';
-import { modal, showToast, confirmModal, promptModal } from './ui.js';
+import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
 import { DATA } from '../data.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -317,7 +317,10 @@ function rollLogSection() {
             r.complications ? ` · ${r.complications} comp` : '',
             r.note ? ` · ${r.note}` : ''),
           el('button', { class: 'chip-x', 'aria-label': 'Delete this roll',
-            onclick: () => { deleteRollAt(i); refresh(); } }, '×'))))
+            onclick: () => {
+              const before = getRollLog(); deleteRollAt(i); refresh();
+              undoToast('Roll deleted', () => { restoreRollLog(before); refresh(); });
+            } }, '×'))))
       : el('p', { class: 'small muted' }, 'No rolls yet — tap the d20 button.'));
 }
 
@@ -430,6 +433,7 @@ function traitsSection(c) {
             el('button', { class: 'pill-x', 'aria-label': `Remove ${t.name}`,
               onclick: () => {
                 saveCharacter({ ...c, traits: c.traits.filter((_, j) => j !== i) }); refresh();
+                undoToast(`Removed ${t.name}`, () => { saveCharacter(c); refresh(); });
               } }, '×'))))
       : el('p', { class: 'small muted' }, 'No traits.'));
 }
@@ -530,7 +534,10 @@ function assetRow(c, a, i, cap, permCount) {
       el('span', { class: 'small muted' }, 'Quality'),
       stepper(a.quality || 0, (v) => update({ quality: v }), { min: 0, max: 5, label: 'Quality' }),
       el('button', { class: 'pill-x', 'aria-label': `Remove ${a.name}`,
-        onclick: () => { saveCharacter({ ...c, assets: c.assets.filter((_, j) => j !== i) }); refresh(); } }, '×')));
+        onclick: () => {
+          saveCharacter({ ...c, assets: c.assets.filter((_, j) => j !== i) }); refresh();
+          undoToast(`Removed ${a.name}`, () => { saveCharacter(c); refresh(); });
+        } }, '×')));
 }
 
 function addAssetDialog(c) {

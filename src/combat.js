@@ -9,7 +9,7 @@
 // Both apply immediately with a summary + one-step Undo (snapshot/restore).
 
 import { el, uid, d20 } from './core.js';
-import { modal, showToast, confirmModal, promptModal } from './ui.js';
+import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
 import {
   getPools, savePools, listCharacters, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
@@ -471,7 +471,10 @@ export function renderConflict(onChange) {
           el('button', { class: 'btn secondary', onclick: () => { close(); recordHit(); } }, `Record a hit (+${DATA.defeat.pointsPerHitBase})`),
           (!c.npc && c.charId) ? el('button', { class: 'btn secondary', disabled: c.defeated ? '' : null,
             onclick: () => { close(); extraAction(c.charId); } }, 'Extra action (1 Determination)') : null,
-          el('button', { class: 'btn secondary danger-btn', onclick: () => { close(); save({ ...conflict, combatants: conflict.combatants.filter((x) => x.id !== c.id) }); } }, 'Remove from conflict')),
+          el('button', { class: 'btn secondary danger-btn', onclick: () => {
+            close(); save({ ...conflict, combatants: conflict.combatants.filter((x) => x.id !== c.id) });
+            undoToast(`Removed ${c.name}`, () => save(conflict));
+          } }, 'Remove from conflict')),
         el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
       ].filter((n) => n != null), { sheet: true });
     };
