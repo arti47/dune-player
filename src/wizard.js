@@ -12,6 +12,7 @@ import { normalizeCharacter, normalizeHouse, permanentAssetCap } from './derived
 import { rankDrivesFromComparisons } from './rules.js';
 import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor, allDrives, driveName, driveStatementExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
+import { factionCrest, archetypeCrest } from './crests.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
@@ -163,7 +164,8 @@ function stepConcept(state, body, rerender) {
       ? `Mandatory: ${f.mandatoryTalents.options.join(', ')}`
       : `Mandatory: choose ≥1 of ${f.mandatoryTalents.options.join(', ')}`;
     body.append(optionCard(state.factionTemplate === f.id, f.name,
-      `${f.desc ? f.desc + ' ' : ''}Trait: ${f.trait}. ${mand}.${f.note ? ' ' + f.note : ''}`, () => choose(f.id)));
+      `${f.desc ? f.desc + ' ' : ''}Trait: ${f.trait}. ${mand}.${f.note ? ' ' + f.note : ''}`, () => choose(f.id),
+      factionCrest(f.id, f.name, 36)));
   }
 }
 
@@ -206,7 +208,8 @@ function stepArchetype(state, body, rerender) {
 
   const card = (a) => optionCard(state.archetype === a.id, a.name,
     `${a.desc ? a.desc + ' ' : ''}(${SKILL_NAME[a.primary]} / ${SKILL_NAME[a.secondary]}) · Focuses: ${a.focuses.join(', ')} · Talent: ${a.talents.join(', ')}`,
-    () => { state.archetype = a.id; initSkills(state); applyArchetypeSuggestions(state); rerender(); });
+    () => { state.archetype = a.id; initSkills(state); applyArchetypeSuggestions(state); rerender(); },
+    archetypeCrest(a.id, a.name, 36));
 
   const f = factionById(state.factionTemplate);
   // Faction-restricted archetypes (e.g. Fremen-only from Sand and Dust) show only for that faction.
@@ -946,10 +949,12 @@ function instantiatePregen(pregen) {
 }
 
 // ---------- Small UI helpers ----------
-function optionCard(selected, title, desc, onclick) {
-  return el('button', { class: 'option-card' + (selected ? ' selected' : ''), onclick, 'aria-pressed': selected ? 'true' : 'false' },
-    el('div', { class: 'option-title' }, title),
-    el('div', { class: 'small muted' }, desc));
+function optionCard(selected, title, desc, onclick, crest = null) {
+  return el('button', { class: 'option-card' + (selected ? ' selected' : '') + (crest ? ' has-crest' : ''), onclick, 'aria-pressed': selected ? 'true' : 'false' },
+    crest,
+    el('div', { class: 'option-body' },
+      el('div', { class: 'option-title' }, title),
+      el('div', { class: 'small muted' }, desc)));
 }
 function rerenderInto(container, renderFn) {
   container.replaceChildren();

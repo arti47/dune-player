@@ -1368,6 +1368,20 @@ console.log('— Visual layer: icons, dice, meters, fonts —');
   check('meters used on pools, stats and chaos', /pips\(pools\.momentum/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /pips-chaos/.test(src('src/journal.js')));
 }
 
+console.log('— Faction + archetype crests —');
+{
+  const cr = readFileSync(join(root, 'src/crests.js'), 'utf8');
+  const ids = (block) => [...cr.slice(cr.indexOf(`const ${block} = {`), cr.indexOf('};', cr.indexOf(`const ${block} = {`))).matchAll(/^  (\w+):/gm)].map((m) => m[1]);
+  check('a bespoke crest for every core faction template', DATA.factionTemplates.every((f) => ids('FACTION').includes(f.id)));
+  check('a bespoke crest for all 20 core archetypes', DATA.archetypes.length === 20 && DATA.archetypes.every((a) => ids('ARCHETYPE').includes(a.id)));
+  check('expansion ids fall back to a monogram, crests are labelled images',
+    /\|\| `<text/.test(cr) && /'role', 'img'/.test(cr) && /aria-label/.test(cr));
+  const wz = readFileSync(join(root, 'src/wizard.js'), 'utf8');
+  check('crests shown in the wizard and on the sheet', /factionCrest\(f\.id/.test(wz) && /archetypeCrest\(a\.id/.test(wz) &&
+    /archetypeCrest\(id\.archetype/.test(readFileSync(join(root, 'src/sheet.js'), 'utf8')) &&
+    /'\.\/src\/crests\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
+}
+
 console.log('— How to play guide (start / sustain / end) —');
 {
   const { HELP } = await import(join(root, 'data-help.js'));

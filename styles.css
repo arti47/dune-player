@@ -592,3 +592,17 @@ body:has(.oracle-fab:not([hidden])) .screen { padding-bottom: calc(var(--nav-h) 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Faction + archetype crests (crests.js) ---------- */
+.crest { flex: 0 0 auto; color: var(--accent); }
+.crest .crest-frame { fill: color-mix(in srgb, var(--accent) 10%, transparent); }
+.crest-faction .crest-frame { stroke-width: 1.6; }
+.option-card.has-crest { display: flex; gap: 12px; align-items: flex-start; text-align: left; }
+.option-card.has-crest .option-body { min-width: 0; flex: 1; }
+.option-card.selected .crest { color: var(--accent); }
+.option-card.selected .crest .crest-frame { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.char-head { display: flex; align-items: center; gap: 10px; }
+.char-head h3 { margin: 0; }
+.char-crests { display: flex; gap: 4px; }
+.char-crests:empty { display: none; }
+.stat-chip span { font-size: .6rem; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

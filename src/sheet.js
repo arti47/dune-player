@@ -20,6 +20,7 @@ import { allTalents, focusExamplesFor, driveName, findTalent } from './content.j
 import { cite } from './cite.js';
 import { help } from './help.js';
 import { icon, pips, emptyState } from './icons.js';
+import { factionCrest, archetypeCrest } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
 import { renderLifecycle, renderTasks, renderDefeat, renderConflict } from './combat.js';
@@ -118,7 +119,11 @@ function liveSheet(c) {
     pips(Math.max(0, Math.min(5, val - 3)), 5, { label: `${name} ${val} of 8`, cls: 'pips-stat' }));
 
   return el('section', { class: 'card' },
-    el('h3', {}, id.name || 'Unnamed'),
+    el('div', { class: 'char-head' },
+      el('div', { class: 'char-crests' },
+        id.archetype ? archetypeCrest(id.archetype, capitalize(id.archetype), 40) : null,
+        id.factionTemplate ? factionCrest(id.factionTemplate, capitalize(id.factionTemplate), 40) : null),
+      el('h3', {}, id.name || 'Unnamed')),
     el('p', { class: 'small muted' },
       [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
        id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ') || 'Character'),
