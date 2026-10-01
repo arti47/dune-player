@@ -11,6 +11,7 @@ import { poolsHeader } from './sheet.js';
 import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { openRollDialog } from './roller.js';
+import { HELP } from '../data-help.js';
 
 function activeCharacter() {
   const chars = listCharacters();
@@ -28,7 +29,22 @@ function needCharacter(root) {
 
 export function renderScene(root, rerender) {
   if (!listCharacters().length) return needCharacter(root);
-  root.append(poolsHeader(activeCharacter(), rerender), renderLifecycle(rerender));
+  root.append(...[poolsHeader(activeCharacter(), rerender), Settings.get('sceneIntroDone') ? null : sceneIntro(rerender), renderLifecycle(rerender)].filter(Boolean));
+}
+
+/** First-visit Scene guide (round 2 #8): how a scene runs + one-tap starters. "Got it" hides it for good. */
+function sceneIntro(rerender) {
+  const s = HELP.starters.scene;
+  const go = (id) => () => { location.hash = `#/${id}`; };
+  return el('section', { class: 'card starter-card' },
+    el('h3', {}, s.title),
+    el('p', { class: 'small' }, s.intro),
+    el('ol', { class: 'help-steps' }, ...s.steps.map((t) => el('li', {}, t))),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => { const c = activeCharacter(); if (c) openRollDialog(c, rerender); } }, icon('d20', { size: 18 }), ' Roll a test'),
+      el('button', { class: 'btn secondary', onclick: go('tasks') }, 'Start a task'),
+      el('button', { class: 'btn secondary', onclick: go('conflict') }, 'Start a conflict')),
+    el('button', { class: 'link-btn small', onclick: () => { Settings.set('sceneIntroDone', true); rerender(); } }, 'Got it — hide this'));
 }
 
 export function renderTaskSeg(root, rerender) {

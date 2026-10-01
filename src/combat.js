@@ -10,13 +10,14 @@
 
 import { el, uid, d20 } from './core.js';
 import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
+import { HELP } from '../data-help.js';
 import {
-  getPools, savePools, listCharacters, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
+  getPools, savePools, listCharacters, currentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
 import { help } from './help.js';
-import { icon } from './icons.js';
+import { icon, emptyState } from './icons.js';
 import { expansionNpcs, driveName } from './content.js';
 import { evaluateDice } from './roller.js';
 import { DATA } from '../data.js';
@@ -237,7 +238,27 @@ export function renderTasks(onChange) {
     help('tasks'),
     el('p', { class: 'small muted' }, 'Shared progress tracks — recovery, sandworm riding, projects. Each success scores 2 + an applicable asset’s Quality (§3.1); Momentum adds points, a complication subtracts.'),
     el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: () => newTaskDialog(onChange) }, '+ New task')),
-    tasks.length ? el('ul', { class: 'task-list' }, ...tasks.map((t) => taskRow(t, onChange))) : el('p', { class: 'small muted' }, 'No active tasks.'));
+    tasks.length ? el('ul', { class: 'task-list' }, ...tasks.map((t) => taskRow(t, onChange))) : taskStarters(onChange));
+}
+
+/** Empty Tasks (round 2 #8): what a task is for + one-tap starters built from the rules data. */
+function taskStarters(onChange) {
+  const add = (name, requirement) => {
+    saveTasks([...getTasks(), { id: uid(), name, requirement, progress: 0, contributors: [], log: [] }]);
+    showToast(`${name} — requirement ${requirement}`);
+    onChange && onChange();
+  };
+  return el('div', { class: 'starter' },
+    emptyState('hourglass', HELP.starters.tasks),
+    el('p', { class: 'starter-label' }, 'Ride a sandworm', cite('Sandworm riding')),
+    el('div', { class: 'starter-chips' }, ...DATA.sandwormRiding.map((w) =>
+      el('button', { class: 'keep-chip', onclick: () => add(`Ride a sandworm — ${w.size}`, w.requirement) },
+        `${w.size} · ${w.requirement}`))),
+    el('p', { class: 'starter-label' }, 'Other starters'),
+    el('div', { class: 'starter-chips' },
+      el('button', { class: 'keep-chip', onclick: () => newTaskDialog(onChange, { name: 'Recover a defeated ally', requirement: DATA.defeat.recovery.normal.requirementBase }) },
+        `Recover an ally · ${DATA.defeat.recovery.normal.requirementBase} + Quality`),
+      el('button', { class: 'keep-chip', onclick: () => newTaskDialog(onChange) }, 'Custom task')));
 }
 
 // ---------- Guided defeat procedure + recovery (§3.7/§3.8) ----------
@@ -376,14 +397,27 @@ export function renderConflict(onChange) {
   const save = (c) => { saveConflict(c); onChange && onChange(); };
 
   if (!conflict || !conflict.active) {
-    const typeSel = el('select', { 'aria-label': 'Conflict type' },
-      ...DATA.conflictTypes.map((t) => el('option', { value: t.id }, `${t.name} — ${t.scale}`)));
+    // Empty conflict (round 2 #8): explain, then one tap per conflict type — optionally with you on Side A.
+    const me = listCharacters().find((c) => c.id === currentCharacterId()) || listCharacters()[0] || null;
+    const meBox = el('input', { type: 'checkbox', id: 'cf-add-me' });
+    meBox.checked = !!me;
+    const begin = (typeId) => {
+      const c = startConflict(typeId);
+      if (me && meBox.checked) c.combatants.push({ id: uid(), charId: me.id, name: me.identity.name || 'Unnamed', side: 'a',
+        zoneId: c.zones[0].id, npc: false, actedThisRound: false, defeated: false,
+        defeatTrack: { req: defeatRequirementFor(me, typeId), progress: 0 } });
+      save(c);
+    };
     return el('section', { class: 'card' },
       el('h3', {}, 'Conflict', cite('Conflict turn order')),
-    help('conflict'),
-      el('p', { class: 'small muted' }, 'A local tracker for the five conflict types (§3.12): zones, sides, initiative, and defeat tracks. Drop in NPCs from the compendium.'),
-      el('div', { class: 'field' }, el('span', {}, 'Type'), typeSel),
-      el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: () => save(startConflict(typeSel.value)) }, 'Start a conflict')));
+      help('conflict'),
+      el('div', { class: 'starter' },
+        emptyState('swords', HELP.starters.conflict),
+        me ? el('label', { class: 'toggle-row', for: 'cf-add-me' },
+          el('span', {}, `Put ${me.identity.name || 'your character'} on Side A`), meBox) : null,
+        el('div', { class: 'starter-types' }, ...DATA.conflictTypes.map((t) =>
+          el('button', { class: 'starter-type', onclick: () => begin(t.id) },
+            el('strong', {}, t.name), el('span', { class: 'small muted' }, t.scale))))));
   }
 
   const typeDef = DATA.conflictTypes.find((t) => t.id === conflict.type) || {};

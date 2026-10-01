@@ -20,6 +20,22 @@ export const HELP = {
     example: 'Never played before? Tutorial → "Play an iconic" → Character → tap the d20. You are playing within five minutes.',
   },
 
+  // ---------- Table empty states (UI round 2 #8) — guidance only; any numbers come from DATA ----------
+  starters: {
+    scene: {
+      title: 'Your first scene',
+      intro: 'A scene is one place, one moment, one cast. Play it as a conversation; the app keeps the score.',
+      steps: [
+        'Say what your character does and why.',
+        'If it is risky, tap the d20 and roll a test.',
+        'Extra successes become Momentum — the party’s shared pool, shown above.',
+        'When the moment is over, tap End scene: Momentum shrinks a little and temporary assets expire.',
+      ],
+    },
+    tasks: 'Use a task for anything that takes several successful tests — a long climb, a cure, mounting a sandworm. Each success fills the bar until it is done.',
+    conflict: 'Start a conflict when two sides fight — with blades, armies, spies or words. Pick the kind of fight; you can add everyone else next.',
+  },
+
   // ---------- the persistent resource bar ----------
   pools: {
     steps: [

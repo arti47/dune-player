@@ -876,3 +876,19 @@ button.wizard-dot.done:not(:disabled):hover { background: var(--surface-2); }
 .roll-gain-text { font-size: var(--fs-lg); }
 @keyframes verdict-pop { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .roll-verdict { animation: none; } }
+
+/* ---------- UI round 2 #8: guided Table empty states ---------- */
+.starter { display: flex; flex-direction: column; gap: var(--sp-2); }
+.starter .empty-state { margin: var(--sp-1) 0; }
+.starter-label { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; align-items: center; gap: var(--sp-2); }
+.starter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.starter-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-2); }
+.starter-type {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+  padding: var(--sp-2) var(--sp-3); min-height: 56px; font: inherit;
+}
+.starter-type:hover, .starter-type:focus-visible { border-color: var(--accent); }
+.starter-type strong { font-family: var(--display); letter-spacing: .04em; }
+.starter-card { border-left: 3px solid var(--accent); }
+.starter-card .link-btn { margin-top: var(--sp-2); }

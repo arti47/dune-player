@@ -1825,5 +1825,17 @@ console.log('\n— UI round 2 #7: type + spacing scale —');
   check('stat chip labels fit (narrow padding, tight tracking)', /\.stat-chip \{[^}]*padding: 6px var\(--sp-1\)/.test(css) && /\.stat-chip span \{ font-size: var\(--fs-2xs\); letter-spacing: -\.02em/.test(css));
 }
 
+console.log('\n— UI round 2 #8: guided Table empty states —');
+{
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const cb = src('src/combat.js'), hb = src('src/hubs.js');
+  const { HELP } = await import(join(root, 'data-help.js'));
+  check('starter copy present (scene steps, tasks, conflict)', HELP.starters && HELP.starters.scene.steps.length >= 3 && typeof HELP.starters.tasks === 'string' && typeof HELP.starters.conflict === 'string');
+  check('starter copy carries no hard-coded rules numbers', !/\d/.test(JSON.stringify(HELP.starters).replace(/d20/g, '')));
+  check('task starters built from DATA (sandworm sizes + recovery base)', /DATA\.sandwormRiding\.map/.test(cb) && /DATA\.defeat\.recovery\.normal\.requirementBase/.test(cb) && /taskStarters\(onChange\)/.test(cb));
+  check('conflict start: one button per conflict type + "put me on Side A"', /DATA\.conflictTypes\.map\(\(t\) =>\s*el\('button', \{ class: 'starter-type'/.test(cb) && /cf-add-me/.test(cb) && /defeatRequirementFor\(me, typeId\)/.test(cb));
+  check('scene intro dismissible + null-safe append', /sceneIntroDone/.test(hb) && /\.filter\(Boolean\)\)/.test(hb));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
