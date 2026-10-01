@@ -24,6 +24,7 @@ import { factionCrest, archetypeCrest } from './crests.js';
 import { startCharacterWizard, openPregenPicker } from './wizard.js';
 import { renderDefeat } from './combat.js';
 import { modal, showToast, confirmModal, promptModal, undoToast } from './ui.js';
+import { setSwipe, animateIn, neighbours } from './swipe.js';
 import { DATA } from '../data.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
@@ -104,7 +105,13 @@ export function renderSheet(root) {
     return;
   }
 
-  root.append(importer.input, charHeader(current, chars, importer), poolsHeader(current), sheetTabBar(), sheetBody(current));
+  const body = sheetBody(current);
+  root.append(importer.input, charHeader(current, chars, importer), poolsHeader(current), sheetTabBar(), body);
+  // Swipe left/right walks the sub-tabs (round 2 #5); no wrap at the ends.
+  const n = neighbours(SHEET_TABS.map(([tid]) => tid), sheetTab);
+  const goTab = (tid) => tid && (() => { sheetTab = tid; refresh(); });
+  setSwipe({ prev: goTab(n.prev), next: goTab(n.next) });
+  animateIn(body);
 }
 
 function charHeader(c, chars, importer) {

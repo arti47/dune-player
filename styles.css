@@ -857,3 +857,10 @@ button.wizard-dot.done:not(:disabled):hover { background: var(--surface-2); }
 .review-block { border-top: 1px solid var(--border); padding: 8px 0 4px; }
 .review-block:first-of-type { border-top: none; }
 .review-block h4 { margin: 4px 0; }
+
+/* ---------- UI round 2 #5: swipe between sections ---------- */
+@keyframes swipe-from-right { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes swipe-from-left  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.swipe-in-left  { animation: swipe-from-right 180ms ease-out; }
+.swipe-in-right { animation: swipe-from-left 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .swipe-in-left, .swipe-in-right { animation: none; } }

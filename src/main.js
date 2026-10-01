@@ -4,6 +4,7 @@ import { qs } from './core.js';
 import { Settings } from './settings.js';
 import { showActionToast, confirmModal } from './ui.js';
 import { initRouter } from './router.js';
+import { initSwipe } from './swipe.js';
 import { initSync } from './sync.js';
 import { listCharacters } from './store.js';
 
@@ -81,5 +82,6 @@ applyTheme();
 initThemeButton();
 initServiceWorker();
 initSync();
+initSwipe();
 initRouter();
 maybeOfferTutorial();

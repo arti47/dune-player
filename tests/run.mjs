@@ -1780,5 +1780,21 @@ console.log('\n— UI round 2 #4: undo toasts —');
   check('store.restoreRollLog exists', /export function restoreRollLog/.test(st));
 }
 
+console.log('\n— UI round 2 #5: swipe between sections —');
+{
+  const sw = await import(join(root, 'src/swipe.js'));
+  check('swipe: left/right past threshold', sw.swipeDirection(-80, 10, 200) === 'left' && sw.swipeDirection(90, -5, 200) === 'right');
+  check('swipe: short, slow or mostly-vertical gestures ignored', sw.swipeDirection(-40, 0, 200) === null && sw.swipeDirection(-80, 0, 900) === null && sw.swipeDirection(-80, 70, 200) === null);
+  const n = sw.neighbours(['a', 'b', 'c'], 'a'), m = sw.neighbours(['a', 'b', 'c'], 'c');
+  check('swipe: neighbours stop at the ends (no wrap)', n.prev === null && n.next === 'b' && m.next === null && m.prev === 'b');
+  const src = (f) => readFileSync(join(root, f), 'utf8');
+  const rt = src('src/router.js'), sh = src('src/sheet.js'), sws = src('src/swipe.js');
+  check('router: clears swipe each render, Table segments opt in', /setSwipe\(null\)/.test(rt) && /route\.hub === 'table'/.test(rt) && /animateIn\(mount\)/.test(rt));
+  check('sheet: sub-tabs swipe', /neighbours\(SHEET_TABS/.test(sh) && /setSwipe\(/.test(sh));
+  check('swipe ignores fields, dialogs and sideways scrollers', /input, textarea, select/.test(sws) && /modal-overlay/.test(sws) && /overflowX/.test(sws));
+  check('swipe animation off under reduced motion', /prefers-reduced-motion[^}]*swipe-in-left/.test(src('styles.css')));
+  check('swipe.js in SW app shell', /'\.\/src\/swipe\.js'/.test(src('service-worker.js')));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

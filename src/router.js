@@ -16,6 +16,7 @@ import { renderTutorial } from './tutorial.js';
 import { renderJournal } from './journal.js';
 import { renderPlay } from './play.js';
 import { renderScene, renderTaskSeg, renderConflictSeg, renderMore, syncRollFab } from './hubs.js';
+import { setSwipe, animateIn, neighbours } from './swipe.js';
 
 const TABS = [
   { id: 'home',    label: 'Home',      ico: 'home' },
@@ -106,7 +107,14 @@ export function renderScreen() {
     mount = el('div', { class: 'hub-body' });
     screen.append(mount);
   }
+  setSwipe(null); // each screen opts in; the Character screen sets its own
   route.render(mount, renderScreen);
+  // Table segments: swipe left/right walks Scene · Tasks · Conflict · Journal (round 2 #5).
+  if (route.hub === 'table') {
+    const n = neighbours(segmentsOf('table').map((r) => r.id), route.id);
+    setSwipe({ prev: n.prev && (() => navigate(n.prev)), next: n.next && (() => navigate(n.next)) });
+    animateIn(mount);
+  }
   renderNav();
   syncRollFab(tabOf(route), renderScreen);
   screen.focus({ preventScroll: true });
