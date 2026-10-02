@@ -71,9 +71,9 @@ function randomState(rng) {
   const state = freshState();
   const { count: talentCount } = DATA.creation.talents;
 
-  // 1 · Concept — always a faction template (owner 2026-10-02), from enabled content only.
+  // 1 · Concept — a faction template about one time in three (enabled content only).
   const factions = allFactionTemplates();
-  const f = factions.length ? pick(factions) : null;
+  const f = factions.length && rng() < 1 / 3 ? pick(factions) : null;
   state.factionTemplate = f ? f.id : null;
 
   // 2 · Archetype — faction-suggested when there is one, otherwise any visible archetype.

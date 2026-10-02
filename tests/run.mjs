@@ -1920,7 +1920,7 @@ console.log('\n— Random character —');
     } catch (e) { err = e.message; }
   }
   check('random character: 300 rolls all rules-legal and land on Review', ok === 300, err);
-  check('random character: always has a faction template', factions === 300, String(factions));
+  check('random character: faction template only sometimes', factions > 40 && factions < 180, String(factions));
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8'), sh = readFileSync(join(root, 'src/sheet.js'), 'utf8'), wsrc = readFileSync(join(root, 'src/wizard.js'), 'utf8');
   check('random character: entry on wizard Step 1, Home first run and Characters dialog; Review re-roll',
     /onclick: startRandomCharacter/.test(wsrc) && /startRandomCharacter/.test(sc) && /startRandomCharacter/.test(sh) && /Re-roll everything/.test(wsrc));
