@@ -13,6 +13,7 @@ import { rankDrivesFromComparisons } from './rules.js';
 import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExamplesFor, allDrives, driveName, driveStatementExamplesFor } from './content.js';
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 import { factionCrest, archetypeCrest, domainCrest, roleCrest } from './crests.js';
+import { ORACLE } from '../data-oracle.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
@@ -35,6 +36,144 @@ export function startCharacterWizard() {
   };
   rerender();
 }
+
+/** Random character (owner request 2026-10-02): roll a full rules-legal build and open the wizard
+ *  on its Review step — Create, Re-roll, or Edit any step before saving. */
+export function startRandomCharacter() {
+  const screen = qs('#screen');
+  const state = rollRandomState();
+  const rerender = () => {
+    screen.replaceChildren(renderWizard(state, rerender));
+    screen.scrollTop = 0;
+    screen.focus?.({ preventScroll: true });
+  };
+  state.reroll = () => { Object.assign(state, rollRandomState()); rerender(); };
+  rerender();
+}
+
+/** Roll a complete state that passes every step's validator (retries on the rare dead end). */
+export function rollRandomState(rng = Math.random) {
+  for (let tries = 0; tries < 40; tries++) {
+    const st = randomState(rng);
+    if (st && STEPS.every((step) => !step.validate(st))) {
+      st.random = true;
+      st.step = STEPS.length - 1;
+      st.maxStep = STEPS.length - 1;
+      return st;
+    }
+  }
+  throw new Error('Could not roll a legal character.');
+}
+
+function randomState(rng) {
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const state = freshState();
+  const { count: talentCount } = DATA.creation.talents;
+
+  // 1 · Concept — a faction template about one time in three (enabled content only).
+  const factions = allFactionTemplates();
+  const f = factions.length && rng() < 1 / 3 ? pick(factions) : null;
+  state.factionTemplate = f ? f.id : null;
+
+  // 2 · Archetype — faction-suggested when there is one, otherwise any visible archetype.
+  const visible = allArchetypes().filter((a) => !a.faction || a.faction === state.factionTemplate);
+  let pool = visible;
+  if (f) {
+    const sugg = new Set((f.suggestedArchetypes || []).map((n) => baseName(n).toLowerCase()));
+    const fav = visible.filter((a) => a.faction === f.id || sugg.has(a.name.toLowerCase()));
+    if (fav.length) pool = fav;
+  }
+  const a = pick(pool);
+  state.archetype = a.id;
+  initSkills(state);
+  applyArchetypeSuggestions(state);   // focuses 1–2 + drives 8/7 from the archetype
+
+  // 3 · Skills — spend the free points one at a time on random skills under the cap.
+  const { freePoints, cap } = DATA.creation.skillArray;
+  for (let n = 0; n < freePoints; n++) {
+    const open = SKILL_IDS.filter((id) => state.skills[id] < cap);
+    state.skills[pick(open)]++;
+  }
+
+  // 4 · Focuses — the archetype's two (or a random one on that skill), then two free picks.
+  const taken = new Set();
+  const focusOn = (skill) => {
+    const names = focusExamplesFor(skill).map((e) => e.name).filter((n) => !taken.has(`${skill}:${n}`));
+    return names.length ? pick(names) : '';
+  };
+  state.focuses.forEach((fo, i) => {
+    if (i < 2) { fo.skill = i === 0 ? a.primary : a.secondary; if (!fo.name) fo.name = focusOn(fo.skill); }
+    else { fo.skill = pick(SKILL_IDS); fo.name = focusOn(fo.skill); }
+    taken.add(`${fo.skill}:${fo.name}`);
+  });
+
+  // 6 · Drives — rest of the 8/7/6/5/4 array shuffled onto the drives the archetype left open,
+  //     then a book example statement on each statement-rated drive.
+  const used = new Set(Object.values(state.driveAssignment).filter((v) => v != null));
+  const freeVals = shuffle(DATA.creation.driveArray.filter((v) => !used.has(v)));
+  for (const d of state.driveIds) if (state.driveAssignment[d] == null) state.driveAssignment[d] = freeVals.shift();
+  for (const d of state.driveIds) {
+    if (DATA.creation.driveStatements.onDrivesRated.includes(state.driveAssignment[d])) {
+      const ex = driveStatementExamplesFor(d);
+      if (ex.length) state.statements[d] = pick(ex);
+    }
+  }
+
+  // 5 · Talents — faction mandatory, ≥1 archetype talent, the rest random (requirements honoured).
+  const paramFor = (def) => {
+    if (!def || !def.pick) return null;
+    let opts = talentParamOptions(def, state, []);
+    if (def.pick === 'drive' && /6\+/.test(def.requirement || ''))
+      opts = state.driveIds.filter((d) => state.driveAssignment[d] >= 6).map((d) => driveName(d));
+    return opts.length ? pick(opts) : undefined;   // undefined = no legal parameter
+  };
+  const keyFor = (name) => {
+    const base = baseName(name);
+    const fixed = talentParam(name);
+    if (fixed) return name;
+    const def = findTalent(base);
+    const p = paramFor(def);
+    if (p === undefined) return null;
+    return p ? `${base} (${p})` : base;
+  };
+  const add = (key) => { if (key && state.talents.size < talentCount) state.talents.add(key); return key; };
+  if (f) {
+    const opts = f.mandatoryTalents.options;
+    if (f.mandatoryTalents.mode === 'all') {
+      for (const o of opts) { const k = add(keyFor(o)); if (k) state.mandatoryKeys.push(k); }
+    } else if (opts.length) {
+      const o = pick(opts); const k = add(keyFor(o));
+      state.mandatoryOption = o; state.mandatoryKey = k; state.mandatoryParam = k ? talentParam(k) : null;
+    }
+  }
+  if (![...state.talents].some((k) => archetypeTalentNames(state).map((n) => n.toLowerCase()).includes(baseName(k).toLowerCase())))
+    add(keyFor(pick(a.talents)));
+  const allowed = allTalents().filter((t) => (!t.faction || t.faction === state.factionTemplate)
+    && (!t.requirement || /6\+/.test(t.requirement)));
+  for (let guard = 0; state.talents.size < talentCount && guard < 50; guard++) {
+    const t = pick(allowed);
+    if ([...state.talents].some((k) => baseName(k) === t.name)) continue;
+    add(keyFor(t.name));
+  }
+
+  // 7 · Assets — three distinct, at least one tangible.
+  const tangible = DATA.assets.filter((x) => x.tangible === true);
+  state.assets.add(pick(tangible).name);
+  for (let guard = 0; state.assets.size < DATA.creation.assets.count && guard < 50; guard++) state.assets.add(pick(DATA.assets).name);
+
+  // 8 · Finishing — homebrew name + personality; ambition from the book's themes for the top drive.
+  const R = ORACLE.randomCharacter;
+  state.identity.name = `${pick(R.first)} ${pick(R.family)}`;
+  state.reputationTrait = pick(R.personality);
+  const top = state.driveIds.reduce((b, d) => (state.driveAssignment[d] > state.driveAssignment[b] ? d : b), state.driveIds[0]);
+  const themes = (DATA.creationGuidance.ambitionByDrive[top] || '').replace(/\.$/, '').split('·').map((t) => t.trim().replace(/^or\s+/i, '')).filter(Boolean);
+  state.identity.ambition = themes.length ? pick(themes).replace(/^./, (c) => c.toUpperCase()) : '';
+  return state;
+}
+
+/** Build the character a rolled state would save (tests + preview). */
+export function buildRandomPreview(state) { return buildCharacter(state); }
 
 function freshState() {
   return {
@@ -154,7 +293,11 @@ function stepReview(state, body, rerender) {
   const SN = Object.fromEntries(DATA.skills.map((x) => [x.id, x.name]));
   const a = archetypeById(state.archetype);
   const f = factionById(state.factionTemplate);
-  body.append(
+  body.append(...[
+    state.random ? el('div', { class: 'random-bar' },
+      el('p', { class: 'small' }, el('strong', {}, 'Randomly rolled. '), ORACLE.randomCharacter.note,
+        ' Appearance and relationships are left for you to write.'),
+      el('button', { type: 'button', class: 'btn secondary', onclick: () => state.reroll && state.reroll() }, '🎲 Re-roll everything')) : null,
     el('p', { class: 'small muted' }, 'Check everything before you save. Tap Edit to change a section — your other choices stay.'),
     block('Who', 'Finishing',
       el('p', {}, el('strong', {}, c.identity.name || 'Unnamed')),
@@ -169,7 +312,7 @@ function stepReview(state, body, rerender) {
     block('Traits & ambition', 'Finishing',
       line(c.traits.map((t) => t.name).join(', ')),
       c.identity.ambition ? el('p', { class: 'small' }, el('strong', {}, 'Ambition: '), c.identity.ambition) : null),
-  );
+  ].filter(Boolean));
 }
 
 // ---------- Step 1: Concept (creation mode + optional faction template) ----------
@@ -183,7 +326,9 @@ function stepConcept(state, body, rerender) {
       () => { state.mode = 'complete'; rerender(); }),
     optionCard(state.mode === 'inPlay', 'Define in play',
       'Start incomplete: set concept + archetype only, then define skills, focuses, talents, drives, ambition, assets, and a trait during play as situations demand.',
-      () => { state.mode = 'inPlay'; rerender(); })));
+      () => { state.mode = 'inPlay'; rerender(); })),
+    el('div', { class: 'cta-row' }, el('button', { type: 'button', class: 'btn secondary', onclick: startRandomCharacter },
+      '🎲 Random character'), el('span', { class: 'small muted' }, 'Roll everything, then review.')));
 
   if (state.mode === 'inPlay') {
     const nameInput = el('input', { type: 'text', placeholder: 'Character name', value: state.identity.name || '' });

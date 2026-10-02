@@ -21,7 +21,7 @@ import { cite } from './cite.js';
 import { help, setAppHelp } from './help.js';
 import { icon, pips, emptyState, radar } from './icons.js';
 import { factionCrest, archetypeCrest, medallion } from './crests.js';
-import { startCharacterWizard, openPregenPicker } from './wizard.js';
+import { startCharacterWizard, openPregenPicker, startRandomCharacter } from './wizard.js';
 import { renderDefeat } from './combat.js';
 import { modal, showToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
 import { setSwipe, animateIn, neighbours } from './swipe.js';
@@ -149,7 +149,8 @@ function charactersDialog(chars, current, importer) {
         c.id === current.id ? el('span', { class: 'tag' }, 'active') : null)))),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: () => { close(); startCharacterWizard(); } }, '+ New character'),
-      el('button', { class: 'btn secondary', onclick: () => { close(); openPregenPicker(); } }, 'Play an iconic')),
+      el('button', { class: 'btn secondary', onclick: () => { close(); openPregenPicker(); } }, 'Play an iconic'),
+      el('button', { class: 'btn secondary', onclick: () => { close(); startRandomCharacter(); } }, '🎲 Random')),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: () => { close(); chooseExportTargetDialog(); } }, 'Export (.md)'),
       el('button', { class: 'btn secondary', onclick: () => { close(); importer.input.click(); } }, 'Import (.md)')),

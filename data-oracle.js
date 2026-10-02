@@ -289,4 +289,17 @@ export const ORACLE = {
     Weirding: 'Fremen term for Bene Gesserit fighting ways.',
     Windtrap: 'Device condensing moisture from the air into water.',
   },
+
+  // Random-character helper tables (homebrew, NOT from any rulebook — labelled in-UI). Original
+  // names only (no canon characters or Houses); the generator rolls everything else from DATA.
+  randomCharacter: {
+    note: 'Name and personality are homebrew rolls, not rules — rename freely.',
+    first: ['Aric', 'Belan', 'Corin', 'Dessa', 'Ilyra', 'Jorran', 'Kesh', 'Lira', 'Marek', 'Nadya',
+      'Oren', 'Pell', 'Rhea', 'Soren', 'Tamsin', 'Vael', 'Yusra', 'Zaim', 'Hadi', 'Ismet',
+      'Calla', 'Davin', 'Esra', 'Faro', 'Ganir', 'Halise', 'Ivo', 'Juna', 'Kadir', 'Liesl'],
+    family: ['Valtor', 'Kessane', 'Morrow', 'Darrel', 'Ashkan', 'Venn', 'Torvay', 'Ruhel', 'Sabari', 'Quell',
+      'Hollin', 'Marsk', 'Teyvan', 'Corvel', 'Aldane', 'Brisk', 'Navarre', 'Osric', 'Pellane', 'Yarrow'],
+    personality: ['Loyal', 'Ruthless', 'Secretive', 'Proud', 'Patient', 'Reckless', 'Cunning', 'Devout',
+      'Cautious', 'Charming', 'Stoic', 'Ambitious', 'Curious', 'Honourable', 'Wary', 'Generous'],
+  },
 };

@@ -1321,3 +1321,6 @@ html[data-theme="dark"] .g-rule-house { --band: #8b98d8; }
 .q-lbl { margin-right: 3px; }
 html[data-theme="dark"] .die.blank { --die-bg: color-mix(in srgb, var(--text) 20%, var(--surface)); }
 html[data-theme="dark"] .die.blank.bought { --die-bg: color-mix(in srgb, var(--accent) 45%, var(--surface)); }
+/* Random character (2026-10-02): the rolled-build banner on the wizard Review step. */
+.random-bar { border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: 10px; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.random-bar p { margin: 0 0 var(--sp-2); }

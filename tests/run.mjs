@@ -1900,5 +1900,33 @@ console.log('\n— Audit 2: UX/UI + visual polish —');
   check('new app icon (night sky, moons, d20) + splash colours', /linearGradient id="sky"/.test(R('icon.svg')) && /"background_color": "#1b140d"/.test(R('manifest.json')));
 }
 
+console.log('\n— Random character —');
+{
+  const wz = await import(join(root, 'src/wizard.js'));
+  const { DATA } = await import(join(root, 'data.js'));
+  // Deterministic LCG so the run is reproducible; 300 rolls must all be rules-legal.
+  let seed = 12345; const rng = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  let ok = 0, factions = 0, err = '';
+  for (let i = 0; i < 300; i++) {
+    try {
+      const st = wz.rollRandomState(rng);
+      const c = wz.buildRandomPreview(st);
+      const skills = Object.values(c.skills), drives = Object.values(c.drives).sort().join(',');
+      const legal = skills.every((v) => v >= 4 && v <= 8) && drives === [...DATA.creation.driveArray].sort().join(',')
+        && c.focuses.length === 4 && c.talents.length === 3 && c.assets.length === 3 && c.assets.some((a) => a.tangible)
+        && Object.keys(c.driveStatements).length === 3 && c.identity.name && c.identity.ambition && st.step === 8;
+      if (legal) ok++; else err = JSON.stringify(c).slice(0, 200);
+      if (c.identity.factionTemplate) factions++;
+    } catch (e) { err = e.message; }
+  }
+  check('random character: 300 rolls all rules-legal and land on Review', ok === 300, err);
+  check('random character: faction template only sometimes', factions > 40 && factions < 180, String(factions));
+  const sc = readFileSync(join(root, 'src/screens.js'), 'utf8'), sh = readFileSync(join(root, 'src/sheet.js'), 'utf8'), wsrc = readFileSync(join(root, 'src/wizard.js'), 'utf8');
+  check('random character: entry on wizard Step 1, Home first run and Characters dialog; Review re-roll',
+    /onclick: startRandomCharacter/.test(wsrc) && /startRandomCharacter/.test(sc) && /startRandomCharacter/.test(sh) && /Re-roll everything/.test(wsrc));
+  const { ORACLE } = await import(join(root, 'data-oracle.js'));
+  check('random character: homebrew name/personality tables labelled', ORACLE.randomCharacter.first.length >= 20 && /homebrew/i.test(ORACLE.randomCharacter.note));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

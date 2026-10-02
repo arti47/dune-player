@@ -11,7 +11,7 @@ import { pips } from './icons.js';
 import { confirmModal, promptModal, modal, foldCard } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
-import { startCharacterWizard, openPregenPicker, startHouseWizard } from './wizard.js';
+import { startCharacterWizard, openPregenPicker, startHouseWizard, startRandomCharacter } from './wizard.js';
 import { slug, takeCiteTarget } from './cite.js';
 import { help, setAppHelp } from './help.js';
 import { icon } from './icons.js';
@@ -56,6 +56,7 @@ function welcome() {
     ['How to play', () => { location.hash = '#/play'; }],
     ['Playing solo?', enableSolo],
     ['Create a House', startHouseWizard],
+    ['Random character', startRandomCharacter],
   ];
   return el('section', { class: 'home-welcome' },
     el('p', { class: 'eyebrow' }, 'Welcome to'),
