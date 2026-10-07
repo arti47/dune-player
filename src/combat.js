@@ -9,10 +9,10 @@
 // Both apply immediately with a summary + one-step Undo (snapshot/restore).
 
 import { el, uid, d20 } from './core.js';
-import { modal, showToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
+import { modal, showToast, showActionToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
 import { HELP } from '../data-help.js';
 import {
-  getPools, savePools, listCharacters, currentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
+  getPools, savePools, listCharacters, currentCharacterId, setCurrentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
@@ -294,7 +294,7 @@ export function renderDefeat(character, onChange) {
     saveCharacter({
       ...character,
       traits: [...(character.traits || []), { name: comp || 'Complication', negative: true, source: 'play' }],
-      state: { ...st, defeated: false, resistUsedThisScene: true, defeatTrack: { ...track, progress: 0 } },
+      state: { ...st, defeated: false, resistUsedThisScene: true, painAwarded: false, defeatTrack: { ...track, progress: 0 } },
     });
     showToast('Resisted defeat — stayed in the scene');
     onChange && onChange();
@@ -306,11 +306,23 @@ export function renderDefeat(character, onChange) {
     const quality = Math.max(0, Math.min(5, Number(q) || 0));
     const req = DATA.defeat.recovery.normal.requirementBase + quality;
     saveTasks([...getTasks(), { id: uid(), name: `Recovery — ${character.identity.name || 'character'}`, requirement: req, progress: 0, contributors: [], log: [] }]);
-    showToast(`Recovery task created (requirement ${req})`);
+    // Link: the recovery task lives on Table → Tasks, where allies record their successes.
+    { const dismiss = showActionToast(`Recovery task created (requirement ${req}).`, 'Open Tasks', (d) => { d(); location.hash = '#/tasks'; }); setTimeout(dismiss, 8000); }
     onChange && onChange();
   };
 
   const guided = [];
+  if (defeated && !st.painAwarded) {
+    // Link defeat → advancement (§3.10): being defeated in a conflict earns 1 point ("Pain").
+    const pain = DATA.advancement.earn.find((e) => e.trigger === 'Pain');
+    if (pain) guided.push(el('button', { class: 'btn secondary', onclick: () => {
+      const adv = character.advancement || { points: 0, log: [] };
+      saveCharacter({ ...character, state: { ...st, painAwarded: true },
+        advancement: { ...adv, points: (adv.points || 0) + pain.points,
+          log: [...(adv.log || []), `${new Date().toISOString().slice(0, 10)} · Earned +${pain.points} (${pain.trigger})`] } });
+      showToast(`+${pain.points} advancement (${pain.trigger} — ${pain.desc.toLowerCase()})`); onChange && onChange();
+    } }, `+${pain.points} advancement (${pain.trigger})`));
+  }
   if (defeated) {
     if (!st.resistUsedThisScene && !st.lastingDefeat) {
       guided.push(el('button', { class: 'btn secondary', onclick: resist }, 'Resist Defeat (1 Momentum + complication)'));
@@ -326,7 +338,7 @@ export function renderDefeat(character, onChange) {
     }
     if (st.stabilized) guided.push(el('p', { class: 'small muted' }, DATA.defeat.recovery.lasting.outcome));
     guided.push(el('button', { class: 'btn secondary', onclick: startRecovery }, 'Start recovery task (4 + Quality)'));
-    guided.push(el('button', { class: 'btn secondary', onclick: () => save({ defeated: false, lastingDefeat: false, stabilized: false, defeatTrack: { ...track, progress: 0 } }) }, 'Clear defeat'));
+    guided.push(el('button', { class: 'btn secondary', onclick: () => save({ defeated: false, lastingDefeat: false, stabilized: false, painAwarded: false, defeatTrack: { ...track, progress: 0 } }) }, 'Clear defeat'));
   }
 
   // Audit 2: just the bar + actions; the formula lives in the "?" sheet. Folds to one line while
@@ -406,9 +418,35 @@ export function nextRound(conflict, keepOpener = false) {
 
 const SIDE_NAME = { a: 'Side A', b: 'Side B' };
 
+/** §3.7: a character has ONE defeat track. A PC combatant's track mirrors the character's
+ *  `state.defeatTrack`/`defeated`, so hits in a conflict show on the sheet (Resist Defeat,
+ *  recovery, Home's "you are defeated") and sheet edits show in the conflict. */
+export function hydratePcTracks(conflict) {
+  if (!conflict || !conflict.combatants) return conflict;
+  return { ...conflict, combatants: conflict.combatants.map((c) => {
+    if (c.npc || !c.charId) return c;
+    const ch = getCharacter(c.charId);
+    const t = ch && ch.state && ch.state.defeatTrack;
+    if (!t || (!t.req && !t.progress)) return c;   // character has no track yet → the combatant's seeds it on save
+    return { ...c, defeatTrack: { req: t.req, progress: t.progress }, defeated: !!ch.state.defeated };
+  }) };
+}
+export function pushPcTracks(conflict) {
+  for (const c of (conflict && conflict.combatants) || []) {
+    if (c.npc || !c.charId) continue;
+    const ch = getCharacter(c.charId);
+    if (!ch) continue;
+    const st = ch.state || {};
+    const t = c.defeatTrack || { req: 0, progress: 0 };
+    const cur = st.defeatTrack || {};
+    if (cur.req === t.req && cur.progress === t.progress && !!st.defeated === !!c.defeated) continue;
+    saveCharacter({ ...ch, state: { ...st, defeatTrack: { req: t.req, progress: t.progress }, defeated: !!c.defeated } });
+  }
+}
+
 export function renderConflict(onChange) {
-  const conflict = getConflict();
-  const save = (c) => { saveConflict(c); onChange && onChange(); };
+  const conflict = hydratePcTracks(getConflict());
+  const save = (c) => { if (c) pushPcTracks(c); saveConflict(c); onChange && onChange(); };
 
   if (!conflict || !conflict.active) {
     // Empty conflict (round 2 #8): explain, then one tap per conflict type — optionally with you on Side A.
@@ -418,8 +456,8 @@ export function renderConflict(onChange) {
     const begin = (typeId) => {
       const c = startConflict(typeId);
       if (me && meBox.checked) c.combatants.push({ id: uid(), charId: me.id, name: me.identity.name || 'Unnamed', side: 'a',
-        zoneId: c.zones[0].id, npc: false, actedThisRound: false, defeated: false,
-        defeatTrack: { req: defeatRequirementFor(me, typeId), progress: 0 } });
+        zoneId: c.zones[0].id, npc: false, actedThisRound: false, defeated: !!(me.state && me.state.defeated),
+        defeatTrack: { req: defeatRequirementFor(me, typeId), progress: (me.state && me.state.defeatTrack && me.state.defeatTrack.progress) || 0 } });
       save(c);
     };
     return el('section', { class: 'card' },
@@ -519,6 +557,10 @@ export function renderConflict(onChange) {
           el('button', { class: 'btn secondary', onclick: () => { close(); recordHit(); } }, `Record a hit (+${DATA.defeat.pointsPerHitBase})`),
           (!c.npc && c.charId) ? el('button', { class: 'btn secondary', disabled: c.defeated ? '' : null,
             onclick: () => { close(); extraAction(c.charId); } }, 'Extra action (1 Determination)') : null,
+          // Link: Resist Defeat, lasting defeat and recovery live on the character's sheet (same defeat track).
+          (!c.npc && c.charId) ? el('button', { class: 'btn secondary', onclick: () => {
+            close(); setCurrentCharacterId(c.charId); location.hash = '#/sheet';
+          } }, c.defeated ? 'Open sheet — Resist Defeat / recovery' : 'Open character sheet') : null,
           el('button', { class: 'btn secondary danger-btn', onclick: () => {
             close(); save({ ...conflict, combatants: conflict.combatants.filter((x) => x.id !== c.id) });
             undoToast(`Removed ${c.name}`, () => save(conflict));
@@ -708,7 +750,7 @@ export function renderConflict(onChange) {
       const c = pcs.find((x) => x.id === pcSel.value); if (!c) return;
       // §3.7 defeat requirement ≈ defender's relevant (defence) skill + defensive asset Quality.
       const req = defeatRequirementFor(c, conflict.type);
-      commit({ id: uid(), charId: c.id, name: c.identity.name || 'Unnamed', side, zoneId: zoneSel.value, npc: false, actedThisRound: false, defeated: false, defeatTrack: { req, progress: 0 } });
+      commit({ id: uid(), charId: c.id, name: c.identity.name || 'Unnamed', side, zoneId: zoneSel.value, npc: false, actedThisRound: false, defeated: !!(c.state && c.state.defeated), defeatTrack: { req, progress: (c.state && c.state.defeatTrack && c.state.defeatTrack.progress) || 0 } });
     };
     const addNpc = () => {
       const n = compendium[Number(npcSel.value)]; if (!n) return;

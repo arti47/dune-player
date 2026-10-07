@@ -92,6 +92,12 @@ const SHEET_TABS = [
   ['advance', 'Advancement'], ['notes', 'Notes & log'],
 ];
 let sheetTab = 'overview';
+/** Open the Character screen on a given sub-tab (cross-links: Home's Last roll → Notes & log). */
+export function openSheetTab(tid) {
+  if (SHEET_TABS.some(([id]) => id === tid)) sheetTab = tid;
+  if (location.hash === '#/sheet') window.dispatchEvent(new HashChangeEvent('hashchange'));
+  else location.hash = '#/sheet';
+}
 // Visible labels are shortened so all five fit a 360px phone; the full name stays the tab's accessible name.
 const SHEET_TAB_SHORT = { traits: 'Traits', advance: 'Advance', notes: 'Notes' };
 

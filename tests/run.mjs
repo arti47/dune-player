@@ -1928,5 +1928,30 @@ console.log('\n— Random character —');
   check('random character: homebrew name/personality tables labelled', ORACLE.randomCharacter.first.length >= 20 && /homebrew/i.test(ORACLE.randomCharacter.note));
 }
 
+console.log('\n— Cross-links (2026-10-07) —');
+{
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const R = (f) => readFileSync(join(root, f), 'utf8');
+  const cb = await import(join(root, 'src/combat.js'));
+  const st = await import(join(root, 'src/store.js'));
+  // One defeat track per PC: a conflict hit shows on the sheet, a sheet edit shows in the conflict.
+  st.saveCharacter({ id: 'pcx', identity: { name: 'X' }, skills: { battle: 6, communicate: 4, discipline: 5, move: 4, understand: 4 } });
+  const conf = { active: true, type: 'duel', round: 1, zones: [{ id: 'z', name: 'Z' }], currentSide: 'a', combatants: [
+    { id: 'c1', charId: 'pcx', name: 'X', side: 'a', zoneId: 'z', npc: false, defeated: true, defeatTrack: { req: 6, progress: 6 } }] };
+  cb.pushPcTracks(conf);
+  const ch = st.getCharacter('pcx');
+  check('conflict hit pushes to the PC sheet (one defeat track)', ch.state.defeated === true && ch.state.defeatTrack.progress === 6 && ch.state.defeatTrack.req === 6);
+  st.saveCharacter({ ...ch, state: { ...ch.state, defeated: false, defeatTrack: { req: 6, progress: 0 } } });
+  const hyd = cb.hydratePcTracks(conf);
+  check('sheet change (Resist Defeat) shows in the conflict', hyd.combatants[0].defeated === false && hyd.combatants[0].defeatTrack.progress === 0);
+  const { DATA } = await import(join(root, 'data.js'));
+  check('Failure trigger carries its Difficulty threshold in DATA', DATA.advancement.earn.find((e) => e.trigger === 'Failure').minDifficulty === 3);
+  check('roll → advancement: failing at the threshold earns Failure automatically', /e\.trigger === 'Failure' && e\.minDifficulty != null/.test(R('src/roller.js')) && /earnFail/.test(R('src/roller.js')));
+  check('defeat → advancement (Pain) once per defeat', /e\.trigger === 'Pain'/.test(R('src/combat.js')) && /painAwarded: true/.test(R('src/combat.js')));
+  check('links: Last roll tile → Notes tab, recovery task → Tasks, PC fighter → sheet',
+    /openSheetTab\('notes'\)/.test(R('src/screens.js')) && /'Open Tasks'/.test(R('src/combat.js')) && /Open sheet — Resist Defeat/.test(R('src/combat.js')));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

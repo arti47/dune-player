@@ -595,7 +595,9 @@ export function openRollDialog(character, onDone = null) {
         complications ? el('span', { class: 'pill danger-pill' }, `${complications} complication${complications === 1 ? '' : 's'}`) : null,
         assistSuccesses ? el('span', { class: 'pill' }, `+${assistSuccesses} assist`) : null,
         opposedShortfall ? el('span', { class: 'pill danger-pill' }, `defender +${opposedShortfall} Momentum`) : null,
-        predictions ? el('span', { class: 'pill' }, `${predictions} prediction${predictions === 1 ? '' : 's'}`) : null),
+        predictions ? el('span', { class: 'pill' }, `${predictions} prediction${predictions === 1 ? '' : 's'}`) : null,
+        (() => { const f = DATA.advancement.earn.find((e) => e.trigger === 'Failure' && e.minDifficulty != null);
+          return f && !passed && diff >= f.minDifficulty ? el('span', { class: 'pill' }, `+${f.points} advancement (${f.trigger})`) : null; })()),
       predStepper,
       sacAvailable ? (() => {
         const box = el('input', { type: 'checkbox', id: 'roll-sac' });
@@ -677,7 +679,19 @@ export function openRollDialog(character, onDone = null) {
       momentum: clampMomentum(pools.momentum + momentumDelta),
       threat: Math.max(0, pools.threat + threatDelta),
     });
-    if (detSpent) saveCharacter({ ...character, determination: clampDetermination(character.determination - detSpent) });
+    // Link roll → advancement (§3.10 "Failure"): failing a test at the listed Difficulty or higher
+    // earns the point automatically (a succeed-at-a-cost result is a success, so it doesn't).
+    const fail = DATA.advancement.earn.find((e) => e.trigger === 'Failure' && e.minDifficulty != null);
+    const earnFail = fail && !passed && effDiff() >= fail.minDifficulty;
+    if (detSpent || earnFail) {
+      const fresh = { ...character, determination: clampDetermination(character.determination - detSpent) };
+      if (earnFail) {
+        const adv = fresh.advancement || { points: 0, log: [] };
+        fresh.advancement = { ...adv, points: (adv.points || 0) + fail.points,
+          log: [...(adv.log || []), `${new Date().toISOString().slice(0, 10)} · Earned +${fail.points} (${fail.trigger})`] };
+      }
+      saveCharacter(fresh);
+    }
 
     const extras = [
       succeedAtCost ? 'succeed at a cost' : null,
@@ -701,7 +715,7 @@ export function openRollDialog(character, onDone = null) {
       successes, complications, momentumDelta, threatDelta,
       note: `${passed ? 'Success' : 'Failure'} vs Diff ${effDiff()}${extras.length ? ` · ${extras.join(' · ')}` : ''}`,
     });
-    showToast(passed ? `Success · +${momentum} Momentum` : 'Failed');
+    showToast(passed ? `Success · +${momentum} Momentum` : earnFail ? `Failed · +${fail.points} advancement (${fail.trigger})` : 'Failed');
     close();
   }
 }

@@ -18,7 +18,7 @@ import { icon } from './icons.js';
 import { allTalents } from './content.js';
 import { domainCrest, archetypeCrest, factionCrest, medallion } from './crests.js';
 import { runLifecycle } from './combat.js';
-import { poolsHeader } from './sheet.js';
+import { poolsHeader, openSheetTab } from './sheet.js';
 import { houseBanner } from './banner.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
@@ -149,7 +149,7 @@ function homeTiles(c, rerender) {
     tile('hourglass', 'Tasks', openTasks.length ? `${openTasks.length} open` : 'None',
       top ? `${top.name} ${top.progress}/${top.requirement}` : 'Sandworms, recovery…', go('tasks'), openTasks.length ? 'live' : ''),
     tile('d20', 'Last roll', last ? `${last.successes} success${last.successes === 1 ? '' : 'es'}` : '—',
-      last ? `${SKILL_NAME[last.skill] || last.skill} + ${DRIVE_NAME[last.drive] || last.drive}${last.complications ? ` · ${last.complications} comp.` : ''}` : 'No rolls yet', go('sheet')),
+      last ? `${SKILL_NAME[last.skill] || last.skill} + ${DRIVE_NAME[last.drive] || last.drive}${last.complications ? ` · ${last.complications} comp.` : ''}` : 'No rolls yet', () => openSheetTab('notes')),
     house
       ? tile(houseBanner(house, 22), 'House', house.name || 'Your House',
           house.management && house.management.active ? `Year ${house.management.year} · Wealth ${house.wealth || 0}` : (HOUSE_TYPE_NAME[house.type] || 'House'),

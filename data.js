@@ -805,7 +805,7 @@ export const DATA = {
       { trigger: 'Ambition', desc: 'Ambition progress — minor contribution (successful test if one is involved)', points: 1 },
       { trigger: 'Ambition', desc: 'Ambition progress — major contribution', points: 3 },
       { trigger: 'Pain', desc: 'Defeated in a conflict', points: 1 },
-      { trigger: 'Failure', desc: 'Fail a Difficulty 3+ test', points: 1 },
+      { trigger: 'Failure', desc: 'Fail a Difficulty 3+ test', points: 1, minDifficulty: 3 },
       { trigger: 'Peril', desc: 'GM spends 4+ Threat at once', points: 1 },
       { trigger: 'Impressing the Group', desc: 'Group award for a standout plan/scene (max once per session per player)', points: 1 },
     ],
