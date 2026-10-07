@@ -39,6 +39,7 @@ export function renderHome(root, rerender = () => { root.replaceChildren(); rend
   if (!current) { root.append(welcome()); return; }
   root.append(...[
     homeHero(current, chars.length, rerender),
+    skillTiles(current, rerender),
     poolsHeader(current, rerender),
     nextUp(current, rerender),
     homeTiles(current, rerender),
@@ -93,7 +94,23 @@ function homeHero(c, count, rerender) {
     el('div', { class: 'home-hero-actions' },
       el('button', { class: 'btn home-roll', onclick: () => openRollDialog(c, rerender) }, icon('d20', { size: 22 }), ' Roll a test'),
       el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, 'Sheet'),
-      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene')));
+      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene'),
+      el('button', { class: 'chip', onclick: () => runLifecycle('adventure', rerender) }, icon('flag', { size: 14 }), 'End adventure')));
+}
+
+// ----- tap-to-roll skill tiles (Play/Prep split) -----
+// One tile per skill: the rating big, and the best target number it can reach with the
+// character's highest drive (TN = Skill + Drive, §3.1). A tap opens the roll dialog on that skill.
+function skillTiles(c, rerender) {
+  const drives = Object.values(c.drives || {});
+  const top = drives.length ? Math.max(...drives) : 0;
+  return el('section', { class: 'skill-tiles', 'aria-label': 'Roll a skill' },
+    ...DATA.skills.map((s) => el('button', {
+      class: 'skill-tile', 'aria-label': `Roll ${s.name} (rating ${c.skills[s.id]})`,
+      onclick: () => openRollDialog(c, rerender, { skill: s.id }) },
+      el('span', { class: 'skill-tile-val num' }, String(c.skills[s.id])),
+      el('span', { class: 'skill-tile-name' }, s.name),
+      el('span', { class: 'skill-tile-tn num' }, `best TN ${c.skills[s.id] + top}`))));
 }
 
 // ----- one contextual next step -----
@@ -158,7 +175,6 @@ function homeTiles(c, rerender) {
     Settings.journal()
       ? tile('scroll', 'Journal', 'Solo play', 'Scene, oracle, threads', go('journal'))
       : tile('scroll', 'Solo play', 'Off', 'Tap to switch on', enableSolo),
-    tile('rules', 'Rules', 'Library', 'Search any rule', go('rules')),
   ]);
 }
 

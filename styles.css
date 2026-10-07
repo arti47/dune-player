@@ -1324,3 +1324,36 @@ html[data-theme="dark"] .die.blank.bought { --die-bg: color-mix(in srgb, var(--a
 /* Random character (2026-10-02): the rolled-build banner on the wizard Review step. */
 .random-bar { border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: 10px; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .random-bar p { margin: 0 0 var(--sp-2); }
+
+/* ---------- Play/Prep split (2026-10-07) ---------- */
+/* Now: one big tile per skill — tap to roll that skill. */
+.skill-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-bottom: var(--sp-4); }
+.skill-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0;
+  padding: var(--sp-2) 0; border-radius: 12px; cursor: pointer;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.skill-tile:hover, .skill-tile:focus-visible { border-color: var(--accent); }
+.skill-tile:active { transform: scale(.96); }
+.skill-tile-val { font-family: var(--display); font-size: var(--fs-2xl); font-weight: 600; line-height: 1; color: var(--accent); }
+.skill-tile-name { font-family: var(--display); font-size: var(--fs-2xs); letter-spacing: -.04em;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-tile-tn { font-size: var(--fs-2xs); color: var(--muted); white-space: nowrap; }
+.home-tiles > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+/* Prep: who you play + big tiles. */
+.prep-who { display: flex; align-items: center; gap: var(--sp-3); width: 100%; text-align: left; cursor: pointer; color: var(--text); font: inherit; }
+.prep-who:hover, .prep-who:focus-visible { border-color: var(--accent); }
+.prep-who-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.prep-who-name { font-family: var(--display); font-size: var(--fs-xl); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prep-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.prep-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; text-align: left;
+  padding: var(--sp-3); border-radius: 12px; cursor: pointer; font: inherit;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+}
+.prep-tile:hover, .prep-tile:focus-visible { border-color: var(--accent); }
+.prep-ico { color: var(--accent); display: flex; }
+.prep-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (min-width: 640px) { .prep-grid { grid-template-columns: repeat(3, 1fr); } .prep-grid > :last-child:nth-child(odd) { grid-column: auto; } }
+@media (min-width: 900px) { .skill-tiles, .prep-who, .prep-grid { grid-column: 1 / -1; } }

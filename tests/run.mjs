@@ -1657,12 +1657,13 @@ console.log('\n— UI overhaul · Stage 1: five tabs + hubs —');
 {
   const r = readFileSync(join(root, 'src/router.js'), 'utf8');
   const tabs = [...r.matchAll(/\{ id: '(\w+)',\s+label: '[^']+',\s+ico: /g)].map((m) => m[1]);
-  check('nav is exactly Home · Character · Table · Library · More', tabs.join() === 'home,sheet,table,library,more');
+  check('nav is exactly Play · Prep · Library (Play/Prep split)', tabs.join() === 'table,prep,library');
   check('every legacy route id still routable (deep links, cite)',
     ['home', 'sheet', 'journal', 'rules', 'play', 'tutorial', 'house', 'gm', 'settings'].every((id) => new RegExp(`id: '${id}',`).test(r)));
-  check('Table hub holds Scene · Tasks · Conflict · Journal', ['scene', 'tasks', 'conflict', 'journal'].every((id) => new RegExp(`id: '${id}',[^}]*hub: 'table'`).test(r)));
+  check('Play hub holds Now · Scene (hidden) · Tasks · Conflict · Journal', ['home', 'scene', 'tasks', 'conflict', 'journal'].every((id) => new RegExp(`id: '${id}',[^}]*hub: 'table'`).test(r)));
   check('Library hub holds Rules · How to play · Tutorial', ['rules', 'play', 'tutorial'].every((id) => new RegExp(`id: '${id}',[^}]*hub: 'library'`).test(r)));
-  check('House · GM · Settings light the More tab', ['house', 'gm', 'settings'].every((id) => new RegExp(`id: '${id}',[^}]*parent: 'more'`).test(r)));
+  check('Character · House · GM · Settings · More light the Prep tab', ['sheet', 'more', 'house', 'gm', 'settings'].every((id) => new RegExp(`id: '${id}',[^}]*parent: 'prep'`).test(r)));
+  check('hidden segments left out of the bar', /hub === hub && !r\.hidden/.test(r) && /id: 'scene',[^}]*hidden: true/.test(r));
   check('hub tab opens the last-used segment', /function lastSegment\(hub\)/.test(r) && /rememberSegment\(route\)/.test(r));
   const sh = readFileSync(join(root, 'src/sheet.js'), 'utf8');
   check('scene/tasks/conflict cards moved off the Character screen', !/renderLifecycle\(|renderTasks\(|renderConflict\(/.test(sh));
@@ -1681,7 +1682,7 @@ console.log('\n— UI overhaul · Stage 2: Character screen + floating Roll —'
   check('roster + create/import/export moved into one Characters dialog', /function charactersDialog\(/.test(sh) && !/function mdImportButton/.test(sh));
   check('no inline Roll button on the Character screen (floating d20 instead)', !/Roll a test/.test(sh));
   const hb = readFileSync(join(root, 'src/hubs.js'), 'utf8');
-  check('floating Roll shows on Character + Table only, with a character', /tab === 'sheet' \|\| tab === 'table'/.test(hb) && /aria-label': 'Roll a test'/.test(hb));
+  check('floating Roll shows on the sheet + Play segments except Now, with a character', /route\.id === 'sheet' \|\| \(route\.hub === 'table' && route\.id !== 'home'\)/.test(hb) && /aria-label': 'Roll a test'/.test(hb));
   const mn = readFileSync(join(root, 'src/main.js'), 'utf8');
   check('Meaning Tables no longer a global floating button', !/initOracle/.test(mn) && !/oracle-fab/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
 }
@@ -1860,7 +1861,7 @@ console.log('\n— Home overhaul: session dashboard + first-run choices —');
   check('welcome: two big choices (Play now / Build my own) + quiet links', /choice\('star', 'Play now'/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
   { const shp = readFileSync(join(root, 'src/sheet.js'), 'utf8');
   check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /pool-chip pool-/.test(shp) && /sheet: true/.test(shp) && /DATA\.momentumRules\.cap/.test(shp) && /DATA\.determination\.cap/.test(shp)); }
-  check('live tiles: conflict, tasks, last roll, House, journal/solo, rules', ['Conflict', 'Tasks', 'Last roll', 'House', 'Rules'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
+  check('live tiles: conflict, tasks, last roll, House, journal/solo (Rules lives in the Library tab)', ['Conflict', 'Tasks', 'Last roll', 'House'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
   check('old explanation cards gone', !/function soloCard/.test(sc) && !/function firstRunCard/.test(sc) && !/function houseCard/.test(sc));
   const { HELP } = await import(join(root, 'data-help.js'));
   check('first-run copy in data-help', !!(HELP.home && HELP.home.welcome && HELP.home.playNow && HELP.home.buildOwn));
@@ -1951,6 +1952,17 @@ console.log('\n— Cross-links (2026-10-07) —');
   check('defeat → advancement (Pain) once per defeat', /e\.trigger === 'Pain'/.test(R('src/combat.js')) && /painAwarded: true/.test(R('src/combat.js')));
   check('links: Last roll tile → Notes tab, recovery task → Tasks, PC fighter → sheet',
     /openSheetTab\('notes'\)/.test(R('src/screens.js')) && /'Open Tasks'/.test(R('src/combat.js')) && /Open sheet — Resist Defeat/.test(R('src/combat.js')));
+}
+
+console.log('\n— Play/Prep split (2026-10-07) —');
+{
+  const R = (f) => readFileSync(join(root, f), 'utf8');
+  const sc = R('src/screens.js'), hb = R('src/hubs.js'), rl = R('src/roller.js');
+  check('Now has tap-to-roll skill tiles opening the roll dialog on that skill', /function skillTiles\(/.test(sc) && /openRollDialog\(c, rerender, \{ skill: s\.id \}\)/.test(sc));
+  check('skill tile TN = skill + highest drive (§3.1)', /c\.skills\[s\.id\] \+ top/.test(sc) && /Math\.max\(\.\.\.drives\)/.test(sc));
+  check('roll dialog accepts a skill preset, validated against DATA.skills', /openRollDialog\(character, onDone = null, preset = \{\}\)/.test(rl) && /SKILLS\.some\(\(s\) => s\.id === preset\.skill\)/.test(rl));
+  check('Now offers End scene + End adventure (Scene folded in)', /runLifecycle\('scene', rerender\)/.test(sc) && /runLifecycle\('adventure', rerender\)/.test(sc));
+  check('Prep page: character, wizard, iconic, random, House, Settings', /export function renderPrep\(/.test(hb) && ['startCharacterWizard', 'openPregenPicker', 'startRandomCharacter', 'startHouseWizard', "go('settings')"].every((t) => hb.includes(t)));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

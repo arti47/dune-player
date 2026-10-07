@@ -92,11 +92,11 @@ function determinationEligible(character, driveId) {
   return !!(character.determination > 0 && s && s.text && !s.challenged);
 }
 
-export function openRollDialog(character, onDone = null) {
+export function openRollDialog(character, onDone = null, preset = {}) {
   if (!character) { showToast('Select a character first.'); return; }
 
   const cfg = {
-    skill: SKILLS[0].id,
+    skill: SKILLS.some((s) => s.id === preset.skill) ? preset.skill : SKILLS[0].id,   // Now's skill tiles preset this
     drive: charDriveIds(character)[0] || DRIVES[0].id,   // the character's highest drive (may be a swapped-in one)
     difficulty: 1,
     bought: 0,

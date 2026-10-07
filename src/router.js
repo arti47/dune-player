@@ -1,6 +1,6 @@
 // router.js — bottom-nav hash routing + conditional tab gating.
 //
-// Five tabs (UI overhaul): Home · Character · Table · Library · More. Every older route id stays
+// Three tabs (Play/Prep split): Play · Prep · Library. Every older route id stays
 // routable (deep links, cite(), tutorial hand-offs): a route with `hub` renders under that tab's
 // segmented control; a route with `parent` just lights that tab. A hub id (`#/table`, `#/library`)
 // opens the segment you last used there.
@@ -15,22 +15,23 @@ import { renderHouseManagement } from './house.js';
 import { renderTutorial } from './tutorial.js';
 import { renderJournal } from './journal.js';
 import { renderPlay } from './play.js';
-import { renderScene, renderTaskSeg, renderConflictSeg, renderMore, syncRollFab } from './hubs.js';
+import { renderScene, renderTaskSeg, renderConflictSeg, renderPrep, syncRollFab } from './hubs.js';
 import { setSwipe, animateIn, neighbours } from './swipe.js';
 import { setAppHelp } from './help.js';
 
+// Play/Prep split (2026-10-07): three tabs. Play = the table you sit at (Now · Tasks · Conflict ·
+// Journal); Prep = everything you set up between sessions (characters, House, GM, settings);
+// Library = rules + learning.
 const TABS = [
-  { id: 'home',    label: 'Home',      ico: 'home' },
-  { id: 'sheet',   label: 'Character', ico: 'person' },
-  { id: 'table',   label: 'Table',     ico: 'table', hub: true },
+  { id: 'table',   label: 'Play',      ico: 'd20', hub: true },
+  { id: 'prep',    label: 'Prep',      ico: 'person' },
   { id: 'library', label: 'Library',   ico: 'rules', hub: true },
-  { id: 'more',    label: 'More',      ico: 'more' },
 ];
 
 const ROUTES = [
-  { id: 'home',     label: 'Home',      title: 'Imperium Player', render: renderHome },
-  { id: 'sheet',    label: 'Character', render: renderSheet },
-  { id: 'scene',    label: 'Scene',     title: 'Scene', hub: 'table', render: renderScene },
+  { id: 'home',     label: 'Now',       title: 'Play', hub: 'table', render: renderHome },
+  // Scene stays routable (deep links) but its End scene/adventure now live on Now.
+  { id: 'scene',    label: 'Scene',     title: 'Scene', hub: 'table', hidden: true, render: renderScene },
   { id: 'tasks',    label: 'Tasks',     title: 'Extended tasks', hub: 'table', render: renderTaskSeg },
   { id: 'conflict', label: 'Conflict',  hub: 'table', render: renderConflictSeg },
   { id: 'journal',  label: 'Journal',   hub: 'table', render: renderJournal, gated: () => Settings.journal() },
@@ -38,15 +39,17 @@ const ROUTES = [
   { id: 'play',     label: 'How to play', hub: 'library', render: renderPlay },
   // Onboarding tutorial (Phase 7, §13 #4): a Library segment, never its own tab.
   { id: 'tutorial', label: 'Tutorial',  title: 'Learn to play', hub: 'library', render: renderTutorial },
-  { id: 'more',     label: 'More',      render: renderMore },
-  { id: 'house',    label: 'House',     parent: 'more', render: renderHouseManagement, gated: () => Settings.greatGame() },
-  { id: 'gm',       label: 'GM',        title: 'GM screen', parent: 'more', render: renderGM, gated: () => Settings.gmScreen() },
-  { id: 'settings', label: 'Settings',  parent: 'more', render: renderSettings },
+  { id: 'prep',     label: 'Prep',      render: renderPrep },
+  { id: 'sheet',    label: 'Character', parent: 'prep', render: renderSheet },
+  { id: 'more',     label: 'Prep',      parent: 'prep', render: renderPrep },
+  { id: 'house',    label: 'House',     parent: 'prep', render: renderHouseManagement, gated: () => Settings.greatGame() },
+  { id: 'gm',       label: 'GM',        title: 'GM screen', parent: 'prep', render: renderGM, gated: () => Settings.gmScreen() },
+  { id: 'settings', label: 'Settings',  parent: 'prep', render: renderSettings },
 ];
 
 // Routes that may render (gating passes).
 function routableRoutes() { return ROUTES.filter((r) => !r.gated || r.gated()); }
-function segmentsOf(hub) { return routableRoutes().filter((r) => r.hub === hub); }
+function segmentsOf(hub) { return routableRoutes().filter((r) => r.hub === hub && !r.hidden); }
 
 const LAST_KEY = 'imperium.lastSegment';
 function lastSegment(hub) {
@@ -121,7 +124,7 @@ export function renderScreen() {
     animateIn(mount);
   }
   renderNav();
-  syncRollFab(tabOf(route), renderScreen);
+  syncRollFab(route, renderScreen);
   screen.focus({ preventScroll: true });
 }
 

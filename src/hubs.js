@@ -1,4 +1,4 @@
-// hubs.js — the in-play "Table" segments and the "More" menu (UI overhaul, Stage 1).
+// hubs.js — the Play segments, the Prep page and the floating Roll button.
 //
 // No rules live here: each segment reuses an existing renderer (combat.js / sheet.js poolsHeader).
 // `rerender` is the router's renderScreen, passed in so this module never imports the router.
@@ -6,10 +6,12 @@
 import { el } from './core.js';
 import { icon, emptyState } from './icons.js';
 import { Settings } from './settings.js';
-import { listCharacters, currentCharacterId } from './store.js';
+import { listCharacters, currentCharacterId, getHouse } from './store.js';
 import { poolsHeader } from './sheet.js';
 import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
-import { startCharacterWizard, openPregenPicker } from './wizard.js';
+import { startCharacterWizard, openPregenPicker, startRandomCharacter, startHouseWizard } from './wizard.js';
+import { medallion } from './crests.js';
+import { houseBanner } from './banner.js';
 import { openRollDialog } from './roller.js';
 import { HELP } from '../data-help.js';
 
@@ -56,28 +58,41 @@ export function renderConflictSeg(root, rerender) {
   root.append(poolsHeader(activeCharacter(), rerender), renderConflict(rerender));
 }
 
-// "More": the occasional destinations, as a tappable list.
-export function renderMore(root) {
-  const row = (href, ico, title, desc) =>
-    el('li', {},
-      el('a', { class: 'more-row', href },
-        el('span', { class: 'more-ico' }, icon(ico, { size: 22 })),
-        el('span', { class: 'more-text' }, el('strong', {}, title), el('span', { class: 'small muted' }, desc)),
-        el('span', { class: 'more-chev', 'aria-hidden': 'true' }, '›')));
-  root.append(el('section', { class: 'card more-card' },
-    el('ul', { class: 'more-list' },
-      Settings.greatGame() ? row('#/house', 'house', 'House', 'Run your House’s yearly session') : null,
-      Settings.gmScreen() ? row('#/gm', 'gm', 'GM screen', 'Threat, party peek, tables, NPCs') : null,
-      row('#/settings', 'settings', 'Settings', 'Toggles, theme, campaign, backup'),
-      row('#/play', 'play', 'How to play', 'Start, sustain and end a game well'),
-      row('#/rules', 'rules', 'Rules library', 'Search any rule'))));
+// "Prep" (Play/Prep split): what you set up between sessions — who you play, the House, the
+// GM tools and settings — as one page of big tiles instead of a menu.
+export function renderPrep(root, rerender) {
+  const c = activeCharacter();
+  const count = listCharacters().length;
+  const tile = (ico, title, desc, onclick, cls = '') => el('button', { class: 'prep-tile ' + cls, onclick },
+    el('span', { class: 'prep-ico' }, typeof ico === 'string' ? icon(ico, { size: 26 }) : ico),
+    el('strong', {}, title), desc ? el('span', { class: 'small muted' }, desc) : null);
+  const go = (id) => () => { location.hash = `#/${id}`; };
+  const house = getHouse();
+  root.append(
+    c ? el('button', { class: 'card prep-who', onclick: go('sheet') },
+      medallion(c.identity, 56),
+      el('span', { class: 'prep-who-text' },
+        el('span', { class: 'eyebrow' }, count > 1 ? `Your characters · ${count}` : 'Your character'),
+        el('strong', { class: 'prep-who-name' }, c.identity.name || 'Unnamed'),
+        el('span', { class: 'small muted' }, 'Open the sheet')),
+      el('span', { class: 'more-chev', 'aria-hidden': 'true' }, '›')) : null,
+    el('div', { class: 'prep-grid' }, ...[
+      tile('plus', 'New character', 'Step-by-step wizard', startCharacterWizard),
+      tile('star', 'Play an iconic', 'Ready-made characters', openPregenPicker),
+      tile('d20', 'Random', 'Roll a legal build', startRandomCharacter),
+      house
+        ? tile(houseBanner(house, 26), house.name || 'House', Settings.greatGame() ? 'Run the yearly session' : 'Edit your House', Settings.greatGame() ? go('house') : startHouseWizard)
+        : tile('house', 'Create a House', 'Your group’s home base', startHouseWizard),
+      Settings.gmScreen() ? tile('gm', 'GM screen', 'Threat, party, tables, NPCs', go('gm')) : null,
+      tile('settings', 'Settings', 'Theme, books, backup', go('settings')),
+    ].filter(Boolean)));
 }
 
 // ---------- Floating d20 Roll button (Character + Table tabs) ----------
 let rollFab = null;
 
 /** Show the Roll button on in-play tabs when there is a character to roll for. */
-export function syncRollFab(tab, rerender) {
+export function syncRollFab(route, rerender) {
   if (!rollFab) {
     rollFab = el('button', { class: 'fab roll-fab', 'aria-label': 'Roll a test', title: 'Roll a test' },
       icon('d20', { size: 26 }), el('span', { class: 'fab-label', 'aria-hidden': 'true' }, 'Roll'));
@@ -93,7 +108,9 @@ export function syncRollFab(tab, rerender) {
     }, { passive: true });
   }
   const c = activeCharacter();
-  rollFab.hidden = !(c && (tab === 'sheet' || tab === 'table'));
+  // Shown on the character sheet and the Play segments — except Now, whose hero already has a
+  // big Roll button and the skill tiles.
+  rollFab.hidden = !(c && (route.id === 'sheet' || (route.hub === 'table' && route.id !== 'home')));
   rollFab.classList.remove('mini');
   rollFab.onclick = () => { const cur = activeCharacter(); if (cur) openRollDialog(cur, rerender); };
 }
