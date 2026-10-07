@@ -100,10 +100,10 @@ export function openRollDialog(character, onDone = null, preset = {}) {
     skill: SKILLS.some((s) => s.id === preset.skill) ? preset.skill : SKILLS[0].id,   // Now's skill tiles preset this
     drive: charDriveIds(character).includes(preset.drive) ? preset.drive   // the intent helper presets this
       : (charDriveIds(character)[0] || DRIVES[0].id),   // the character's highest drive (may be a swapped-in one)
-    difficulty: 1,
+    difficulty: Number.isInteger(preset.difficulty) ? clamp(preset.difficulty, 0, DATA.difficulty.length - 1) : 1,
     bought: 0,
     buyWith: 'momentum',       // 'momentum' | 'threat'
-    focus: false,
+    focus: !!preset.focus,
     compRange: 'normal',       // GM-set complication range (Normal 20 … Treacherous 16–20)
     succeedAtCost: false,       // after a failed roll: take a complication for a bare success
     autoOne: false,            // spend 1 Determination for one automatic 1 (crit)
@@ -131,6 +131,8 @@ export function openRollDialog(character, onDone = null, preset = {}) {
   const setUI = (...kids) => container.replaceChildren(...kids.filter((k) => k != null));
   const close = modal(container, { labelledBy: 'roll-title', onClose: () => onDone && onDone() });
   render();
+  // The roll ritual (feed.js) has already chosen skill, drive, Difficulty and focus: go straight to the dice.
+  if (preset.autoRoll) doRoll();
 
   // Architect mode (§3.12): act on behalf of the House — House skill + the character's drive.
   function skillRating() { return cfg.architect && architectReady ? house.skills[cfg.skill] : character.skills[cfg.skill]; }

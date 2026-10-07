@@ -11,13 +11,13 @@ export const HELP = {
   // ---------- first run ----------
   firstRun: {
     steps: [
-      'Take the tutorial if you have never played this game — it teaches the dice in a few minutes and nothing you do there is saved.',
-      'Make a character: use the 8-step wizard, or tap "Play an iconic" to start instantly as a character from the novels.',
-      'Open the Character tab. That is your character and every button you need in play.',
-      'Tap the floating d20 (Roll a test) whenever you try something risky. The app does the maths.',
-      'Playing without a gamemaster? Switch on solo play and the app runs the world for you.',
+      'This is the story feed: everything that happens in your session lands here, newest at the bottom.',
+      'Note — write what you do, or "Frame a scene" to say where you are and what is at stake.',
+      'Roll — pick what you are doing, why it matters, and how hard it is. The app rolls and does the maths.',
+      'End — close a scene or an adventure (the app applies the rules), or start a new session page.',
+      'Tap your picture to open your character sheet. Tap a pool to change it.',
     ],
-    example: 'Never played before? Tutorial → "Play an iconic" → Character → tap the d20. You are playing within five minutes.',
+    example: 'Frame a scene → "I slip past the guards" → Roll: Move → Truth → Challenging → Roll. The result posts into the feed.',
   },
 
   // ---------- Home (overhaul 2026-10-01) — first-run copy ----------

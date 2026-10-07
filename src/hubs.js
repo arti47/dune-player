@@ -12,7 +12,7 @@ import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
 import { startCharacterWizard, openPregenPicker, startRandomCharacter, startHouseWizard } from './wizard.js';
 import { medallion } from './crests.js';
 import { houseBanner } from './banner.js';
-import { openRollDialog } from './roller.js';
+import { openRollRitual } from './ritual.js';
 import { HELP } from '../data-help.js';
 
 function activeCharacter() {
@@ -43,7 +43,7 @@ function sceneIntro(rerender) {
     el('p', { class: 'small' }, s.intro),
     el('ol', { class: 'help-steps' }, ...s.steps.map((t) => el('li', {}, t))),
     el('div', { class: 'cta-row' },
-      el('button', { class: 'btn', onclick: () => { const c = activeCharacter(); if (c) openRollDialog(c, rerender); } }, icon('d20', { size: 18 }), ' Roll a test'),
+      el('button', { class: 'btn', onclick: () => { const c = activeCharacter(); if (c) openRollRitual(c, rerender); } }, icon('d20', { size: 18 }), ' Roll a test'),
       el('button', { class: 'btn secondary', onclick: go('tasks') }, 'Start a task'),
       el('button', { class: 'btn secondary', onclick: go('conflict') }, 'Start a conflict')),
     el('button', { class: 'chip', onclick: () => { Settings.set('sceneIntroDone', true); rerender(); } }, icon('check', { size: 14 }), 'Got it — hide this'));
@@ -113,5 +113,5 @@ export function syncRollFab(route, rerender) {
   // big Roll button and the skill tiles.
   rollFab.hidden = !(c && (route.id === 'sheet' || (route.hub === 'table' && route.id !== 'home')));
   rollFab.classList.remove('mini');
-  rollFab.onclick = () => { const cur = activeCharacter(); if (cur) openRollDialog(cur, rerender); };
+  rollFab.onclick = () => { const cur = activeCharacter(); if (cur) openRollRitual(cur, rerender); };
 }

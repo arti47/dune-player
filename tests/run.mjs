@@ -1365,7 +1365,7 @@ console.log('— Visual layer: icons, dice, meters, fonts —');
     /'\.\/src\/icons\.js'/.test(src('service-worker.js')));
   check('d20 dice + pip meters styled', /\.die \{[^}]*clip-path/.test(css) && /\.pip\.on/.test(css));
   check('all motion disabled under prefers-reduced-motion', /prefers-reduced-motion: reduce[^}]*animation: none !important/.test(css));
-  check('meters used on pools, stats and chaos', /pips\(Math\.min\(d\.value, d\.max\)/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /dial\(j\.chaos/.test(src('src/journal.js')));
+  check('meters used on pools (drawn objects), stats and chaos', /poolArt\(d\.key, d\.value, d\.max\)/.test(src('src/sheet.js')) && /pips-stat/.test(src('src/sheet.js')) && /dial\(j\.chaos/.test(src('src/journal.js')));
 }
 
 console.log('— Faction + archetype crests —');
@@ -1458,8 +1458,8 @@ console.log('— House banners —');
   check('every example House crest text matches a bespoke emblem',
     (() => { const res = [...bn.matchAll(/^  \[\/(.+?)\/,/gm)].map((m) => new RegExp(m[1]));
       return GG.landsraadHouses.every((h) => res.some((re) => re.test(String(h.crest).toLowerCase()))); })());
-  check('banner on the Home House card and the House tab header',
-    /houseBanner\(house, 22\)/.test(readFileSync(join(root, 'src/screens.js'), 'utf8')) &&
+  check('banner on the Prep House tile and the House tab header',
+    /houseBanner\(house, 26\)/.test(readFileSync(join(root, 'src/hubs.js'), 'utf8')) &&
     /houseBanner\(house, 88\)/.test(readFileSync(join(root, 'src/house.js'), 'utf8')) &&
     /'\.\/src\/banner\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
   check('crest lookup is case-insensitive (example-House domains are capitalised)',
@@ -1557,7 +1557,7 @@ console.log('— Novice guidance: help on every surface —');
     !src('src/journal.js').includes("class: 'journal-help'"));
   check('help never renders inline open (it is a button that opens a sheet)',
     !/help-acc/.test(src('src/help.js')) && /class: 'help-btn'/.test(src('src/help.js')));
-  check('first-run welcome only shows on an empty install', /if \(!current\) \{ root\.append\(welcome\(\)\); return; \}/.test(src('src/screens.js')));
+  check('first-run welcome only shows on an empty install', /if \(!current\) \{[^}]*root\.append\(welcome\(\)\); return; \}/.test(src('src/screens.js')));
 }
 
 console.log('— Journal (solo-play log; store + gating) —');
@@ -1634,7 +1634,7 @@ console.log('— Journal (solo-play log; store + gating) —');
     /hookCard\(\)/.test(js2) && /npcCard\(\)/.test(js2));
   check('S4: Home surfaces solo play and can enable it', (() => {
     const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
-    return /function enableSolo/.test(sc) && /enableSolo\)/.test(sc) &&
+    return /function enableSolo/.test(sc) && /enableSolo\]/.test(sc) &&
       /Settings\.set\('journal', true\)/.test(sc) && /Settings\.set\('oracle', true\)/.test(sc);
   })());
   check('S6: journal entries stamp the character who played the scene', (() => {
@@ -1690,10 +1690,10 @@ console.log('\n— UI overhaul · Stage 2: Character screen + floating Roll —'
 console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dialog —');
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
-  check('Home leads with the active character + pools when one exists',
-    /homeHero\(current, chars\.length, rerender\)/.test(sc) && /poolsHeader\(current, rerender\)/.test(sc));
-  check('Home quick actions: Open sheet · End scene (shared lifecycle) · Journal (gated)',
-    /' Roll a test'/.test(sc) && /' Sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*tile\('scroll', 'Journal'/.test(sc));
+  check('Now is the story feed: head with the character + pools when one exists', /renderFeed\(root, current, chars\.length, rerender\)/.test(sc) &&
+    /poolsHeader\(c, rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /medallion\(c\.identity, 44\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
+  check('feed dock: Note · Ask (Journal-gated) · Roll (ritual) · End (shared lifecycle)',
+    /openRollRitual\(c, rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /Settings\.journal\(\) \? b\('oracle', 'Ask'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /runLifecycle\('scene', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /b\('pencil', 'Note'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
   check('End scene / End adventure share one confirm → apply → Undo path', /export async function runLifecycle\(kind, onChange\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb));
   const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
@@ -1861,7 +1861,7 @@ console.log('\n— Home overhaul: session dashboard + first-run choices —');
   check('welcome: carousel ending in a one-tap hero pick + Build my own + quiet links', /instantiatePregen\(pg, 'home'\)/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
   { const shp = readFileSync(join(root, 'src/sheet.js'), 'utf8');
   check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /pool-chip pool-/.test(shp) && /sheet: true/.test(shp) && /DATA\.momentumRules\.cap/.test(shp) && /DATA\.determination\.cap/.test(shp)); }
-  check('live tiles: conflict, tasks, last roll, House, journal/solo (Rules lives in the Library tab)', ['Conflict', 'Tasks', 'Last roll', 'House'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
+  check('feed head live pills: defeat, conflict, open tasks', /getConflict\(\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /getTasks\(\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /live-pill danger/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
   check('old explanation cards gone', !/function soloCard/.test(sc) && !/function firstRunCard/.test(sc) && !/function houseCard/.test(sc));
   const { HELP } = await import(join(root, 'data-help.js'));
   check('first-run copy in data-help', !!(HELP.home && HELP.home.welcome && HELP.home.playNow && HELP.home.buildOwn));
@@ -1876,7 +1876,7 @@ console.log('\n— Audit 2: UX/UI + visual polish —');
   check('title cards gone from Rules/GM/How to play/More/Journal/Settings', !/'Rules library'\), help\('rules'\)/.test(R('src/screens.js')) &&
     !/'GM Screen'/.test(R('src/gm.js')) && !/el\('h2', \{\}, 'How to play'\)/.test(R('src/play.js')) && !/el\('h2', \{\}, 'More'\)/.test(R('src/hubs.js')) &&
     !/el\('h2', \{\}, 'Journal'\)/.test(R('src/journal.js')) && !/el\('h2', \{\}, 'Settings'\)/.test(R('src/screens.js')));
-  check('pool chips everywhere (Home, Character, Table, Journal, GM threat-first)', /poolsHeader\(current, rerender\)/.test(R('src/screens.js')) &&
+  check('pool chips everywhere (Play feed, Character, Table, Journal, GM threat-first)', /poolsHeader\(c, rerender\)/.test(R('src/feed.js')) &&
     /poolsHeader\(null, refresh, \{ threatFirst: true \}\)/.test(R('src/gm.js')) && !/class: 'pools-bar'/.test(R('src/sheet.js') + R('src/gm.js')));
   check('Roll FAB: pill at rest, shrinks while scrolling down', /classList\.toggle\('mini'/.test(R('src/hubs.js')) && /\.roll-fab\.mini/.test(css));
   check('3-tier buttons: outlined secondary, outlined destructive (filled only in dialog actions), chips', /\.btn\.secondary \{\s*background: transparent/.test(css) &&
@@ -1950,18 +1950,18 @@ console.log('\n— Cross-links (2026-10-07) —');
   check('Failure trigger carries its Difficulty threshold in DATA', DATA.advancement.earn.find((e) => e.trigger === 'Failure').minDifficulty === 3);
   check('roll → advancement: failing at the threshold earns Failure automatically', /e\.trigger === 'Failure' && e\.minDifficulty != null/.test(R('src/roller.js')) && /earnFail/.test(R('src/roller.js')));
   check('defeat → advancement (Pain) once per defeat', /e\.trigger === 'Pain'/.test(R('src/combat.js')) && /painAwarded: true/.test(R('src/combat.js')));
-  check('links: Last roll tile → Notes tab, recovery task → Tasks, PC fighter → sheet',
-    /openSheetTab\('notes'\)/.test(R('src/screens.js')) && /'Open Tasks'/.test(R('src/combat.js')) && /Open sheet — Resist Defeat/.test(R('src/combat.js')));
+  check('links: rolls appear in the Play feed, recovery task → Tasks, PC fighter → sheet',
+    /kind: 'roll', ts: r\.ts \|\| 0, r/.test(R('src/feed.js')) && /'Open Tasks'/.test(R('src/combat.js')) && /Open sheet — Resist Defeat/.test(R('src/combat.js')));
 }
 
 console.log('\n— Play/Prep split (2026-10-07) —');
 {
   const R = (f) => readFileSync(join(root, f), 'utf8');
   const sc = R('src/screens.js'), hb = R('src/hubs.js'), rl = R('src/roller.js');
-  check('Now has tap-to-roll skill tiles opening the roll dialog on that skill', /function skillTiles\(/.test(sc) && /openRollDialog\(c, rerender, \{ skill: s\.id \}\)/.test(sc));
-  check('skill tile TN = skill + highest drive (§3.1)', /c\.skills\[s\.id\] \+ top/.test(sc) && /Math\.max\(\.\.\.drives\)/.test(sc));
+  check('roll ritual: skill tiles → drives with statements + TN → Difficulty pips + focus', /export function openRollRitual\(/.test(R('src/ritual.js')) && /DATA\.skills\.map/.test(R('src/ritual.js')) && /sk \+ c\.drives\[id\]/.test(R('src/ritual.js')) && /DATA\.difficulty\.map/.test(R('src/ritual.js')));
+  check('ritual hands off to the one engine (autoRoll / More options), FAB uses it', /autoRoll: auto/.test(R('src/ritual.js')) && /if \(preset\.autoRoll\) doRoll\(\)/.test(rl) && /openRollRitual\(cur, rerender\)/.test(hb));
   check('roll dialog accepts a skill preset, validated against DATA.skills', /openRollDialog\(character, onDone = null, preset = \{\}\)/.test(rl) && /SKILLS\.some\(\(s\) => s\.id === preset\.skill\)/.test(rl));
-  check('Now offers End scene + End adventure (Scene folded in)', /runLifecycle\('scene', rerender\)/.test(sc) && /runLifecycle\('adventure', rerender\)/.test(sc));
+  check('feed End sheet: End scene + End adventure + New session', /runLifecycle\('scene', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /runLifecycle\('adventure', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /kind: 'session'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
   check('Prep page: character, wizard, iconic, random, House, Settings', /export function renderPrep\(/.test(hb) && ['startCharacterWizard', 'openPregenPicker', 'startRandomCharacter', 'startHouseWizard', "go('settings')"].every((t) => hb.includes(t)));
 }
 
@@ -1974,10 +1974,31 @@ console.log('\n— Radical UI (2026-10-07) —');
   check('welcome carousel: slides from HELP, dice facts from DATA, swipe', /HELP\.home\.slides/.test(sc) && /DATA\.dicePool/.test(sc) && /DATA\.crit\.naturalOne/.test(sc) && /setSwipe\(\{ prev:/.test(sc));
   const { HELP } = await import(join(root, 'data-help.js'));
   check('welcome slide copy carries no rules digits', HELP.home.slides.length === 3 && HELP.home.slides.every((x) => !/\d/.test(x.title + x.text)));
-  check('intent helper: skill from DATA.skills, drive from the character, presets both', /function intentHelper\(/.test(sc) && /openRollDialog\(c, rerender, \{ skill: skill\.id, drive: id \}\)/.test(sc) && /charDriveIds\(character\)\.includes\(preset\.drive\)/.test(rl));
+  check('ritual presets skill + drive (+ Difficulty, focus) into the roll dialog, validated', /skill: st\.skill, drive: st\.drive, difficulty: st\.difficulty, focus: st\.focus/.test(R('src/ritual.js')) && /charDriveIds\(character\)\.includes\(preset\.drive\)/.test(rl));
   const { Settings } = await import(join(root, 'src/settings.js'));
   check('Simple mode on unless switched off; roll dialog hides advanced behind a chip', Settings.simple() === true && /Settings\.simple\(\) && !cfg\.showAdv && !advOn/.test(rl) && /body\.simple \.screen-lead/.test(css));
-  check('scene bands on Now, Prep and Library', /sceneBand\('play'\)/.test(sc) && /sceneBand\('library'\)/.test(sc) && /sceneBand\('prep'\)/.test(R('src/hubs.js')) && /export function sceneBand/.test(R('src/icons.js')));
+  check('scene bands on Now (empty feed), Prep and Library', /sceneBand\('play'\)/.test(R('src/feed.js')) && /sceneBand\('library'\)/.test(sc) && /sceneBand\('prep'\)/.test(R('src/hubs.js')) && /export function sceneBand/.test(R('src/icons.js')));
+}
+
+console.log('\n— Play redesign: story feed (2026-10-07) —');
+{
+  const fd = await import(join(root, 'src/feed.js'));
+  const items = fd.feedItems({ rolls: [{ ts: 30, skill: 'battle' }, { ts: 10, skill: 'move' }], feed: [{ kind: 'note', ts: 20, text: 'x' }], entries: [{ ts: 5, title: 'J' }] });
+  check('feed merges rolls, events and Journal entries oldest-first', items.map((i) => i.kind).join() === 'entry,roll,note,roll' && items[1].r.skill === 'move');
+  const info = fd.sessionInfo([{ kind: 'session' }, { kind: 'scene' }, { kind: 'scene' }, { kind: 'session' }, { kind: 'scene' }]);
+  check('session/scene counter resets per session', info.session === 2 && info.scene === 2 && fd.sessionInfo([]).scene === 1);
+  check('nextUp moved to the feed (first roll prompt points at Roll)', fd.nextUpFor({ state: {}, driveStatements: {} }, { rolls: 0 }).go === 'roll');
+  const mem = new Map(); globalThis.localStorage = { getItem: (k) => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const st = await import(join(root, 'src/store.js'));
+  const ev = st.appendFeed({ kind: 'note', text: 'hello' });
+  check('feed store: append, remove, restore; in backup + game wipe', st.getFeed().length === 1 && (st.removeFeed(ev.id), st.getFeed().length === 0) &&
+    (st.restoreFeed([ev]), st.getFeed()[0].text === 'hello') && Array.isArray(st.exportAll().feed) && st.WIPE_CATEGORIES.game.keys.includes('imperium.feed'));
+  const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
+  check('scene/adventure end posts a feed divider; Undo removes it', /appendFeed\(\{ kind, text: label, summary \}\)/.test(cb) && /removeFeed\(ev\.id\)/.test(cb));
+  const fs = readFileSync(join(root, 'src/feed.js'), 'utf8');
+  check('oracle in the feed is labelled homebrew and only with the Journal on', /homebrew/.test(fs) && /Settings\.journal\(\) \? b\('oracle'/.test(fs));
+  check('feed + ritual in the SW app shell', /'\.\/src\/feed\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')) && /'\.\/src\/ritual\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
+  check('feed copy has no hardcoded rules numbers (scene decay from DATA)', /DATA\.momentumRules\.sceneDecay/.test(fs) && !/Momentum −1/.test(fs));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

@@ -12,7 +12,7 @@ import { el, uid, d20 } from './core.js';
 import { modal, showToast, showActionToast, confirmModal, promptModal, undoToast, actionChip } from './ui.js';
 import { HELP } from '../data-help.js';
 import {
-  getPools, savePools, listCharacters, currentCharacterId, setCurrentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict,
+  getPools, savePools, listCharacters, currentCharacterId, setCurrentCharacterId, getCharacter, saveCharacter, getTasks, saveTasks, getConflict, saveConflict, appendFeed, removeFeed,
 } from './store.js';
 import { clampMomentum, clampDetermination, hasSupportingStatement } from './derived.js';
 import { cite } from './cite.js';
@@ -136,8 +136,10 @@ export async function runLifecycle(kind, onChange) {
   const [label, applyFn, confirmMsg] = LIFECYCLE_ACTIONS[kind];
   if (!await confirmModal(confirmMsg, { okLabel: label })) return;
   const { summary, undo } = applyFn();
+  // Story feed: the scene/adventure end posts a divider; Undo takes it back out.
+  const ev = appendFeed({ kind, text: label, summary });
   onChange && onChange();
-  showSummary(label, summary, undo, onChange);
+  showSummary(label, summary, () => { undo(); removeFeed(ev.id); }, onChange);
 }
 
 /** A card with the End scene / End adventure controls. `onChange` re-renders the caller. */

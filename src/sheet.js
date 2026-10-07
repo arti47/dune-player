@@ -19,7 +19,7 @@ import {
 import { allTalents, focusExamplesFor, driveName, findTalent } from './content.js';
 import { cite } from './cite.js';
 import { help, setAppHelp } from './help.js';
-import { icon, pips, emptyState, radar } from './icons.js';
+import { icon, pips, emptyState, radar, poolArt } from './icons.js';
 import { factionCrest, archetypeCrest, medallion } from './crests.js';
 import { startCharacterWizard, openPregenPicker, startRandomCharacter } from './wizard.js';
 import { renderDefeat } from './combat.js';
@@ -81,8 +81,8 @@ export function poolsHeader(current, onChange = refresh, { threatFirst = false }
   return el('div', { class: 'pool-chips' + (defs.length === 2 ? ' two' : ''), role: 'group', 'aria-label': 'Shared resources' },
     ...defs.map((d) => el('button', { class: `pool-chip pool-${d.key}`, 'aria-label': `${d.name} ${d.value}${d.max != null ? ` of ${d.max}` : ''} — adjust`, onclick: () => open(d) },
       el('span', { class: 'pool-chip-name' }, icon(d.ico, { size: 14 }), d.name),
-      el('strong', { class: 'pool-chip-val num' }, String(d.value)),
-      d.max != null ? pips(Math.min(d.value, d.max), d.max, { cls: 'pips-' + (d.key === 'determination' ? 'det' : d.key) }) : el('span', { class: 'pips-spacer' }))));
+      // Play redesign: each pool drawn as an object — hourglass, storm cloud, flames — beside its number.
+      el('span', { class: 'pool-chip-body' }, poolArt(d.key, d.value, d.max), el('strong', { class: 'pool-chip-val num' }, String(d.value))))));
 }
 
 // Character screen (UI overhaul Stage 2): compact header → pools bar → sub-tabs. The open

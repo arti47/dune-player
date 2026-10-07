@@ -273,12 +273,12 @@ function sceneCard(j, character, draw) {
 // ---------- 2. Consult the Oracle (yes/no; doubles = complication) ----------
 function isDouble(roll) { return roll === 100 || (roll >= 11 && roll <= 99 && roll % 11 === 0); }
 
-function askOracle(tier, chaos) {
+export function askOracle(tier, chaos) {
   const chance = yesChanceFor(tier.yes, chaos);
   const roll = dN(100);
   return { roll, chance, yes: roll <= chance, complication: isDouble(roll), tierLabel: tier.label };
 }
-function answerText(r) {
+export function answerText(r) {
   return (r.yes ? 'Yes' : 'No') + (r.complication ? ', but… (complication)' : '');
 }
 function oracleLine(question, r) {

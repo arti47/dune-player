@@ -3,11 +3,7 @@
 import { el, esc, capitalize } from './core.js';
 import { Settings, TOGGLE_DEFS } from './settings.js';
 import { showToast } from './ui.js';
-import { listCharacters, currentCharacterId, getHouse, exportAll, importAll, wipeData, WIPE_CATEGORIES,
-  getPools, savePools, saveCharacter, getConflict, getTasks, getRollLog } from './store.js';
-import { clampMomentum, clampDetermination } from './derived.js';
-import { openRollDialog } from './roller.js';
-import { pips } from './icons.js';
+import { listCharacters, currentCharacterId, exportAll, importAll, wipeData, WIPE_CATEGORIES } from './store.js';
 import { confirmModal, promptModal, modal, foldCard } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
@@ -17,35 +13,24 @@ import { setSwipe } from './swipe.js';
 import { slug, takeCiteTarget } from './cite.js';
 import { help, setAppHelp } from './help.js';
 import { icon, sceneBand } from './icons.js';
-import { allTalents, driveName } from './content.js';
+import { allTalents } from './content.js';
 import { domainCrest, archetypeCrest, factionCrest, medallion } from './crests.js';
-import { runLifecycle } from './combat.js';
-import { poolsHeader, openSheetTab } from './sheet.js';
-import { houseBanner } from './banner.js';
+import { renderFeed } from './feed.js';
 import { HELP } from '../data-help.js';
 import { DATA } from '../data.js';
 import { EXPANSION as GREAT_GAME } from '../data-great-game.js';
 
-const HOUSE_TYPE_NAME = Object.fromEntries(DATA.houseTypes.map((t) => [t.id, t.name]));
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
 
 // ---------- Home ----------
-// Home overhaul (2026-10-01): with a character, a session dashboard — hero (who you are + Roll),
-// pool chips, one contextual "Next up", and live tiles for the table. With no character, two big
-// choices (play an iconic now / build your own) and a quiet row of links.
+// With a character, Now is the story feed (feed.js). With no character, the welcome carousel.
 export function renderHome(root, rerender = () => { root.replaceChildren(); renderHome(root); }) {
   const chars = listCharacters();
   const current = chars.find((c) => c.id === currentCharacterId()) || chars[0] || null;
-  setAppHelp(help('firstRun', 'What do I do here?'));
-  if (!current) { root.append(welcome()); return; }
-  root.append(...[
-    homeHero(current, chars.length, rerender),
-    skillTiles(current, rerender),
-    poolsHeader(current, rerender),
-    nextUp(current, rerender),
-    homeTiles(current, rerender),
-  ].filter(Boolean));
+  if (!current) { setAppHelp(help('firstRun', 'What do I do here?')); root.append(welcome()); return; }
+  // Play redesign (2026-10-07): with a character, Now is the story feed.
+  renderFeed(root, current, chars.length, rerender);
 }
 
 // ----- first run -----
@@ -107,144 +92,6 @@ function enableSolo() {
   showToast('Solo play enabled');
   location.hash = '#/journal';
   window.dispatchEvent(new HashChangeEvent('hashchange'));
-}
-
-// ----- hero -----
-function homeHero(c, count, rerender) {
-  const id = c.identity;
-  const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate)].filter(Boolean).join(' · ');
-  return el('section', { class: 'card home-hero' },
-    sceneBand('play'),
-    el('div', { class: 'char-head' },
-      medallion(id, 64),
-      el('div', { class: 'char-id' },
-        el('p', { class: 'eyebrow' }, 'Now playing'),
-        el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
-        meta ? el('p', { class: 'small muted' }, meta) : null),
-      count > 1 ? el('button', { class: 'btn secondary btn-sm', 'aria-label': `Switch character (${count})`,
-        onclick: () => { location.hash = '#/sheet'; } }, icon('group', { size: 18 }), ` ${count}`) : null),
-    el('div', { class: 'home-hero-actions' },
-      el('button', { class: 'btn home-roll', onclick: () => openRollDialog(c, rerender) }, icon('d20', { size: 22 }), ' Roll a test'),
-      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, icon('person', { size: 18 }), ' Sheet'),
-      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, icon('hourglass', { size: 18 }), ' End scene'),
-      el('button', { class: 'chip', onclick: () => runLifecycle('adventure', rerender) }, icon('flag', { size: 14 }), 'End adventure')));
-}
-
-// ----- tap-to-roll skill tiles (Play/Prep split) -----
-// One tile per skill: the rating big, and the best target number it can reach with the
-// character's highest drive (TN = Skill + Drive, §3.1). A tap opens the roll dialog on that skill.
-function skillTiles(c, rerender) {
-  const drives = Object.values(c.drives || {});
-  const top = drives.length ? Math.max(...drives) : 0;
-  return el('div', { class: 'skill-block' },
-    el('button', { class: 'chip intent-chip', onclick: () => intentHelper(c, rerender) }, icon('compass', { size: 14 }), 'What are you trying to do?'),
-    el('section', { class: 'skill-tiles', 'aria-label': 'Roll a skill' },
-    ...DATA.skills.map((s) => el('button', {
-      class: 'skill-tile', 'aria-label': `Roll ${s.name} (rating ${c.skills[s.id]})`,
-      onclick: () => openRollDialog(c, rerender, { skill: s.id }) },
-      el('span', { class: 'skill-tile-val num' }, String(c.skills[s.id])),
-      el('span', { class: 'skill-tile-name' }, s.name),
-      el('span', { class: 'skill-tile-tn num' }, `best TN ${c.skills[s.id] + top}`)))));
-}
-
-// ----- "What are you trying to do?" (radical UI, 2026-10-07) -----
-// Two plain questions that land on a rules-legal test: what you are doing picks the skill
-// (DATA.skills tag + description), why it matters picks the drive (your own drives, highest
-// first, with the statement that backs each — §3.1: the drive must fit the motivation). Longer
-// efforts go to extended tasks; a fight over several turns goes to the conflict tracker.
-function intentHelper(c, rerender) {
-  const body = el('div', { class: 'intent' });
-  const close = modal([el('h2', {}, 'What are you trying to do?'), body], { sheet: true });
-  const first = (txt) => String(txt || '').split(/ — |\. /)[0];
-  const opt = (ico, title, sub, onclick) => el('button', { class: 'intent-opt', onclick },
-    el('span', { class: 'intent-ico' }, icon(ico, { size: 22 })),
-    el('span', { class: 'intent-text' }, el('strong', {}, title), sub ? el('span', { class: 'small muted' }, sub) : null));
-  const SKILL_ICO = { battle: 'swords', communicate: 'group', discipline: 'shield', move: 'up', understand: 'compass' };
-  const pickSkill = () => body.replaceChildren(
-    ...DATA.skills.map((s) => opt(SKILL_ICO[s.id] || 'd20', s.tag, `${s.name} ${c.skills[s.id]} · ${first(s.desc)}`, () => pickDrive(s))),
-    el('p', { class: 'eyebrow' }, 'Not a single roll?'),
-    opt('hourglass', 'Something that takes a while', 'An extended task: several tests toward one goal', () => { close(); location.hash = '#/tasks'; }),
-    opt('swords', 'A fight or contest over several turns', 'The conflict tracker: zones, turns, defeat', () => { close(); location.hash = '#/conflict'; }));
-  const pickDrive = (skill) => {
-    const ids = Object.keys(c.drives || {}).sort((a, b) => c.drives[b] - c.drives[a]);
-    const tag = (id) => (DATA.drives.find((d) => d.id === id) || {}).tag || '';
-    body.replaceChildren(
-      el('p', { class: 'eyebrow' }, `${skill.name} — why does it matter to you?`),
-      ...ids.map((id) => {
-        const st = c.driveStatements && c.driveStatements[id];
-        const sub = [tag(id), st && st.text ? `“${st.text}”${st.challenged ? ' (challenged)' : ''}` : null].filter(Boolean).join(' · ');
-        return opt('flag', `${driveName(id)} ${c.drives[id]} → TN ${c.skills[skill.id] + c.drives[id]}`, sub,
-          () => { close(); openRollDialog(c, rerender, { skill: skill.id, drive: id }); });
-      }),
-      el('button', { class: 'chip', onclick: pickSkill }, 'Back'));
-  };
-  pickSkill();
-}
-
-// ----- one contextual next step -----
-/** The single most useful thing to do next, or null. Pure (exported for tests). */
-export function nextUpFor(c, { house, rolls, dismissed = [] } = {}) {
-  const st = c.state || {};
-  const stmts = Object.entries(c.driveStatements || {});
-  if (c.creationInPlay && c.creationInPlay.active && !c.creationInPlay.complete)
-    return { id: 'cip', text: 'Finish defining your character as you play.', action: 'Open sheet', go: 'sheet' };
-  if (st.defeated) return { id: 'defeat', text: 'You are defeated — resist, stabilise or start recovery.', action: 'Open sheet', go: 'sheet' };
-  const challenged = stmts.find(([, s]) => s && s.challenged);
-  if (challenged) return { id: 'challenged', text: 'A drive statement is challenged — recover it when you get the chance.', action: 'Open sheet', go: 'sheet' };
-  if (!rolls) return { id: 'firstRoll', text: 'Try your first test — tap Roll whenever you attempt something risky.', action: 'Roll a test', go: 'roll' };
-  if (!house && !dismissed.includes('house')) return { id: 'house', text: 'Your group has no House yet — it’s the shared home base for your characters.', action: 'Create a House', go: 'house', dismissible: true };
-  return null;
-}
-
-function nextUp(c, rerender) {
-  const dismissed = Settings.get('homeDismissed') || [];
-  const n = nextUpFor(c, { house: getHouse(), rolls: getRollLog().length, dismissed });
-  if (!n) return null;
-  const go = () => n.go === 'roll' ? openRollDialog(c, rerender) : n.go === 'house' ? startHouseWizard() : (location.hash = `#/${n.go}`);
-  return el('section', { class: 'card next-up' },
-    el('span', { class: 'next-up-ico' }, icon('flag', { size: 20 })),
-    el('div', { class: 'next-up-body' },
-      el('p', { class: 'eyebrow' }, 'Next up'),
-      el('p', { class: 'next-up-text' }, n.text),
-      el('div', { class: 'next-up-actions' },
-        el('button', { class: 'btn btn-sm', onclick: go }, n.action),
-        n.dismissible ? el('button', { class: 'chip', onclick: () => {
-          Settings.set('homeDismissed', [...dismissed, n.id]); rerender();
-        } }, 'Not now') : null)));
-}
-
-// ----- live tiles -----
-function homeTiles(c, rerender) {
-  const tile = (ico, title, value, sub, onclick, cls = '') => el('button', { class: 'home-tile ' + cls, onclick },
-    el('span', { class: 'home-tile-head' }, typeof ico === 'string' ? icon(ico, { size: 18 }) : ico, title),
-    el('strong', { class: 'home-tile-val' }, value),
-    sub ? el('span', { class: 'small muted home-tile-sub' }, sub) : null);
-  const go = (id) => () => { location.hash = `#/${id}`; };
-
-  const conflict = getConflict();
-  const cType = conflict && conflict.active ? (DATA.conflictTypes.find((t) => t.id === conflict.type) || {}).name : null;
-  const tasks = getTasks();
-  const openTasks = tasks.filter((t) => t.progress < t.requirement);
-  const top = openTasks[0];
-  const last = getRollLog()[0];
-  const house = getHouse();
-
-  const simple = Settings.simple();
-  return el('div', { class: 'home-tiles' }, ...[
-    tile('swords', 'Conflict', cType ? `${cType} · R${conflict.round}` : 'None', cType ? `Side ${conflict.currentSide.toUpperCase()} to act` : 'Tap to start one', go('conflict'), cType ? 'live' : ''),
-    tile('hourglass', 'Tasks', openTasks.length ? `${openTasks.length} open` : 'None',
-      top ? `${top.name} ${top.progress}/${top.requirement}` : 'Sandworms, recovery…', go('tasks'), openTasks.length ? 'live' : ''),
-    tile('d20', 'Last roll', last ? `${last.successes} success${last.successes === 1 ? '' : 'es'}` : '—',
-      last ? `${SKILL_NAME[last.skill] || last.skill} + ${DRIVE_NAME[last.drive] || last.drive}${last.complications ? ` · ${last.complications} comp.` : ''}` : 'No rolls yet', () => openSheetTab('notes')),
-    simple ? null : house
-      ? tile(houseBanner(house, 22), 'House', house.name || 'Your House',
-          house.management && house.management.active ? `Year ${house.management.year} · Wealth ${house.wealth || 0}` : (HOUSE_TYPE_NAME[house.type] || 'House'),
-          Settings.greatGame() ? go('house') : startHouseWizard)
-      : tile('house', 'House', 'None yet', 'Tap to create', startHouseWizard),
-    Settings.journal()
-      ? tile('scroll', 'Journal', 'Solo play', 'Scene, oracle, threads', go('journal'))
-      : simple ? null : tile('scroll', 'Solo play', 'Off', 'Tap to switch on', enableSolo),
-  ].filter(Boolean));
 }
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------

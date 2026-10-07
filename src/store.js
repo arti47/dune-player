@@ -15,6 +15,8 @@ const K_ROLLLOG = 'imperium.rollLog';
 const K_DEVICE = 'imperium.deviceUid';
 const K_CAMPAIGN = 'imperium.campaign';
 const ROLL_LOG_CAP = 100;
+const K_FEED = 'imperium.feed';
+const FEED_CAP = 300;
 
 const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -86,6 +88,7 @@ export function exportAll() {
     tasks: readJSON(K_TASKS, []),
     campaign: getCampaign(),
     journal: getJournal(),
+    feed: readJSON(K_FEED, []),
     currentCharacterId: currentCharacterId(),
   };
 }
@@ -101,10 +104,11 @@ export function importAll(data) {
   writeJSON(K_TASKS, Array.isArray(data.tasks) ? data.tasks : []);
   if (data.campaign && data.campaign.meta) writeJSON(K_CAMPAIGN, data.campaign); else localStorage.removeItem(K_CAMPAIGN);
   if (data.journal && typeof data.journal === 'object') writeJSON(K_JOURNAL, data.journal); else localStorage.removeItem(K_JOURNAL);
+  writeJSON(K_FEED, Array.isArray(data.feed) ? data.feed : []);
   if (data.currentCharacterId && characters.some((c) => c.id === data.currentCharacterId)) {
     localStorage.setItem(K_CURRENT, data.currentCharacterId);
   } else localStorage.removeItem(K_CURRENT);
-  notify('characters'); notify('house'); notify('pools'); notify('current'); notify('journal');
+  notify('characters'); notify('house'); notify('pools'); notify('current'); notify('journal'); notify('feed');
   return { characters: characters.length, house: !!data.house };
 }
 
@@ -253,11 +257,25 @@ export function clearRollLog() { writeJSON(K_ROLLLOG, []); notify('rollLog'); }
 /** Put a whole roll log back (Undo after a delete). */
 export function restoreRollLog(log) { writeJSON(K_ROLLLOG, Array.isArray(log) ? log : []); notify('rollLog'); }
 
+// ---------- Story feed (Play tab, 2026-10-07) ----------
+// Session events that aren't rolls: notes, scene/adventure ends, oracle answers, session starts.
+// Rolls stay in the roll log; the Play feed merges both (and Journal entries) by timestamp.
+export function getFeed() { return readJSON(K_FEED, []); }
+export function appendFeed(event) {
+  const ev = { id: uid(), ts: Date.now(), ...event };
+  writeJSON(K_FEED, [...getFeed(), ev].slice(-FEED_CAP));
+  notify('feed');
+  return ev;
+}
+/** Put the whole feed back (Undo after removing a note). */
+export function restoreFeed(list) { writeJSON(K_FEED, Array.isArray(list) ? list : []); notify('feed'); }
+export function removeFeed(id) { writeJSON(K_FEED, getFeed().filter((e) => e.id !== id)); notify('feed'); }
+
 // ---------- Wipe (Settings → Backup & transfer) ----------
 // Category → localStorage keys. The device id is never wiped (it's an identity, not data).
 export const WIPE_CATEGORIES = {
-  game: { label: 'Game data', desc: 'Characters, House, Momentum/Threat pools, roll log, extended tasks, conflict tracker.',
-    keys: [K_CHARS, K_CURRENT, K_HOUSE, K_POOLS, K_ROLLLOG, K_TASKS, K_CONFLICT] },
+  game: { label: 'Game data', desc: 'Characters, House, Momentum/Threat pools, roll log, story feed, extended tasks, conflict tracker.',
+    keys: [K_CHARS, K_CURRENT, K_HOUSE, K_POOLS, K_ROLLLOG, K_TASKS, K_CONFLICT, K_FEED] },
   journal: { label: 'Solo Journal', desc: 'Entries, threads, NPCs & places, scene pad, Chaos Factor.', keys: [K_JOURNAL] },
   campaign: { label: 'Campaign membership', desc: 'Forget the campaign on this device. The cloud copy is untouched.', keys: [K_CAMPAIGN] },
   settings: { label: 'Settings & progress', desc: 'Theme, toggles, tutorial progress and How to play ticks.', keys: ['imperium.settings'] },
@@ -268,6 +286,6 @@ export function wipeData(categories = []) {
   for (const c of categories) {
     for (const k of (WIPE_CATEGORIES[c]?.keys || [])) { localStorage.removeItem(k); removed.push(k); }
   }
-  ['characters', 'current', 'house', 'pools', 'rollLog', 'tasks', 'conflict', 'journal', 'campaign'].forEach(notify);
+  ['characters', 'current', 'house', 'pools', 'rollLog', 'feed', 'tasks', 'conflict', 'journal', 'campaign'].forEach(notify);
   return removed;
 }

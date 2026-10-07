@@ -200,3 +200,45 @@ export function sceneBand(kind = 'play') {
     '<path d="M0 84 C60 72 120 90 180 82 S270 74 320 86 L320 96 L0 96 Z" class="band-dune front"/></svg>';
   return wrap;
 }
+
+// ---------- Pools as objects (Play redesign, 2026-10-07) ----------
+// Momentum = an hourglass filling with sand (value / cap), Threat = a storm cloud that darkens and
+// throws more lightning as it grows (uncapped, so it saturates at 6), Determination = a row of
+// flames, lit up to the value. Decorative: the chip's text + aria-label carry the number.
+let poolArtSeq = 0;
+export function poolArt(kind, value, max) {
+  const uidp = `pa${++poolArtSeq}`;   // clip-path ids must be unique per document
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const v = Math.max(0, Number(value) || 0);
+  let inner = '', w = 40;
+  if (kind === 'momentum') {
+    const f = max ? Math.min(1, v / max) : 0;
+    const topH = 14 * (1 - f), botH = 14 * f;
+    inner = `<path d="M8 3h24M8 37h24" class="pa-frame"/>` +
+      `<path d="M10 3c0 9 8 12 10 17-2 5-10 8-10 17M30 3c0 9-8 12-10 17 2 5 10 8 10 17" class="pa-frame"/>` +
+      `<clipPath id="${uidp}t"><path d="M10 4c0 9 8 12 10 16 2-4 10-7 10-16z"/></clipPath>` +
+      `<clipPath id="${uidp}b"><path d="M10 36c0-9 8-12 10-16 2 4 10 7 10 16z"/></clipPath>` +
+      `<rect x="8" y="${20 - topH}" width="24" height="${topH}" clip-path="url(#${uidp}t)" class="pa-sand"/>` +
+      `<rect x="8" y="${36 - botH}" width="24" height="${botH + 1}" clip-path="url(#${uidp}b)" class="pa-sand"/>` +
+      (f > 0 && f < 1 ? `<path d="M20 20v${16 - botH}" class="pa-stream"/>` : '');
+  } else if (kind === 'threat') {
+    const s = Math.min(v, 6) / 6;
+    const bolts = Math.min(3, Math.ceil(v / 2));
+    inner = `<path d="M9 24a7 7 0 0 1 1-14 9 9 0 0 1 17-2 7 7 0 0 1 4 16z" class="pa-cloud" style="fill-opacity:${(0.15 + 0.75 * s).toFixed(2)}"/>` +
+      [[14, 26], [21, 27], [28, 26]].slice(0, bolts).map(([x, y]) => `<path d="M${x} ${y}l-3 6h4l-3 6" class="pa-bolt"/>`).join('');
+  } else {
+    const n = max || 3;
+    w = n * 14;
+    inner = Array.from({ length: n }, (_, i) => {
+      const x = i * 14 + 7;
+      return `<path d="M${x} 36c-5 0-7-4-6-8 1-4 4-6 4-11 3 2 4 5 4 7 1-1 2-3 2-4 3 3 4 6 3 9-1 4-3 7-7 7z" class="pa-flame${i < v ? ' lit' : ''}"/>`;
+    }).join('');
+  }
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} 40`);
+  svg.setAttribute('class', `pool-art pa-${kind}`);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.innerHTML = inner;
+  return svg;
+}
