@@ -12,6 +12,8 @@ export function slug(title) {
 let pendingTarget = null;
 /** Set the card the rules screen should focus on its next render. */
 export function setCiteTarget(title) { pendingTarget = slug(title); }
+/** Same, by card id (the search palette already has ids). */
+export function setCiteId(id) { pendingTarget = id; }
 /** Consume the pending target (renderRules calls this). */
 export function takeCiteTarget() { const t = pendingTarget; pendingTarget = null; return t; }
 

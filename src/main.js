@@ -10,7 +10,7 @@ import { listCharacters } from './store.js';
 
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-/** Resolve + apply the theme (§1.1 decision #6: default follows system). */
+/** Resolve + apply the theme (default dark since 2026-10-07; 'system' follows the device). */
 export function applyTheme() {
   const pref = Settings.theme();
   const dark = pref === 'dark' || (pref === 'system' && systemDark.matches);

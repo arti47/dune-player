@@ -12,11 +12,21 @@ import { modal } from './ui.js';
 import { openRollDialog } from './roller.js';
 import { driveName } from './content.js';
 import { DATA } from '../data.js';
+import { Settings } from './settings.js';
 
 const SKILL_ICO = { battle: 'swords', communicate: 'group', discipline: 'shield', move: 'up', understand: 'compass' };
 
+// Novice level: one plain line under each step's heading.
+const GUIDE = [
+  'Pick the kind of thing you are attempting. The number is your skill.',
+  'Pick the reason it matters to you. Your target number is skill + drive: each die at or under it succeeds.',
+  'The GM says how many successes you need. A focus makes more dice count double.',
+];
+
 export function openRollRitual(c, onDone = null) {
   if (!c) return;
+  // Veteran level: straight to the full roll dialog.
+  if (Settings.level() === 'veteran') { openRollDialog(c, onDone); return; }
   const st = { step: 0, skill: null, drive: null, difficulty: 1, focus: false };
   const body = el('div', { class: 'ritual' });
   let close = () => {};
@@ -25,7 +35,8 @@ export function openRollRitual(c, onDone = null) {
 
   const head = (title, n) => el('div', { class: 'ritual-head' },
     el('div', { class: 'ritual-dots', 'aria-hidden': 'true' }, ...[0, 1, 2].map((k) => el('i', { class: k === n ? 'on' : k < n ? 'done' : '' }))),
-    el('h2', { id: 'ritual-title' }, title));
+    el('h2', { id: 'ritual-title' }, title),
+    Settings.level() === 'novice' ? el('p', { class: 'small muted ritual-guide' }, GUIDE[n]) : null);
   const back = () => el('button', { class: 'chip', onclick: () => { st.step--; draw(); } }, icon('undo', { size: 14 }), 'Back');
 
   function stepSkill() {

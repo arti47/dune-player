@@ -18,14 +18,16 @@ import { renderPlay } from './play.js';
 import { renderScene, renderTaskSeg, renderConflictSeg, renderPrep, syncRollFab } from './hubs.js';
 import { setSwipe, animateIn, neighbours } from './swipe.js';
 import { setAppHelp } from './help.js';
+import { openPalette } from './palette.js';
+import { getConflict } from './store.js';
 
-// Play/Prep split (2026-10-07): three tabs. Play = the table you sit at (Now · Tasks · Conflict ·
-// Journal); Prep = everything you set up between sessions (characters, House, GM, settings);
-// Library = rules + learning.
+// Play/Prep split (2026-10-07): Play = the table you sit at (Now · Tasks · Conflict · Journal);
+// Prep = everything you set up between sessions. The Library (rules + learning) left the nav in
+// the same day's redesign: it's reached from the app-bar search and the Prep tiles (nav: false).
 const TABS = [
   { id: 'table',   label: 'Play',      ico: 'd20', hub: true },
   { id: 'prep',    label: 'Prep',      ico: 'person' },
-  { id: 'library', label: 'Library',   ico: 'rules', hub: true },
+  { id: 'library', label: 'Library',   ico: 'rules', hub: true, nav: false },
 ];
 
 const ROUTES = [
@@ -69,6 +71,8 @@ function rememberSegment(route) {
 export function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '') || 'home';
   const tab = TABS.find((t) => t.id === hash && t.hub);
+  // A live conflict owns the Play tab (battle mode) until it ends.
+  if (tab && tab.id === 'table') { const cf = getConflict(); if (cf && cf.active) return ROUTES.find((r) => r.id === 'conflict'); }
   if (tab) return lastSegment(tab.id);
   return routableRoutes().find((r) => r.id === hash) || ROUTES[0];
 }
@@ -84,7 +88,7 @@ export function renderNav() {
   const nav = qs('.bottom-nav');
   const active = tabOf(currentRoute());
   nav.replaceChildren(
-    ...TABS.map((t) =>
+    ...TABS.filter((t) => t.nav !== false).map((t) =>
       el('a', { href: `#/${t.id}`, 'aria-current': active === t.id ? 'page' : null },
         el('span', { class: 'nav-ico', 'aria-hidden': 'true' }, icon(t.ico, { size: 22 })),
         t.label)));
@@ -111,6 +115,7 @@ export function renderScreen() {
     mount = el('div', { class: 'hub-body' });
     screen.append(mount);
   }
+  document.body.classList.remove('battle');   // the Conflict segment re-adds it while a conflict is live
   setSwipe(null); // each screen opts in; the Character screen sets its own
   setAppHelp(null); // each screen puts its own "?" in the app bar
   const title = qs('#app-screen');
@@ -131,5 +136,7 @@ export function renderScreen() {
 
 export function initRouter() {
   window.addEventListener('hashchange', renderScreen);
+  const sb = qs('#search-btn');
+  if (sb) sb.addEventListener('click', openPalette);
   renderScreen();
 }

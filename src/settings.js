@@ -16,8 +16,9 @@ export const Settings = {
   get(flag) { return read()[flag]; },
   set(flag, value) { const s = read(); s[flag] = value; write(s); },
 
-  // Theme: 'system' | 'light' | 'dark' (§1.1 decision #6: default follows system)
-  theme() { return read().theme || 'system'; },
+  // Theme: 'system' | 'light' | 'dark'. Owner (2026-10-07, "build all the rest") moved the default
+  // to dark — the cinematic night desert; an explicit choice (incl. 'system') always wins.
+  theme() { return read().theme || 'dark'; },
 
   // Expansion toggles (§4) — committed: first three; stretch: last two
   sandAndDust()   { return !!read().sandAndDust; },
@@ -35,7 +36,13 @@ export const Settings = {
   haptics()            { return read().haptics !== false; },
   // Simple mode (radical UI, 2026-10-07): fewer words and fewer controls at once — advanced roll
   // options behind a chip, intro lines hidden, Now shows only live tiles. ON unless switched off.
-  simple()             { return read().simple !== false; },
+  simple()             { return read().simple !== false && this.level() !== 'veteran'; },
+  // Experience level (2026-10-07): 'novice' | 'player' | 'veteran' (default player). Novice adds a
+  // one-line guide to each roll step; Veteran turns Simple mode off and Roll skips the ritual.
+  // Nothing is ever locked away: every rule stays one tap away at every level.
+  level()              { const l = read().level; return ['novice', 'player', 'veteran'].includes(l) ? l : 'player'; },
+  // Roll sounds (2026-10-07): synthesized sand hiss on a roll, drum on a crit. Off unless switched on.
+  sound()              { return read().sound === true; },
 
   // Onboarding & tutorial state (§13 sign-off): { seen, completedLessons[], pregenId }.
   // seen gates the one-time first-launch prompt; completedLessons drives the menu ticks;

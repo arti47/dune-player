@@ -103,8 +103,40 @@ export function rollHapticKind({ passed, crit, complication }) {
 }
 /** Buzz the device for a roll result, if supported and not switched off in Settings. */
 export function rollHaptic(outcome) {
+  rollSound(outcome);
   if (!Settings.haptics() || typeof navigator === 'undefined' || !navigator.vibrate) return false;
   try { return navigator.vibrate(HAPTIC_PATTERNS[rollHapticKind(outcome)]); } catch { return false; }
+}
+
+/** Roll sounds (2026-10-07): a short filtered-noise sand hiss for every roll, a low drum thump on a
+ *  crit, a dissonant blip on a complication. Synthesized with WebAudio (no files); off by default. */
+let audioCtx = null;
+export function rollSound(outcome) {
+  if (!Settings.sound() || typeof window === 'undefined') return false;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  try {
+    audioCtx = audioCtx || new AC();
+    const t = audioCtx.currentTime;
+    const len = Math.floor(audioCtx.sampleRate * 0.35);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const hiss = audioCtx.createBufferSource(); hiss.buffer = buf;
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400;
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(0.18, t);
+    hiss.connect(bp).connect(g).connect(audioCtx.destination); hiss.start(t);
+    const kind = rollHapticKind(outcome);
+    if (kind === 'crit' || kind === 'complication') {
+      const o = audioCtx.createOscillator(), og = audioCtx.createGain();
+      o.type = kind === 'crit' ? 'sine' : 'square';
+      o.frequency.setValueAtTime(kind === 'crit' ? 110 : 190, t + 0.3);
+      o.frequency.exponentialRampToValueAtTime(kind === 'crit' ? 45 : 150, t + 0.7);
+      og.gain.setValueAtTime(kind === 'crit' ? 0.5 : 0.08, t + 0.3); og.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+      o.connect(og).connect(audioCtx.destination); o.start(t + 0.3); o.stop(t + 0.8);
+    }
+    return true;
+  } catch { return false; }
 }
 
 /** Themed confirm → Promise<boolean>. */

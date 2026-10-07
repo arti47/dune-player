@@ -4,9 +4,10 @@
 // `rerender` is the router's renderScreen, passed in so this module never imports the router.
 
 import { el } from './core.js';
+import { setSwipe } from './swipe.js';
 import { icon, emptyState, sceneBand } from './icons.js';
 import { Settings } from './settings.js';
-import { listCharacters, currentCharacterId, getHouse } from './store.js';
+import { listCharacters, currentCharacterId, getHouse, getConflict } from './store.js';
 import { poolsHeader } from './sheet.js';
 import { renderLifecycle, renderTasks, renderConflict } from './combat.js';
 import { startCharacterWizard, openPregenPicker, startRandomCharacter, startHouseWizard } from './wizard.js';
@@ -55,6 +56,17 @@ export function renderTaskSeg(root, rerender) {
 
 export function renderConflictSeg(root, rerender) {
   if (!listCharacters().length) return needCharacter(root);
+  // Battle mode (2026-10-07): a live conflict takes over the screen — no section bar, the app bar
+  // reads "Battle", and one chip leads back to the story.
+  const c = getConflict();
+  const live = !!(c && c.active);
+  document.body.classList.toggle('battle', live);
+  if (live) {
+    const t = document.querySelector('#app-screen'); if (t) t.textContent = 'Battle';
+    setSwipe(null);   // the section bar is hidden, so swiping to other sections is off too
+    root.append(el('div', { class: 'battle-top' },
+      el('button', { class: 'chip', onclick: () => { location.hash = '#/home'; } }, icon('undo', { size: 14 }), 'Back to the story')));
+  }
   root.append(poolsHeader(activeCharacter(), rerender), renderConflict(rerender));
 }
 
@@ -85,6 +97,9 @@ export function renderPrep(root, rerender) {
         ? tile(houseBanner(house, 26), house.name || 'House', Settings.greatGame() ? 'Run the yearly session' : 'Edit your House', Settings.greatGame() ? go('house') : startHouseWizard)
         : tile('house', 'Create a House', 'Your group’s home base', startHouseWizard),
       Settings.gmScreen() ? tile('gm', 'GM screen', 'Threat, party, tables, NPCs', go('gm')) : null,
+      tile('rules', 'Rules library', 'Search any rule', go('rules')),
+      tile('play', 'How to play', 'Start, sustain, end well', go('play')),
+      tile('star', 'Tutorial', 'Learn the dice by doing', go('tutorial')),
       tile('settings', 'Settings', 'Theme, books, backup', go('settings')),
     ].filter(Boolean)));
 }

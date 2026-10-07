@@ -23,6 +23,7 @@ const SHELL_FILES = [
   'src/core.js', 'src/ui.js', 'src/rules.js', 'src/derived.js', 'src/settings.js',
   'src/store.js', 'src/sync.js', 'src/wizard.js', 'src/roller.js', 'src/cite.js', 'src/content.js', 'src/sheet.js',
   'src/combat.js', 'src/gm.js', 'src/house.js', 'src/tutorial.js', 'src/screens.js', 'src/router.js', 'src/main.js', 'src/hubs.js',
+  'src/feed.js', 'src/ritual.js', 'src/palette.js',
 ];
 for (const f of SHELL_FILES) check(f, existsSync(join(root, f)));
 
@@ -1999,6 +2000,34 @@ console.log('\n— Play redesign: story feed (2026-10-07) —');
   check('oracle in the feed is labelled homebrew and only with the Journal on', /homebrew/.test(fs) && /Settings\.journal\(\) \? b\('oracle'/.test(fs));
   check('feed + ritual in the SW app shell', /'\.\/src\/feed\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')) && /'\.\/src\/ritual\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
   check('feed copy has no hardcoded rules numbers (scene decay from DATA)', /DATA\.momentumRules\.sceneDecay/.test(fs) && !/Momentum −1/.test(fs));
+}
+
+console.log('\n— The rest of the redesign (2026-10-07) —');
+{
+  const R = (f) => readFileSync(join(root, f), 'utf8');
+  const mem = new Map(); globalThis.localStorage = { getItem: (k) => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const { Settings } = await import(join(root, 'src/settings.js'));
+  check('theme defaults to dark; an explicit choice wins', Settings.theme() === 'dark' && (Settings.set('theme', 'system'), Settings.theme() === 'system'));
+  check('experience levels: player default; veteran turns Simple off', Settings.level() === 'player' && Settings.simple() === true &&
+    (Settings.set('level', 'veteran'), Settings.simple() === false) && (Settings.set('level', 'novice'), Settings.simple() === true));
+  check('veteran Roll skips the ritual; novice adds guide lines', /Settings\.level\(\) === 'veteran'\) \{ openRollDialog\(c, onDone\)/.test(R('src/ritual.js')) && /GUIDE\[n\]/.test(R('src/ritual.js')));
+  check('roll sounds: synthesized, off by default, hooked into roll feedback', Settings.sound() === false && /export function rollSound/.test(R('src/ui.js')) && /rollSound\(outcome\);/.test(R('src/ui.js')));
+  const rt = R('src/router.js');
+  check('nav is two tabs (Library hidden, reached by search + Prep)', /id: 'library',[^}]*nav: false/.test(rt) && /TABS\.filter\(\(t\) => t\.nav !== false\)/.test(rt) && /'Rules library'/.test(R('src/hubs.js')));
+  check('search palette: app-bar button, screens + actions + every rules card', /id="search-btn"/.test(R('index.html')) && /openPalette/.test(rt) &&
+    /export function ruleCardTitles/.test(R('src/screens.js')) && /setRuleQuery/.test(R('src/palette.js')) && /setCiteId\(r\.id\)/.test(R('src/palette.js')));
+  check('palette entries are toggle-aware', /Settings\.gmScreen\(\) \? \['gm', 'GM screen'/.test(R('src/palette.js')) && /Settings\.journal\(\) \? \['scroll'/.test(R('src/palette.js')));
+  check('battle mode: a live conflict owns the Play tab, hides the section bar', /classList\.toggle\('battle', live\)/.test(R('src/hubs.js')) && /body\.battle \.segmented \{ display: none; \}/.test(R('styles.css')) && /cf && cf\.active\) return ROUTES\.find/.test(rt));
+  const fd = await import(join(root, 'src/feed.js'));
+  const its = [{ kind: 'session', ts: 1 }, { kind: 'roll', ts: 2, r: { note: 'Success vs Diff 1', dice: [1, 9], complications: 0, momentumDelta: 2 } },
+    { kind: 'roll', ts: 3, r: { note: 'Failure vs Diff 2', dice: [20, 15], complications: 1, momentumDelta: 0 } }, { kind: 'scene', ts: 4 }, { kind: 'note', ts: 5 }];
+  const rc = fd.sessionRecap(its);
+  check('session recap counts the current session', rc.rolls === 2 && rc.passed === 1 && rc.crits === 1 && rc.complications === 1 && rc.momentum === 2 && rc.scenes === 1 && rc.notes === 1);
+  check('welcome-back card after a long gap only', fd.isNewSitting(its, 5 + fd.SESSION_GAP_MS + 1) && !fd.isNewSitting(its, 10) && !fd.isNewSitting([], 1e12));
+  check('table view: big d20 + skills, toggled from the head', /function tableView\(/.test(R('src/feed.js')) && /Settings\.get\('playView'\)/.test(R('src/feed.js')));
+  check('sheet is a deck: arrows + dot tablist + stacked card', /class: 'deck-dots', role: 'tablist'/.test(R('src/sheet.js')) && /deck-card/.test(R('src/sheet.js')) && /\.deck-card::before/.test(R('styles.css')));
+  check('text diet: intro lines step aside in Simple mode', /body\.simple \.intro \{ display: none; \}/.test(R('styles.css')) && /intro' \}/.test(R('src/gm.js')));
+  check('palette in the SW app shell', /'\.\/src\/palette\.js'/.test(R('service-worker.js')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

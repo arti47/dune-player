@@ -1578,3 +1578,56 @@ body:has(.feed-dock) .toast-region { bottom: calc(var(--nav-h) + 100px); }
 .ritual-go { min-height: 60px; font-size: var(--fs-xl); display: flex; align-items: center; justify-content: center; gap: var(--sp-2); }
 .ritual-foot { display: flex; justify-content: space-between; align-items: center; }
 .ask-tiers { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* ---------- Search palette (2026-10-07) ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.palette-list { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.palette-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; text-align: left; padding: var(--sp-2) var(--sp-3);
+  border-radius: 10px; border: 1px solid transparent; background: none; color: var(--text); font: inherit; cursor: pointer; min-height: 44px; }
+.palette-row:hover, .palette-row:focus-visible { border-color: var(--accent); background: var(--surface-2); }
+.palette-ico { color: var(--accent); display: flex; }
+.palette-label { flex: 1; min-width: 0; }
+.ritual-guide { text-align: center; margin: var(--sp-1) 0 0; }
+
+/* ---------- Sheet as a deck (2026-10-07) ---------- */
+.deck-bar { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.deck-arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface);
+  color: var(--accent); display: grid; place-items: center; cursor: pointer; flex: none; }
+.deck-arrow svg { transform: rotate(-90deg); }
+.deck-arrow.next svg { transform: rotate(90deg); }
+.deck-arrow[disabled] { opacity: .35; cursor: default; }
+.deck-mid { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); min-width: 0; }
+.deck-title { font: 600 var(--fs-md) var(--display); letter-spacing: .12em; text-transform: uppercase; }
+.deck-dots { display: flex; gap: var(--sp-2); }
+.deck-dot { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--border); cursor: pointer; position: relative; }
+.deck-dot::after { content: ""; position: absolute; inset: -12px -6px; }
+.deck-dot[aria-selected="true"] { width: 26px; border-radius: 5px; background: var(--accent); }
+.deck-card { position: relative; margin-bottom: calc(var(--sp-4) + 10px); }
+.deck-card::before, .deck-card::after { content: ""; position: absolute; left: 10px; right: 10px; height: 100%; z-index: -1;
+  border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
+.deck-card::before { bottom: -6px; opacity: .8; }
+.deck-card::after { bottom: -12px; left: 20px; right: 20px; opacity: .5; }
+
+/* ---------- Battle mode (2026-10-07) ---------- */
+body.battle .segmented { display: none; }
+body.battle .app-header { border-bottom-color: var(--danger); }
+.battle-top { display: flex; justify-content: flex-start; margin-bottom: var(--sp-3); }
+
+/* ---------- Session ritual + table view (2026-10-07) ---------- */
+.begin-card { margin-top: var(--sp-3); border-color: var(--accent); }
+.recap { list-style: none; padding: 0; margin: var(--sp-2) 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.recap li { display: flex; flex-direction: column; align-items: center; padding: var(--sp-2) var(--sp-1); border-radius: 10px; background: var(--surface-2); text-align: center; }
+.recap strong { font: 600 var(--fs-xl) var(--display); color: var(--accent); }
+.recap span { font-size: var(--fs-2xs); color: var(--muted); }
+.table-view { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-4) 0; text-align: center; }
+.big-d20 { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); width: 200px; height: 200px; justify-content: center;
+  border-radius: 50%; border: 0; cursor: pointer; color: #fff; font: 600 var(--fs-md) var(--display); letter-spacing: .14em; text-transform: uppercase;
+  background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--accent) 70%, #fff), var(--accent) 60%, color-mix(in srgb, var(--accent) 60%, #000));
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 45%, transparent); }
+.big-d20:active { transform: scale(.96); }
+.tv-skills { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-1); width: 100%; }
+.tv-skill { display: flex; flex-direction: column; align-items: center; padding: var(--sp-2) 0; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.tv-skill strong { font: 600 var(--fs-xl) var(--display); color: var(--accent); }
+.tv-skill span { font-size: var(--fs-2xs); text-transform: uppercase; color: var(--muted); }
+.tv-skill .tv-tn { color: var(--text); }
+body.simple .intro { display: none; }   /* text diet: explanatory lines step aside in Simple mode (the ? keeps them) */

@@ -139,7 +139,17 @@ function table(headers, rows) {
       el('tbody', {}, ...rows.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, c)))))));
 }
 
-export function renderRules(root) {
+// Search palette hand-off (2026-10-07): a query typed in the app-bar search lands here.
+let pendingRuleQuery = '';
+export function setRuleQuery(q) { pendingRuleQuery = q || ''; }
+/** Every rules-card title, for the search palette (renders the library off-screen, no side effects). */
+export function ruleCardTitles() {
+  const probe = document.createElement('div');
+  renderRules(probe, { probe: true });
+  return [...probe.querySelectorAll('.rule-card > summary')].map((s) => ({ id: s.parentElement.id, title: (s.querySelector(".rule-title") || s).textContent.trim() }));
+}
+
+export function renderRules(root, { probe = false } = {}) {
   const search = el('input', {
     type: 'search', placeholder: 'Search rules…', 'aria-label': 'Search rules',
   });
@@ -543,8 +553,13 @@ export function renderRules(root) {
     empty.hidden = !q || hits > 0;
   });
 
+  if (probe) { root.append(...groupEls); return; }
   // Only the search field pins (a slim bar under the section tabs); the title card scrolls away.
   setAppHelp(help('rules'));
+  if (pendingRuleQuery) {
+    search.value = pendingRuleQuery; pendingRuleQuery = '';
+    requestAnimationFrame(() => search.dispatchEvent(new Event('input')));
+  }
   root.append(
     sceneBand('library'),
     el('div', { class: 'rules-searchbar' }, search, empty), ...groupEls);
@@ -784,6 +799,32 @@ export function renderSettings(root) {
       box);
   }
 
+  // Experience level (2026-10-07): Novice · Player · Veteran.
+  function levelRow() {
+    const sel = el('select', { 'aria-label': 'Experience level' },
+      ...[['novice', 'Novice'], ['player', 'Player'], ['veteran', 'Veteran']].map(([v, l]) =>
+        el('option', { value: v, selected: Settings.level() === v ? '' : null }, l)));
+    sel.addEventListener('change', () => {
+      Settings.set('level', sel.value);
+      document.body.classList.toggle('simple', Settings.simple());
+      showToast(`Experience: ${sel.options[sel.selectedIndex].text}`);
+    });
+    return el('div', { class: 'toggle-row' },
+      el('label', {}, el('div', {}, 'Experience'),
+        el('div', { class: 'small muted' }, 'Novice: a guide line on every roll step. Veteran: everything shown, Roll opens the full dialog.')),
+      sel);
+  }
+  // Roll sounds (2026-10-07) — off unless switched on.
+  function soundRow() {
+    const box = el('input', { type: 'checkbox', id: 'tg-sound' });
+    box.checked = Settings.sound();
+    box.addEventListener('change', () => { Settings.set('sound', box.checked); showToast(`Roll sounds ${box.checked ? 'on' : 'off'}`); });
+    return el('div', { class: 'toggle-row' },
+      el('label', { for: 'tg-sound' }, el('div', {}, 'Roll sounds'),
+        el('div', { class: 'small muted' }, 'A sand hiss on every roll, a drum on a crit.')),
+      box);
+  }
+
   const toggleRows = TOGGLE_DEFS.map((def) => {
     const box = el('input', { type: 'checkbox', id: `tg-${def.flag}` });
     box.checked = !!Settings.get(def.flag);
@@ -811,8 +852,10 @@ export function renderSettings(root) {
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel),
+      levelRow(),
       simpleRow(),
-      hapticsRow()),
+      hapticsRow(),
+      soundRow()),
     foldCard('features', 'Play features', true, ...PLAY_FLAGS.map((f) => byFlag[f])),
     foldCard('expansions', 'Expansions', false,
       el('p', { class: 'small muted' }, 'Switch on only the books you own — each adds its rules content across the app.'),

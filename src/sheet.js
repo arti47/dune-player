@@ -98,8 +98,6 @@ export function openSheetTab(tid) {
   if (location.hash === '#/sheet') window.dispatchEvent(new HashChangeEvent('hashchange'));
   else location.hash = '#/sheet';
 }
-// Visible labels are shortened so all five fit a 360px phone; the full name stays the tab's accessible name.
-const SHEET_TAB_SHORT = { traits: 'Traits', advance: 'Advance', notes: 'Notes' };
 
 export function renderSheet(root) {
   mountRoot = root;
@@ -188,20 +186,27 @@ function charactersDialog(chars, current, importer) {
   ]);
 }
 
+// Sheet as a deck (2026-10-07): the five sections are cards you flip through — arrows, swipe, or the
+// dots (the dots are the accessible tablist). The card shows a stack edge behind it.
 function sheetTabBar() {
-  return el('div', { class: 'segmented', role: 'tablist', 'aria-label': 'Character sections' },
-    ...SHEET_TABS.map(([tid, label]) => el('button', {
-      role: 'tab', 'aria-selected': String(sheetTab === tid), 'aria-controls': 'sheet-panel',
-      'aria-label': label, title: label,
-      onclick: () => { sheetTab = tid; refresh(); },
-    }, SHEET_TAB_SHORT[tid] || label)));
+  const i = Math.max(0, SHEET_TABS.findIndex(([t]) => t === sheetTab));
+  const goTo = (k) => () => { if (SHEET_TABS[k]) { sheetTab = SHEET_TABS[k][0]; refresh(); } };
+  return el('div', { class: 'deck-bar' },
+    el('button', { class: 'deck-arrow', 'aria-label': 'Previous section', disabled: i === 0 ? '' : null, onclick: goTo(i - 1) }, icon('up', { size: 18 })),
+    el('div', { class: 'deck-mid' },
+      el('strong', { class: 'deck-title' }, SHEET_TABS[i][1]),
+      el('div', { class: 'deck-dots', role: 'tablist', 'aria-label': 'Character sections' },
+        ...SHEET_TABS.map(([tid, label], k) => el('button', {
+          class: 'deck-dot', role: 'tab', 'aria-selected': String(k === i), 'aria-controls': 'sheet-panel',
+          'aria-label': label, title: label, onclick: goTo(k) })))),
+    el('button', { class: 'deck-arrow next', 'aria-label': 'Next section', disabled: i === SHEET_TABS.length - 1 ? '' : null, onclick: goTo(i + 1) }, icon('up', { size: 18 })));
 }
 
 function sheetBody(c) {
   const id = c.identity;
   const statChip = (name, val) => el('div', { class: 'stat-chip' }, el('span', {}, name), el('strong', {}, String(val)),
     pips(Math.max(0, Math.min(5, val - 3)), 5, { label: `${name} ${val} of 8`, cls: 'pips-stat' }));
-  const panel = (...kids) => el('section', { class: 'card', id: 'sheet-panel', role: 'tabpanel' }, ...kids);
+  const panel = (...kids) => el('section', { class: 'card deck-card', id: 'sheet-panel', role: 'tabpanel' }, ...kids);
 
   switch (sheetTab) {
     case 'stats':

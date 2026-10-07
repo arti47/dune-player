@@ -47,6 +47,30 @@ export function sessionInfo(feed = []) {
   return { session: Math.max(1, session), scene };
 }
 
+/** Recap of the current session (everything after the last session divider). Pure. */
+export function sessionRecap(items = []) {
+  let start = 0;
+  items.forEach((it, i) => { if (it.kind === 'session') start = i + 1; });
+  const cur = items.slice(start);
+  const rolls = cur.filter((i) => i.kind === 'roll').map((i) => i.r);
+  return {
+    rolls: rolls.length,
+    passed: rolls.filter((r) => /^Success|Automatic success/.test(r.note || '')).length,
+    crits: rolls.reduce((n, r) => n + (r.dice || []).filter((v) => v === 1).length, 0),
+    complications: rolls.reduce((n, r) => n + (r.complications || 0), 0),
+    momentum: rolls.reduce((n, r) => n + Math.max(0, r.momentumDelta || 0), 0),
+    scenes: cur.filter((i) => i.kind === 'scene').length,
+    notes: cur.filter((i) => i.kind === 'note' || i.kind === 'frame').length,
+  };
+}
+/** True when the table has been quiet long enough that this is probably a new sitting. Pure. */
+export const SESSION_GAP_MS = 6 * 60 * 60 * 1000;
+export function isNewSitting(items = [], now = Date.now()) {
+  if (!items.length) return false;
+  const last = items[items.length - 1];
+  return last.kind !== 'session' && now - last.ts > SESSION_GAP_MS;
+}
+
 // ----- one contextual next step (moved from Home) -----
 /** The single most useful thing to do next, or null. Pure (exported for tests). */
 export function nextUpFor(c, { house, rolls, dismissed = [] } = {}) {
@@ -68,17 +92,63 @@ export function renderFeed(root, c, count, rerender) {
   const items = feedItems({ rolls: getRollLog(), feed, entries: Settings.journal() ? getJournal().entries : [] });
   const list = el('ol', { class: 'feed', 'aria-label': 'Session feed', 'aria-live': 'polite' },
     ...items.map((it) => el('li', { class: `feed-item kind-${it.kind}` }, ...itemBody(it, rerender))));
+  const table = Settings.get('playView') === 'table';
   root.append(...[
     head(c, count, sessionInfo(feed), rerender),
-    items.length ? null : el('div', { class: 'feed-empty' }, sceneBand('play'),
+    table ? tableView(c, rerender) : null,
+    !table && !items.length ? el('div', { class: 'feed-empty' }, sceneBand('play'),
       el('p', { class: 'feed-empty-title' }, 'Scene 1'),
-      el('p', { class: 'small muted' }, 'Where are you, who is there, and what is at stake? Frame it with Note, then play.')),
-    list,
-    nextUp(c, rerender),
+      el('p', { class: 'small muted' }, 'Where are you, who is there, and what is at stake? Frame it with Note, then play.')) : null,
+    table ? null : list,
+    !table && isNewSitting(items) && !welcomedBack ? beginCard(items, rerender) : null,
+    table ? null : nextUp(c, rerender),
     dock(c, rerender),
   ].filter(Boolean));
   // Newest at the bottom, like a conversation: open on it.
   requestAnimationFrame(() => { const last = list.lastElementChild; if (last) last.scrollIntoView({ block: 'end' }); });
+}
+
+// ----- session ritual: welcome back → recap → begin -----
+let welcomedBack = false;   // "Not now" hides the card until the app reloads
+function recapList(r) {
+  return el('ul', { class: 'recap' },
+    el('li', {}, el('strong', { class: 'num' }, String(r.rolls)), el('span', {}, 'rolls')),
+    el('li', {}, el('strong', { class: 'num' }, String(r.passed)), el('span', {}, 'succeeded')),
+    el('li', {}, el('strong', { class: 'num' }, String(r.crits)), el('span', {}, 'natural 1s')),
+    el('li', {}, el('strong', { class: 'num' }, String(r.complications)), el('span', {}, 'complications')),
+    el('li', {}, el('strong', { class: 'num' }, `+${r.momentum}`), el('span', {}, 'Momentum earned')),
+    el('li', {}, el('strong', { class: 'num' }, String(r.scenes)), el('span', {}, 'scenes ended')));
+}
+function beginCard(items, rerender) {
+  return el('section', { class: 'card begin-card' },
+    el('p', { class: 'eyebrow' }, 'Welcome back'),
+    el('h3', {}, 'Last time'),
+    recapList(sessionRecap(items)),
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: () => { appendFeed({ kind: 'session' }); rerender(); } }, icon('star', { size: 18 }), ' Begin session'),
+      el('button', { class: 'chip', onclick: () => { welcomedBack = true; rerender(); } }, 'Not now')));
+}
+/** End → New session: show the recap of the session that's closing, then post the divider. */
+function newSession(rerender) {
+  const items = feedItems({ rolls: getRollLog(), feed: getFeed(), entries: Settings.journal() ? getJournal().entries : [] });
+  const close = modal([el('h2', {}, 'Session recap'), recapList(sessionRecap(items)),
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => { close(); appendFeed({ kind: 'session' }); rerender(); } }, 'Begin new session'))]);
+}
+
+// ----- table view: the one-screen alternative to the feed -----
+// Character, a giant d20 and the skill numbers — no timeline. Toggled from the head (Feed / Table).
+function tableView(c, rerender) {
+  const drives = Object.values(c.drives || {});
+  const top = drives.length ? Math.max(...drives) : 0;
+  return el('section', { class: 'table-view' },
+    el('button', { class: 'big-d20', 'aria-label': 'Roll a test', onclick: () => openRollRitual(c, rerender) },
+      icon('d20', { size: 96 }), el('span', {}, 'Tap to roll')),
+    el('div', { class: 'tv-skills' }, ...DATA.skills.map((s) => el('div', { class: 'tv-skill' },
+      el('strong', { class: 'num' }, String(c.skills[s.id])), el('span', {}, s.name.slice(0, 3)),
+      el('span', { class: 'tv-tn num' }, `≤${c.skills[s.id] + top}`)))),
+    el('p', { class: 'small muted' }, 'Numbers under each skill: the best target number with your highest drive.'));
 }
 
 // ----- head: who · pools · live -----
@@ -99,7 +169,12 @@ function head(c, count, info, rerender) {
       el('div', { class: 'feed-id' },
         el('strong', { class: 'feed-name' }, c.identity.name || 'Unnamed'),
         el('span', { class: 'small muted' }, `Session ${info.session} · Scene ${info.scene}`)),
-      count > 1 ? el('button', { class: 'chip', 'aria-label': `Switch character (${count})`, onclick: go('sheet') }, icon('group', { size: 14 }), String(count)) : null),
+      count > 1 ? el('button', { class: 'chip', 'aria-label': `Switch character (${count})`, onclick: go('sheet') }, icon('group', { size: 14 }), String(count)) : null,
+      // Feed / Table view switch (per-viewer preference).
+      el('button', { class: 'chip view-chip', 'aria-pressed': Settings.get('playView') === 'table' ? 'true' : 'false',
+        'aria-label': Settings.get('playView') === 'table' ? 'Show the story feed' : 'Show the table view',
+        onclick: () => { Settings.set('playView', Settings.get('playView') === 'table' ? 'feed' : 'table'); rerender(); } },
+        icon(Settings.get('playView') === 'table' ? 'scroll' : 'd20', { size: 14 }), Settings.get('playView') === 'table' ? 'Feed' : 'Table')),
     poolsHeader(c, rerender),
     live.length ? el('div', { class: 'live-row' }, ...live) : null);
 }
@@ -210,6 +285,6 @@ function endSheet(rerender) {
     el('div', { class: 'intent' },
       row('hourglass', 'End scene', `Momentum −${DATA.momentumRules.sceneDecay}, temporary assets expire.`, () => runLifecycle('scene', rerender)),
       row('flag', 'End adventure', 'Determination resets, challenged statements recover.', () => runLifecycle('adventure', rerender)),
-      row('star', 'New session', 'Start a fresh page in the feed. No rules change.', () => { appendFeed({ kind: 'session' }); rerender(); }))],
+      row('star', 'New session', 'See a recap, then start a fresh page. No rules change.', () => newSession(rerender)))],
   { sheet: true });
 }

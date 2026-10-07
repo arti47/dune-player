@@ -59,7 +59,7 @@ function planetCard() {
   };
   return el('section', { class: 'card' },
     el('h3', {}, 'Planet generator'),
-    el('p', { class: 'small muted' }, 'The Great Game GM tables — rolls a world’s type, political affiliation, military power, and population.'),
+    el('p', { class: 'small muted intro' }, 'The Great Game GM tables — rolls a world’s type, political affiliation, military power, and population.'),
     el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: roll }, 'Generate a planet')),
     out);
 }
@@ -121,7 +121,7 @@ export function hookCard() {
   };
   return el('section', { class: 'card' },
     el('h3', {}, 'Story hook generator'),
-    el('p', { class: 'small muted' }, 'Rolls a d20 on each column (Plot · Goal · Location · Hazard · Character).'),
+    el('p', { class: 'small muted intro' }, 'Rolls a d20 on each column (Plot · Goal · Location · Hazard · Character).'),
     el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: roll }, 'Roll a hook')),
     out);
 }
@@ -138,7 +138,7 @@ function enemyCard() {
   };
   return el('section', { class: 'card' },
     el('h3', {}, 'Enemy generator'),
-    el('p', { class: 'small muted' }, 'Rolls a rival House’s Hatred degree × Reason (d20 × d20).'),
+    el('p', { class: 'small muted intro' }, 'Rolls a rival House’s Hatred degree × Reason (d20 × d20).'),
     el('div', { class: 'cta-row' }, el('button', { class: 'btn secondary', onclick: roll }, 'Roll an enemy')),
     out);
 }
