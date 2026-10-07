@@ -25,6 +25,12 @@ export const HELP = {
     welcome: 'A companion for playing Dune: Adventures in the Imperium — your character, the dice and the table in one place.',
     playNow: 'Pick one of the iconic characters and start rolling in seconds.',
     buildOwn: 'Make your own character step by step. The app explains each choice.',
+    // Welcome carousel (radical UI, 2026-10-07). Rules numbers are filled in from DATA by screens.js.
+    slides: [
+      { ico: 'd20', title: 'Tell a story together', text: 'You play one character in the Imperium. Say what they do; roll when it is risky.' },
+      { ico: 'target', title: 'Roll under your number', text: 'Add a skill to a drive to get your target number. Roll the dice; each die at or under it is a success.' },
+      { ico: 'star', title: 'Pick a hero', text: 'Start with an iconic character — you can build your own any time.' },
+    ],
   },
 
   // ---------- Table empty states (UI round 2 #8) — guidance only; any numbers come from DATA ----------

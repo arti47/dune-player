@@ -11,11 +11,13 @@ import { pips } from './icons.js';
 import { confirmModal, promptModal, modal, foldCard } from './ui.js';
 import { getActiveCampaign, createCampaign, myMember, setMyRole, setMyDisplayName, setMyCharacter, party, leaveCampaign, joinCampaign, renameMember, removeMember, canManageParty } from './sync.js';
 import { applyTheme } from './main.js';
-import { startCharacterWizard, openPregenPicker, startHouseWizard, startRandomCharacter } from './wizard.js';
+import { startCharacterWizard, openPregenPicker, startHouseWizard, startRandomCharacter, instantiatePregen } from './wizard.js';
+import { PREGENS } from '../data-pregens.js';
+import { setSwipe } from './swipe.js';
 import { slug, takeCiteTarget } from './cite.js';
 import { help, setAppHelp } from './help.js';
-import { icon } from './icons.js';
-import { allTalents } from './content.js';
+import { icon, sceneBand } from './icons.js';
+import { allTalents, driveName } from './content.js';
 import { domainCrest, archetypeCrest, factionCrest, medallion } from './crests.js';
 import { runLifecycle } from './combat.js';
 import { poolsHeader, openSheetTab } from './sheet.js';
@@ -47,11 +49,18 @@ export function renderHome(root, rerender = () => { root.replaceChildren(); rend
 }
 
 // ----- first run -----
+// Radical UI (2026-10-07): a three-slide welcome carousel. The last slide is the pregen picker
+// itself — one tap on a hero and you land on Now, ready to roll. The two big choices and the
+// quiet links stay on that slide.
+let welcomeSlide = 0;
+// A first name for the hero grid, skipping titles ("Duke Leto Atreides" → "Leto").
+const shortName = (n) => { const w = String(n).split(/\s+/); return w.find((x) => !/^(Duke|Lady|Dr\.?|Count|Baron|Lord)$/i.test(x)) || w[0]; };
 function welcome() {
+  const slides = HELP.home.slides;
+  const wrap = el('section', { class: 'home-welcome carousel' });
   const choice = (ico, title, text, onclick, primary) => el('button', { class: 'home-choice' + (primary ? ' primary' : ''), onclick },
     el('span', { class: 'home-choice-ico' }, icon(ico, { size: 30 })),
     el('span', { class: 'home-choice-text' }, el('strong', {}, title), el('span', { class: 'small' }, text)));
-  const link = (label, onclick) => el('button', { class: 'link-btn' }, label);
   const links = [
     ['Learn the dice', () => { location.hash = '#/tutorial'; }],
     ['How to play', () => { location.hash = '#/play'; }],
@@ -59,15 +68,37 @@ function welcome() {
     ['Create a House', startHouseWizard],
     ['Random character', startRandomCharacter],
   ];
-  return el('section', { class: 'home-welcome' },
-    el('p', { class: 'eyebrow' }, 'Welcome to'),
-    el('h2', { class: 'home-welcome-title' }, 'Imperium Player'),
-    el('p', { class: 'muted' }, HELP.home.welcome),
-    el('div', { class: 'home-choices' },
-      choice('star', 'Play now', HELP.home.playNow, openPregenPicker, true),
-      choice('person', 'Build my own', HELP.home.buildOwn, startCharacterWizard, false)),
-    el('div', { class: 'home-links' }, ...links.map(([label, fn]) => { const b = link(label); b.onclick = fn; return b; })),
-    );
+  // Dice facts for slide 2, straight from DATA (§10.2).
+  const p = DATA.dicePool;
+  const facts = `${p.base}d20 to start (up to ${p.max}). A natural 1 counts ${DATA.crit.naturalOne} successes; a 20 is a complication. Extra successes become Momentum.`;
+  const draw = () => {
+    const i = welcomeSlide, s = slides[i], last = i === slides.length - 1;
+    const go = (n) => () => { welcomeSlide = Math.max(0, Math.min(slides.length - 1, n)); draw(); };
+    wrap.replaceChildren(...[
+      i === 0 ? el('p', { class: 'eyebrow' }, 'Welcome to Imperium Player') : null,
+      el('div', { class: 'slide-art', 'aria-hidden': 'true' }, icon(s.ico, { size: 56 })),
+      el('h2', { class: 'home-welcome-title' }, s.title),
+      el('p', { class: 'muted' }, s.text),
+      i === 1 ? el('p', { class: 'small slide-facts' }, facts) : null,
+      last ? el('div', { class: 'hero-pick' }, ...PREGENS.map((pg) => el('button', {
+        class: 'hero-pick-btn', onclick: () => instantiatePregen(pg, 'home'), 'aria-label': `Play ${pg.identity.name}` },
+        medallion(pg.identity, 52), el('span', { class: 'small' }, shortName(pg.identity.name))))) : null,
+      last ? el('div', { class: 'home-choices' },
+        choice('person', 'Build my own', HELP.home.buildOwn, startCharacterWizard, false)) : null,
+      el('div', { class: 'carousel-nav' },
+        el('button', { class: 'chip', onclick: go(i - 1), disabled: i === 0 ? '' : null }, 'Back'),
+        el('span', { class: 'carousel-dots', role: 'tablist', 'aria-label': 'Welcome slides' }, ...slides.map((_, k) =>
+          el('button', { class: 'carousel-dot' + (k === i ? ' on' : ''), role: 'tab', 'aria-selected': k === i ? 'true' : 'false',
+            'aria-label': `Slide ${k + 1}: ${slides[k].title}`, onclick: go(k) }))),
+        last ? el('button', { class: 'chip', onclick: openPregenPicker }, 'All heroes')
+          : el('button', { class: 'btn btn-sm', onclick: go(i + 1) }, i === 0 ? 'Start' : 'Next')),
+      last ? el('div', { class: 'home-links' }, ...links.map(([label, fn]) => el('button', { class: 'link-btn', onclick: fn }, label))) : null,
+    ].filter((n) => n != null));
+  };
+  draw();
+  // Swipe between slides like the other sections.
+  setSwipe({ prev: () => { if (welcomeSlide > 0) { welcomeSlide--; draw(); } }, next: () => { if (welcomeSlide < slides.length - 1) { welcomeSlide++; draw(); } } });
+  return wrap;
 }
 
 function enableSolo() {
@@ -83,6 +114,7 @@ function homeHero(c, count, rerender) {
   const id = c.identity;
   const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate)].filter(Boolean).join(' · ');
   return el('section', { class: 'card home-hero' },
+    sceneBand('play'),
     el('div', { class: 'char-head' },
       medallion(id, 64),
       el('div', { class: 'char-id' },
@@ -93,8 +125,8 @@ function homeHero(c, count, rerender) {
         onclick: () => { location.hash = '#/sheet'; } }, icon('group', { size: 18 }), ` ${count}`) : null),
     el('div', { class: 'home-hero-actions' },
       el('button', { class: 'btn home-roll', onclick: () => openRollDialog(c, rerender) }, icon('d20', { size: 22 }), ' Roll a test'),
-      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, 'Sheet'),
-      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, 'End scene'),
+      el('button', { class: 'btn secondary', onclick: () => { location.hash = '#/sheet'; } }, icon('person', { size: 18 }), ' Sheet'),
+      el('button', { class: 'btn secondary', onclick: () => runLifecycle('scene', rerender) }, icon('hourglass', { size: 18 }), ' End scene'),
       el('button', { class: 'chip', onclick: () => runLifecycle('adventure', rerender) }, icon('flag', { size: 14 }), 'End adventure')));
 }
 
@@ -104,13 +136,49 @@ function homeHero(c, count, rerender) {
 function skillTiles(c, rerender) {
   const drives = Object.values(c.drives || {});
   const top = drives.length ? Math.max(...drives) : 0;
-  return el('section', { class: 'skill-tiles', 'aria-label': 'Roll a skill' },
+  return el('div', { class: 'skill-block' },
+    el('button', { class: 'chip intent-chip', onclick: () => intentHelper(c, rerender) }, icon('compass', { size: 14 }), 'What are you trying to do?'),
+    el('section', { class: 'skill-tiles', 'aria-label': 'Roll a skill' },
     ...DATA.skills.map((s) => el('button', {
       class: 'skill-tile', 'aria-label': `Roll ${s.name} (rating ${c.skills[s.id]})`,
       onclick: () => openRollDialog(c, rerender, { skill: s.id }) },
       el('span', { class: 'skill-tile-val num' }, String(c.skills[s.id])),
       el('span', { class: 'skill-tile-name' }, s.name),
-      el('span', { class: 'skill-tile-tn num' }, `best TN ${c.skills[s.id] + top}`))));
+      el('span', { class: 'skill-tile-tn num' }, `best TN ${c.skills[s.id] + top}`)))));
+}
+
+// ----- "What are you trying to do?" (radical UI, 2026-10-07) -----
+// Two plain questions that land on a rules-legal test: what you are doing picks the skill
+// (DATA.skills tag + description), why it matters picks the drive (your own drives, highest
+// first, with the statement that backs each — §3.1: the drive must fit the motivation). Longer
+// efforts go to extended tasks; a fight over several turns goes to the conflict tracker.
+function intentHelper(c, rerender) {
+  const body = el('div', { class: 'intent' });
+  const close = modal([el('h2', {}, 'What are you trying to do?'), body], { sheet: true });
+  const first = (txt) => String(txt || '').split(/ — |\. /)[0];
+  const opt = (ico, title, sub, onclick) => el('button', { class: 'intent-opt', onclick },
+    el('span', { class: 'intent-ico' }, icon(ico, { size: 22 })),
+    el('span', { class: 'intent-text' }, el('strong', {}, title), sub ? el('span', { class: 'small muted' }, sub) : null));
+  const SKILL_ICO = { battle: 'swords', communicate: 'group', discipline: 'shield', move: 'up', understand: 'compass' };
+  const pickSkill = () => body.replaceChildren(
+    ...DATA.skills.map((s) => opt(SKILL_ICO[s.id] || 'd20', s.tag, `${s.name} ${c.skills[s.id]} · ${first(s.desc)}`, () => pickDrive(s))),
+    el('p', { class: 'eyebrow' }, 'Not a single roll?'),
+    opt('hourglass', 'Something that takes a while', 'An extended task: several tests toward one goal', () => { close(); location.hash = '#/tasks'; }),
+    opt('swords', 'A fight or contest over several turns', 'The conflict tracker: zones, turns, defeat', () => { close(); location.hash = '#/conflict'; }));
+  const pickDrive = (skill) => {
+    const ids = Object.keys(c.drives || {}).sort((a, b) => c.drives[b] - c.drives[a]);
+    const tag = (id) => (DATA.drives.find((d) => d.id === id) || {}).tag || '';
+    body.replaceChildren(
+      el('p', { class: 'eyebrow' }, `${skill.name} — why does it matter to you?`),
+      ...ids.map((id) => {
+        const st = c.driveStatements && c.driveStatements[id];
+        const sub = [tag(id), st && st.text ? `“${st.text}”${st.challenged ? ' (challenged)' : ''}` : null].filter(Boolean).join(' · ');
+        return opt('flag', `${driveName(id)} ${c.drives[id]} → TN ${c.skills[skill.id] + c.drives[id]}`, sub,
+          () => { close(); openRollDialog(c, rerender, { skill: skill.id, drive: id }); });
+      }),
+      el('button', { class: 'chip', onclick: pickSkill }, 'Back'));
+  };
+  pickSkill();
 }
 
 // ----- one contextual next step -----
@@ -161,21 +229,22 @@ function homeTiles(c, rerender) {
   const last = getRollLog()[0];
   const house = getHouse();
 
+  const simple = Settings.simple();
   return el('div', { class: 'home-tiles' }, ...[
     tile('swords', 'Conflict', cType ? `${cType} · R${conflict.round}` : 'None', cType ? `Side ${conflict.currentSide.toUpperCase()} to act` : 'Tap to start one', go('conflict'), cType ? 'live' : ''),
     tile('hourglass', 'Tasks', openTasks.length ? `${openTasks.length} open` : 'None',
       top ? `${top.name} ${top.progress}/${top.requirement}` : 'Sandworms, recovery…', go('tasks'), openTasks.length ? 'live' : ''),
     tile('d20', 'Last roll', last ? `${last.successes} success${last.successes === 1 ? '' : 'es'}` : '—',
       last ? `${SKILL_NAME[last.skill] || last.skill} + ${DRIVE_NAME[last.drive] || last.drive}${last.complications ? ` · ${last.complications} comp.` : ''}` : 'No rolls yet', () => openSheetTab('notes')),
-    house
+    simple ? null : house
       ? tile(houseBanner(house, 22), 'House', house.name || 'Your House',
           house.management && house.management.active ? `Year ${house.management.year} · Wealth ${house.wealth || 0}` : (HOUSE_TYPE_NAME[house.type] || 'House'),
           Settings.greatGame() ? go('house') : startHouseWizard)
       : tile('house', 'House', 'None yet', 'Tap to create', startHouseWizard),
     Settings.journal()
       ? tile('scroll', 'Journal', 'Solo play', 'Scene, oracle, threads', go('journal'))
-      : tile('scroll', 'Solo play', 'Off', 'Tap to switch on', enableSolo),
-  ]);
+      : simple ? null : tile('scroll', 'Solo play', 'Off', 'Tap to switch on', enableSolo),
+  ].filter(Boolean));
 }
 
 // ---------- Rules library (searchable; renders extracted 0a tables) ----------
@@ -630,6 +699,7 @@ export function renderRules(root) {
   // Only the search field pins (a slim bar under the section tabs); the title card scrolls away.
   setAppHelp(help('rules'));
   root.append(
+    sceneBand('library'),
     el('div', { class: 'rules-searchbar' }, search, empty), ...groupEls);
 
   // T38 citation: if a rules link brought us here, scroll its card into view + highlight it.
@@ -851,6 +921,22 @@ export function renderSettings(root) {
       box);
   }
 
+  // Simple mode (radical UI) — on by default, stored as an explicit true/false.
+  function simpleRow() {
+    const box = el('input', { type: 'checkbox', id: 'tg-simple' });
+    box.checked = Settings.simple();
+    box.addEventListener('change', () => {
+      Settings.set('simple', box.checked);
+      document.body.classList.toggle('simple', box.checked);
+      showToast(`Simple mode ${box.checked ? 'on' : 'off'}`);
+    });
+    return el('div', { class: 'toggle-row' },
+      el('label', { for: 'tg-simple' },
+        el('div', {}, 'Simple mode'),
+        el('div', { class: 'small muted' }, 'Fewer words and controls. Advanced roll options wait behind “More options”. Turn off to see everything at once.')),
+      box);
+  }
+
   const toggleRows = TOGGLE_DEFS.map((def) => {
     const box = el('input', { type: 'checkbox', id: `tg-${def.flag}` });
     box.checked = !!Settings.get(def.flag);
@@ -878,6 +964,7 @@ export function renderSettings(root) {
       el('div', { class: 'toggle-row' },
         el('label', {}, el('div', {}, 'Theme'), el('div', { class: 'small muted' }, 'System follows your device.')),
         themeSel),
+      simpleRow(),
       hapticsRow()),
     foldCard('features', 'Play features', true, ...PLAY_FLAGS.map((f) => byFlag[f])),
     foldCard('expansions', 'Expansions', false,

@@ -1129,7 +1129,7 @@ function topSkill(p) {
   return SKILL_IDS.reduce((best, s) => (p.skills[s] > p.skills[best] ? s : best), SKILL_IDS[0]);
 }
 
-function instantiatePregen(pregen) {
+export function instantiatePregen(pregen, dest = 'sheet') {
   const char = normalizeCharacter({
     ...pregen,
     id: uid(),
@@ -1138,7 +1138,7 @@ function instantiatePregen(pregen) {
   saveCharacter(char);
   setCurrentCharacterId(char.id);
   showToast(`${char.identity.name} ready to play.`);
-  goToScreen('sheet');
+  goToScreen(dest);
 }
 
 // ---------- Small UI helpers ----------

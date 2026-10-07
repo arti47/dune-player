@@ -116,13 +116,14 @@ export function renderScreen() {
   const title = qs('#app-screen');
   if (title) title.textContent = route.title || route.label;
   document.title = route.id === 'home' ? 'Imperium Player' : `${route.title || route.label} · Imperium Player`;
-  route.render(mount, renderScreen);
-  // Table segments: swipe left/right walks Scene · Tasks · Conflict · Journal (round 2 #5).
+  // Play segments: swipe left/right walks Now · Tasks · Conflict · Journal (round 2 #5). Set
+  // before rendering so a screen (the welcome carousel) can claim the swipe for itself.
   if (route.hub === 'table') {
     const n = neighbours(segmentsOf('table').map((r) => r.id), route.id);
     setSwipe({ prev: n.prev && (() => navigate(n.prev)), next: n.next && (() => navigate(n.next)) });
-    animateIn(mount);
   }
+  route.render(mount, renderScreen);
+  if (route.hub === 'table') animateIn(mount);
   renderNav();
   syncRollFab(route, renderScreen);
   screen.focus({ preventScroll: true });

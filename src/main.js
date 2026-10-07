@@ -15,6 +15,7 @@ export function applyTheme() {
   const pref = Settings.theme();
   const dark = pref === 'dark' || (pref === 'system' && systemDark.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.body.classList.toggle('simple', Settings.simple());   // Simple mode hides intro lines
 }
 systemDark.addEventListener('change', () => {
   if (Settings.theme() === 'system') applyTheme();

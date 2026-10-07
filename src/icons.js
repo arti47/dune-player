@@ -172,3 +172,31 @@ export function dial(value, { min = 1, max = 9, label = '', caption = '' } = {})
     + (caption ? `<text x="${cx}" y="${cy - 22}" text-anchor="middle" class="dial-cap">${caption.replace(/[<&]/g, '')}</text>` : '');
   return svg;
 }
+
+// ---------- Cinematic scene bands (radical UI, 2026-10-07) ----------
+// Original wide SVG vignettes for the top of Now, Prep and the Library: layered dunes under a sky
+// with two moons, plus a per-place motif. Theme-coloured through CSS variables; decorative only.
+const BAND_MOTIF = {
+  // Play: a d20 rising like a sun between the moons.
+  play: '<g transform="translate(160 44)"><polygon points="0,-24 21,-12 21,12 0,24 -21,12 -21,-12" class="band-motif"/>' +
+        '<path d="M0,-24 L-12,6 L12,6 Z M-21,-12 L-12,6 M21,-12 L12,6 M0,24 L-12,6 M0,24 L12,6" class="band-line"/></g>',
+  // Prep: a palace skyline with a banner pole.
+  prep: '<g class="band-motif"><rect x="120" y="44" width="18" height="34"/><rect x="142" y="30" width="36" height="48"/>' +
+        '<path d="M142 30 Q160 10 178 30 Z"/><rect x="182" y="40" width="18" height="38"/><rect x="214" y="18" width="2" height="60"/></g>' +
+        '<path d="M216 20 L240 26 L216 32 Z" class="band-flag"/>',
+  // Library: an open book on the horizon.
+  library: '<g transform="translate(160 52)"><path d="M0,-6 C-14,-16 -34,-16 -44,-10 L-44,18 C-34,12 -14,12 0,22 Z M0,-6 C14,-16 34,-16 44,-10 L44,18 C34,12 14,12 0,22 Z" class="band-motif"/>' +
+           '<path d="M-36,-4 C-26,-8 -14,-8 -6,-2 M-36,4 C-26,0 -14,0 -6,6 M36,-4 C26,-8 14,-8 6,-2 M36,4 C26,0 14,0 6,6" class="band-line"/></g>',
+};
+export function sceneBand(kind = 'play') {
+  const wrap = document.createElement('div');
+  wrap.className = `scene-band band-${kind}`;
+  wrap.setAttribute('aria-hidden', 'true');
+  wrap.innerHTML = '<svg viewBox="0 0 320 96" preserveAspectRatio="xMidYMax slice" focusable="false">' +
+    '<circle cx="56" cy="26" r="11" class="band-moon"/><circle cx="82" cy="18" r="6" class="band-moon small"/>' +
+    '<circle cx="262" cy="22" r="1.4" class="band-star"/><circle cx="288" cy="38" r="1" class="band-star"/><circle cx="236" cy="12" r="1" class="band-star"/>' +
+    (BAND_MOTIF[kind] || '') +
+    '<path d="M0 74 C50 58 90 66 140 72 S230 60 320 68 L320 96 L0 96 Z" class="band-dune back"/>' +
+    '<path d="M0 84 C60 72 120 90 180 82 S270 74 320 86 L320 96 L0 96 Z" class="band-dune front"/></svg>';
+  return wrap;
+}

@@ -772,13 +772,54 @@ export function renderConflict(onChange) {
     ]);
   }
 
-  // Audit 2: zone strip — a mini map of the zones with a dot per fighter, coloured by side.
-  const zoneStrip = el('div', { class: 'zone-strip', 'aria-hidden': 'true' }, ...conflict.zones.map((z) => {
-    const here = conflict.combatants.filter((c) => c.zoneId === z.id);
-    return el('div', { class: 'zone-cell' },
-      el('span', { class: 'zone-cell-name' }, z.name),
-      el('span', { class: 'zone-dots' }, ...here.map((c) => el('i', { class: `dot side-${c.side}` + (c.defeated ? ' out' : ''), title: c.name }))));
-  }));
+  // Radical UI (2026-10-07): the zone strip became a board. Each fighter is a token in its zone;
+  // drag a token onto another zone, or tap a token then tap a zone (keyboard + screen reader path).
+  // Moving between zones is the same free reposition as the fighter card's zone picker.
+  const moveTo = (cid, zid) => {
+    boardPick = null;
+    const c0 = conflict.combatants.find((x) => x.id === cid);
+    if (!c0 || c0.zoneId === zid) return onChange && onChange();
+    save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === cid ? { ...x, zoneId: zid } : x) });
+  };
+  const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+  const token = (c) => {
+    const t = el('button', { class: `token side-${c.side}` + (c.defeated ? ' out' : '') + (boardPick === c.id ? ' picked' : ''),
+      'aria-pressed': boardPick === c.id ? 'true' : 'false', 'aria-label': `${c.name}, side ${c.side.toUpperCase()}${c.defeated ? ', defeated' : ''} — tap then pick a zone`,
+      title: c.name }, initials(c.name));
+    let start = null, dragged = false;
+    t.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; dragged = false; t.setPointerCapture(e.pointerId); });
+    t.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!dragged && Math.hypot(dx, dy) < 8) return;
+      dragged = true; t.classList.add('dragging'); t.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    t.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      start = null;
+      if (!dragged) return;
+      t.style.transform = ''; t.classList.remove('dragging');
+      t.style.visibility = 'hidden';
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      t.style.visibility = '';
+      const zone = under && under.closest('[data-zone]');
+      if (zone) moveTo(c.id, zone.dataset.zone);
+    });
+    t.addEventListener('click', () => {
+      if (dragged) { dragged = false; return; }
+      boardPick = boardPick === c.id ? null : c.id; onChange && onChange();
+    });
+    return t;
+  };
+  const zoneStrip = el('div', { class: 'zone-board' + (boardPick ? ' picking' : ''), role: 'group', 'aria-label': 'Zone board' },
+    ...conflict.zones.map((z) => {
+      const here = conflict.combatants.filter((c) => c.zoneId === z.id);
+      return el('div', { class: 'zone-cell', dataset: { zone: z.id } },
+        boardPick
+          ? el('button', { class: 'zone-cell-name zone-target', onclick: () => moveTo(boardPick, z.id) }, icon('flag', { size: 12 }), ` ${z.name}`)
+          : el('span', { class: 'zone-cell-name' }, z.name),
+        el('div', { class: 'zone-tokens' }, ...here.map(token)));
+    }));
   const headMore = () => {
     const close = modal([
       el('h2', {}, 'Conflict'),
@@ -810,5 +851,8 @@ export function renderConflict(onChange) {
       } }, 'Keep opener (2)') : null)),
     el('div', { class: 'conflict-sides' }, sideBlock('a'), el('div', { class: 'conflict-vs', 'aria-hidden': 'true' }, el('span', {}, 'VS')), sideBlock('b')));
 }
+
+// Zone-board selection (tap a token, then a zone). Survives the re-render it triggers.
+let boardPick = null;
 
 function capOf(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }

@@ -26,6 +26,7 @@ import { help } from './help.js';
 import { icon, pips } from './icons.js';
 import { findTalent, driveName, allDrives } from './content.js';
 import { DATA } from '../data.js';
+import { Settings } from './settings.js';
 
 /** A character's drive ids, highest-rated first (drives may be standard or swapped-in). */
 function charDriveIds(ch) { return Object.keys(ch.drives || {}).sort((a, b) => ch.drives[b] - ch.drives[a]); }
@@ -97,7 +98,8 @@ export function openRollDialog(character, onDone = null, preset = {}) {
 
   const cfg = {
     skill: SKILLS.some((s) => s.id === preset.skill) ? preset.skill : SKILLS[0].id,   // Now's skill tiles preset this
-    drive: charDriveIds(character)[0] || DRIVES[0].id,   // the character's highest drive (may be a swapped-in one)
+    drive: charDriveIds(character).includes(preset.drive) ? preset.drive   // the intent helper presets this
+      : (charDriveIds(character)[0] || DRIVES[0].id),   // the character's highest drive (may be a swapped-in one)
     difficulty: 1,
     bought: 0,
     buyWith: 'momentum',       // 'momentum' | 'threat'
@@ -472,6 +474,12 @@ export function openRollDialog(character, onDone = null, preset = {}) {
       ].filter((k) => k != null));
     adv.open = !!cfg.advOpen;
     adv.addEventListener('toggle', () => { cfg.advOpen = adv.open; });
+    // Simple mode (radical UI, 2026-10-07): the advanced group stays out of sight behind one chip
+    // until asked for (or until something in it is already on). Every rule is still one tap away.
+    const advNode = Settings.simple() && !cfg.showAdv && !advOn
+      ? el('button', { class: 'chip roll-adv-chip', onclick: () => { cfg.showAdv = true; cfg.advOpen = true; render(); } },
+          icon('plus', { size: 14 }), 'More options — extra dice, Determination, traits, assists')
+      : adv;
 
     setUI(
       el('h2', { id: 'roll-title' }, 'Roll a test', cite('Skill test basics', close)),
@@ -494,7 +502,7 @@ export function openRollDialog(character, onDone = null, preset = {}) {
         return el('p', {}, el('span', { class: 'pill' }, `Effective Difficulty ${effDiff()} (${tot > 0 ? '+' : ''}${tot})`));
       })() : null,
       el('label', { class: 'toggle-row', for: 'roll-focus' }, el('span', {}, `Applicable focus (crit on ≤ ${skillRating()})`), focusBox),
-      adv,
+      advNode,
       el('div', { class: 'modal-actions sticky-actions' },
         el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
         rollBtn),

@@ -1693,7 +1693,7 @@ console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dia
   check('Home leads with the active character + pools when one exists',
     /homeHero\(current, chars\.length, rerender\)/.test(sc) && /poolsHeader\(current, rerender\)/.test(sc));
   check('Home quick actions: Open sheet · End scene (shared lifecycle) · Journal (gated)',
-    /' Roll a test'/.test(sc) && /'Sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*tile\('scroll', 'Journal'/.test(sc));
+    /' Roll a test'/.test(sc) && /' Sheet'/.test(sc) && /runLifecycle\('scene', rerender\)/.test(sc) && /Settings\.journal\(\)\s*\?\s*tile\('scroll', 'Journal'/.test(sc));
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
   check('End scene / End adventure share one confirm → apply → Undo path', /export async function runLifecycle\(kind, onChange\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb));
   const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
@@ -1858,7 +1858,7 @@ console.log('\n— UI round 2 #9: House yearly stepper —');
 console.log('\n— Home overhaul: session dashboard + first-run choices —');
 {
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
-  check('welcome: two big choices (Play now / Build my own) + quiet links', /choice\('star', 'Play now'/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
+  check('welcome: carousel ending in a one-tap hero pick + Build my own + quiet links', /instantiatePregen\(pg, 'home'\)/.test(sc) && /choice\('person', 'Build my own'/.test(sc) && /'Learn the dice'/.test(sc) && /'Playing solo\?'/.test(sc));
   { const shp = readFileSync(join(root, 'src/sheet.js'), 'utf8');
   check('pools as tap-to-adjust chips opening a sheet (caps from DATA)', /pool-chip pool-/.test(shp) && /sheet: true/.test(shp) && /DATA\.momentumRules\.cap/.test(shp) && /DATA\.determination\.cap/.test(shp)); }
   check('live tiles: conflict, tasks, last roll, House, journal/solo (Rules lives in the Library tab)', ['Conflict', 'Tasks', 'Last roll', 'House'].every((t) => sc.includes(`'${t}'`)) && /getConflict\(\)/.test(sc) && /getTasks\(\)/.test(sc));
@@ -1886,8 +1886,8 @@ console.log('\n— Audit 2: UX/UI + visual polish —');
   check('defeat block folds when idle; formula moved into the help sheet', /class: 'defeat-block'/.test(R('src/combat.js')) && /d\.open = live/.test(R('src/combat.js')));
   check('roll dialog: dice preview + 1–20 face gauge; result actions in a grid', /rollPreview\(\{ base: BASE_DICE/.test(R('src/roller.js')) && /result-actions/.test(R('src/roller.js')) && /\.tn-gauge/.test(css));
   check('verdict text white on darkened fills (contrast in both themes)', /\.roll-verdict \{ color: #fff; \}/.test(css));
-  check('conflict: End conflict in a ⋯ sheet, Next round primary, side colours, VS, zone strip', /const headMore = \(\) =>/.test(R('src/combat.js')) &&
-    /class: 'conflict-vs'/.test(R('src/combat.js')) && /class: 'zone-strip'/.test(R('src/combat.js')) && /--side-b/.test(css));
+  check('conflict: End conflict in a ⋯ sheet, Next round primary, side colours, VS, zone board', /const headMore = \(\) =>/.test(R('src/combat.js')) &&
+    /class: 'conflict-vs'/.test(R('src/combat.js')) && /class: 'zone-board'/.test(R('src/combat.js')) && /--side-b/.test(css));
   check('sandworm task bar: worm segments per requirement point', /class: 'task-bar worm', style: `--seg:/.test(R('src/combat.js')) && /\.task-bar\.worm/.test(css));
   check('House hero + status meter; options sheet holds steppers + load/delete', /class: 'card house-hero'/.test(R('src/house.js')) && /const optionsSheet = \(\) =>/.test(R('src/house.js')) && /pips-status/.test(R('src/house.js')));
   check('GM party as cards with medallions', /class: 'party-card'/.test(R('src/gm.js')) && /medallion\(c\.identity, 40\)/.test(R('src/gm.js')));
@@ -1963,6 +1963,21 @@ console.log('\n— Play/Prep split (2026-10-07) —');
   check('roll dialog accepts a skill preset, validated against DATA.skills', /openRollDialog\(character, onDone = null, preset = \{\}\)/.test(rl) && /SKILLS\.some\(\(s\) => s\.id === preset\.skill\)/.test(rl));
   check('Now offers End scene + End adventure (Scene folded in)', /runLifecycle\('scene', rerender\)/.test(sc) && /runLifecycle\('adventure', rerender\)/.test(sc));
   check('Prep page: character, wizard, iconic, random, House, Settings', /export function renderPrep\(/.test(hb) && ['startCharacterWizard', 'openPregenPicker', 'startRandomCharacter', 'startHouseWizard', "go('settings')"].every((t) => hb.includes(t)));
+}
+
+console.log('\n— Radical UI (2026-10-07) —');
+{
+  const R = (f) => readFileSync(join(root, f), 'utf8');
+  const sc = R('src/screens.js'), sh = R('src/sheet.js'), cb = R('src/combat.js'), rl = R('src/roller.js'), css = R('styles.css');
+  check('trading card: front skills + top drive, back ambition/statements/traits, accessible flip', /class: 'tcard'/.test(sh) && /tcard-back/.test(sh) && /'aria-pressed': 'false'/.test(sh) && /\.tcard\.flipped/.test(css));
+  check('zone board: draggable tokens + tap-token-then-zone fallback', /class: 'zone-board'/.test(cb) && /elementFromPoint/.test(cb) && /zone-target/.test(cb) && /let boardPick = null/.test(cb));
+  check('welcome carousel: slides from HELP, dice facts from DATA, swipe', /HELP\.home\.slides/.test(sc) && /DATA\.dicePool/.test(sc) && /DATA\.crit\.naturalOne/.test(sc) && /setSwipe\(\{ prev:/.test(sc));
+  const { HELP } = await import(join(root, 'data-help.js'));
+  check('welcome slide copy carries no rules digits', HELP.home.slides.length === 3 && HELP.home.slides.every((x) => !/\d/.test(x.title + x.text)));
+  check('intent helper: skill from DATA.skills, drive from the character, presets both', /function intentHelper\(/.test(sc) && /openRollDialog\(c, rerender, \{ skill: skill\.id, drive: id \}\)/.test(sc) && /charDriveIds\(character\)\.includes\(preset\.drive\)/.test(rl));
+  const { Settings } = await import(join(root, 'src/settings.js'));
+  check('Simple mode on unless switched off; roll dialog hides advanced behind a chip', Settings.simple() === true && /Settings\.simple\(\) && !cfg\.showAdv && !advOn/.test(rl) && /body\.simple \.screen-lead/.test(css));
+  check('scene bands on Now, Prep and Library', /sceneBand\('play'\)/.test(sc) && /sceneBand\('library'\)/.test(sc) && /sceneBand\('prep'\)/.test(R('src/hubs.js')) && /export function sceneBand/.test(R('src/icons.js')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

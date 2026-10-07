@@ -828,7 +828,7 @@ html[data-theme="dark"] body::before { opacity: .6; }
 /* ---------- Round 2 #2: conflict tracker as fighter cards by side ---------- */
 .conflict-turn { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 .conflict-acting { font-family: 'Josefin Sans', system-ui, sans-serif; font-size: var(--fs-xl); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
-.conflict-sides { display: grid; gap: 0 14px; }
+.conflict-sides { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 14px; }
 @media (min-width: 640px) { .conflict-sides { grid-template-columns: 1fr 1fr; align-items: start; } }
 .side-card { border-left: 3px solid var(--border); }
 .side-card.acting { border-left-color: var(--accent); }
@@ -1357,3 +1357,88 @@ html[data-theme="dark"] .die.blank.bought { --die-bg: color-mix(in srgb, var(--a
 .prep-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 @media (min-width: 640px) { .prep-grid { grid-template-columns: repeat(3, 1fr); } .prep-grid > :last-child:nth-child(odd) { grid-column: auto; } }
 @media (min-width: 900px) { .skill-tiles, .prep-who, .prep-grid { grid-column: 1 / -1; } }
+
+/* ---------- Radical UI (2026-10-07): trading card · zone board · carousel · intent · bands · simple ---------- */
+/* Trading-card header: both faces share one grid cell, so the card is as tall as the taller face. */
+.tcard { display: grid; perspective: 900px; }
+.tcard-face { grid-area: 1 / 1; backface-visibility: hidden; transition: transform .45s ease; min-width: 0; }
+.tcard-back { transform: rotateY(180deg); padding-right: var(--sp-6); }
+.tcard.flipped .tcard-front { transform: rotateY(-180deg); }
+.tcard.flipped .tcard-back { transform: rotateY(0); }
+.tcard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-1); margin-top: var(--sp-3); }
+.tcard-stat { display: flex; flex-direction: column; align-items: center; padding: var(--sp-1) 0; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--border); }
+.tcard-stat strong { font-family: var(--display); font-size: var(--fs-lg); color: var(--accent); line-height: 1.1; }
+.tcard-stat span { font-size: var(--fs-2xs); text-transform: uppercase; color: var(--muted); }
+.tcard-drive { margin: var(--sp-2) 0 0; display: flex; align-items: baseline; gap: var(--sp-1); flex-wrap: wrap; }
+.tcard-back .eyebrow { margin: var(--sp-2) 0 0; }
+.tcard-back p { margin: 2px 0; }
+.struck { text-decoration: line-through; opacity: .7; }
+.tcard-actions { display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-3); }
+@media (prefers-reduced-motion: reduce) { .tcard-face { transition: none; } }
+
+/* Zone board: zones as columns, fighters as draggable tokens. */
+.zone-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-1); margin: var(--sp-2) 0; }
+.zone-cell { min-height: 84px; padding: var(--sp-1); border-radius: 10px; background: var(--surface-2);
+  border: 1px dashed var(--border); display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.zone-board.picking .zone-cell { border-color: var(--accent); }
+.zone-cell-name { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: 0; padding: 2px 0; font-family: inherit; text-align: left; }
+.zone-target { color: var(--accent); font-weight: 700; cursor: pointer; }
+.zone-tokens { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.token { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--surface); color: #fff; font-weight: 700;
+  font-size: var(--fs-xs); cursor: grab; touch-action: none; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); position: relative; }
+.token.side-a { background: var(--side-a); }
+.token.side-b { background: var(--side-b); }
+.token.out { opacity: .4; }
+.token.picked { outline: 3px solid var(--text); outline-offset: 1px; }
+.token.dragging { cursor: grabbing; z-index: 5; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+
+/* Welcome carousel. */
+.carousel { min-height: 60vh; display: flex; flex-direction: column; align-items: center; }
+.slide-art { width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; margin: var(--sp-4) auto var(--sp-2);
+  color: var(--accent); background: radial-gradient(circle at 50% 40%, var(--surface), var(--surface-2)); border: 1px solid var(--border); }
+.slide-facts { max-width: 34ch; margin: 0 auto; padding: var(--sp-2) var(--sp-3); border-radius: 10px; background: var(--surface-2); }
+.carousel-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; margin: var(--sp-4) 0; }
+.carousel-dots { display: flex; gap: var(--sp-2); }
+.carousel-dot { width: 10px; height: 10px; border-radius: 50%; border: 0; padding: 0; background: var(--border); cursor: pointer; }
+.carousel-dot.on { background: var(--accent); width: 24px; border-radius: 5px; }
+.hero-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); width: 100%; margin: var(--sp-3) 0; }
+.hero-pick-btn { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; min-width: 0;
+  background: none; border: 1px solid transparent; border-radius: 10px; color: var(--text); cursor: pointer; font: inherit; }
+.hero-pick-btn:hover, .hero-pick-btn:focus-visible { border-color: var(--accent); }
+.hero-pick-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 640px) { .hero-pick { grid-template-columns: repeat(6, 1fr); } }
+
+/* "What are you trying to do?" */
+.skill-block { margin-bottom: var(--sp-4); }
+.skill-block .skill-tiles { margin-bottom: 0; }
+.intent-chip { margin-bottom: var(--sp-2); }
+.intent { display: flex; flex-direction: column; gap: var(--sp-2); }
+.intent-opt { display: flex; align-items: center; gap: var(--sp-3); width: 100%; text-align: left; padding: var(--sp-3);
+  border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font: inherit; }
+.intent-opt:hover, .intent-opt:focus-visible { border-color: var(--accent); }
+.intent-ico { color: var(--accent); display: flex; flex: none; }
+.intent-text { display: flex; flex-direction: column; min-width: 0; }
+.roll-adv-chip { margin: var(--sp-2) 0; }
+
+/* Cinematic scene bands. */
+.scene-band { height: 88px; margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) var(--sp-3); overflow: hidden;
+  border-radius: 12px 12px 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface)); }
+.scene-band svg { width: 100%; height: 100%; display: block; }
+.band-moon { fill: color-mix(in srgb, var(--text) 18%, var(--surface)); }
+.band-star { fill: var(--muted); opacity: .6; }
+.band-motif { fill: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
+.band-line { fill: none; stroke: var(--surface); stroke-width: 1.5; stroke-linejoin: round; }
+.band-flag { fill: var(--accent); }
+.band-dune.back { fill: color-mix(in srgb, var(--accent) 28%, var(--surface-2)); }
+.band-dune.front { fill: var(--surface-2); }
+.home-hero .scene-band { border-bottom: 1px solid var(--border); }
+#screen > .scene-band, .hub-body > .scene-band { margin: 0 0 var(--sp-3); border-radius: 12px; border: 1px solid var(--border); }
+:root[data-theme="dark"] .scene-band { background: linear-gradient(180deg, #0d1424, var(--surface)); }
+:root[data-theme="dark"] .band-moon { fill: #d8cdb6; }
+:root[data-theme="dark"] .band-star { fill: #f1e6cf; opacity: .9; }
+@media (min-width: 900px) { #screen > .scene-band, .hub-body > .scene-band { grid-column: 1 / -1; } }
+
+/* Simple mode: intro lines step aside (the "?" in the app bar still explains each screen). */
+body.simple .screen-lead { display: none; }

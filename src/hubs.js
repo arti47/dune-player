@@ -4,7 +4,7 @@
 // `rerender` is the router's renderScreen, passed in so this module never imports the router.
 
 import { el } from './core.js';
-import { icon, emptyState } from './icons.js';
+import { icon, emptyState, sceneBand } from './icons.js';
 import { Settings } from './settings.js';
 import { listCharacters, currentCharacterId, getHouse } from './store.js';
 import { poolsHeader } from './sheet.js';
@@ -69,6 +69,7 @@ export function renderPrep(root, rerender) {
   const go = (id) => () => { location.hash = `#/${id}`; };
   const house = getHouse();
   root.append(
+    sceneBand('prep'),
     c ? el('button', { class: 'card prep-who', onclick: go('sheet') },
       medallion(c.identity, 56),
       el('span', { class: 'prep-who-text' },

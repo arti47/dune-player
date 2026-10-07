@@ -33,6 +33,9 @@ export const Settings = {
   advancedAutomation() { return !!read().advancedAutomation; },
   // Roll vibration (UI round 2 #6): ON unless the user switched it off (false stored explicitly).
   haptics()            { return read().haptics !== false; },
+  // Simple mode (radical UI, 2026-10-07): fewer words and fewer controls at once — advanced roll
+  // options behind a chip, intro lines hidden, Now shows only live tiles. ON unless switched off.
+  simple()             { return read().simple !== false; },
 
   // Onboarding & tutorial state (§13 sign-off): { seen, completedLessons[], pregenId }.
   // seen gates the one-time first-launch prompt; completedLessons drives the menu ticks;

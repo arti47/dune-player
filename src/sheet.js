@@ -129,16 +129,41 @@ export function renderSheet(root) {
   animateIn(body);
 }
 
+// Radical UI (2026-10-07): the header is a trading card. Front = who they are + the five skill
+// ratings + their top drive; tap Flip for the back = ambition, drive statements and traits.
 function charHeader(c, chars, importer) {
   const id = c.identity;
-  return el('section', { class: 'card char-header' },
+  const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
+    id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ');
+  const drives = Object.keys(c.drives || {}).sort((x, y) => c.drives[y] - c.drives[x]);
+  const statements = drives.filter((d) => c.driveStatements && c.driveStatements[d] && c.driveStatements[d].text);
+  const front = el('div', { class: 'tcard-face tcard-front' },
     el('div', { class: 'char-head' },
       medallion(id, 60),
       el('div', { class: 'char-id' },
         el('h2', { class: 'char-name' }, id.name || 'Unnamed'),
-        (() => { const meta = [id.archetype && capitalize(id.archetype), id.factionTemplate && capitalize(id.factionTemplate),
-          id.houseRole && capitalize(id.houseRole)].filter(Boolean).join(' · ');
-          return meta ? el('p', { class: 'small muted' }, meta) : null; })()),
+        meta ? el('p', { class: 'small muted' }, meta) : null)),
+    el('div', { class: 'tcard-stats' }, ...DATA.skills.map((s) => el('span', { class: 'tcard-stat' },
+      el('strong', { class: 'num' }, String(c.skills[s.id])), el('span', {}, s.name.slice(0, 3))))),
+    drives[0] ? el('p', { class: 'tcard-drive small' }, icon('flag', { size: 14 }), ` ${driveName(drives[0])} ${c.drives[drives[0]]}`,
+      statements[0] === drives[0] ? el('span', { class: 'muted' }, ` — “${c.driveStatements[drives[0]].text}”`) : null) : null);
+  const back = el('div', { class: 'tcard-face tcard-back', 'aria-hidden': 'true' },
+    el('p', { class: 'eyebrow' }, 'Ambition'),
+    el('p', { class: 'small' }, id.ambition || '—'),
+    statements.length ? el('p', { class: 'eyebrow' }, 'Drive statements') : null,
+    ...statements.map((d) => el('p', { class: 'small' + (c.driveStatements[d].challenged ? ' struck' : '') },
+      el('strong', {}, `${driveName(d)} ${c.drives[d]}: `), c.driveStatements[d].text)),
+    (c.traits || []).length ? el('p', { class: 'small muted' }, 'Traits: ' + c.traits.map((t) => t.name).join(', ')) : null);
+  const card = el('div', { class: 'tcard' }, front, back);
+  const flip = el('button', { class: 'chip tcard-flip', 'aria-pressed': 'false', onclick: () => {
+    const on = card.classList.toggle('flipped');
+    flip.setAttribute('aria-pressed', String(on));
+    front.setAttribute('aria-hidden', String(on)); back.setAttribute('aria-hidden', String(!on));
+    flip.lastChild.textContent = on ? 'Front' : 'Flip';
+  } }, icon('undo', { size: 14 }), 'Flip');
+  return el('section', { class: 'card char-header' },
+    card,
+    el('div', { class: 'tcard-actions' }, flip,
       el('button', { class: 'btn secondary btn-sm', 'aria-label': `Switch character (${chars.length})`,
         onclick: () => charactersDialog(chars, c, importer) }, icon('group', { size: 18 }), ` ${chars.length}`)));
 }
