@@ -13,6 +13,7 @@ import { icon, sceneBand } from './icons.js';
 import { medallion } from './crests.js';
 import { poolsHeader } from './sheet.js';
 import { openRollRitual } from './ritual.js';
+import { withSpark } from './spark.js';
 import { runLifecycle } from './combat.js';
 import { askOracle, answerText, yesChanceFor, sceneCheck, chaosAfterScene, rollEvent, eventLine, threadsCard, contactsCard } from './journal.js';
 import { hookCard, npcCard } from './gm.js';
@@ -139,7 +140,8 @@ function newSceneCard(c, rerender) {
     sceneBand('play'),
     el('p', { class: 'eyebrow' }, `Scene ${n}`),
     el('h2', { class: 'scene-title' }, 'Set the scene'),
-    where, who, stakes,
+    withSpark(where, 'where', {}, 'Roll a place'), withSpark(who, 'who', {}, 'Roll who is here'), withSpark(stakes, 'stakes', {}, 'Roll what is at stake'),
+    el('p', { class: 'small muted spark-note' }, 'Die: a Story Hook entry from the book; tap again for homebrew Meaning Table words.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: begin(false) }, icon('flag', { size: 18 }), ' Begin scene'),
       Settings.journal() ? el('button', { class: 'btn secondary', onclick: begin(true) }, 'Begin + scene check') : null),
@@ -174,7 +176,7 @@ function sceneHeader(scene, rerender) {
 function editScene(scene, rerender) {
   const f = (label, v) => { const i = el('input', { type: 'text', 'aria-label': label, placeholder: label }); i.value = v || ''; return i; };
   const where = f('Where are you?', scene.where), who = f('Who is here?', scene.who), stakes = f('What is at stake?', scene.stakes);
-  const close = modal([el('h2', {}, `Scene ${scene.n}`), where, who, stakes,
+  const close = modal([el('h2', {}, `Scene ${scene.n}`), withSpark(where, 'where', {}, 'Roll a place'), withSpark(who, 'who', {}, 'Roll who is here'), withSpark(stakes, 'stakes', {}, 'Roll what is at stake'),
     el('div', { class: 'modal-actions' },
       el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
       el('button', { class: 'btn', onclick: () => {
@@ -280,9 +282,9 @@ function rollLine(r, rerender, narrateFor) {
     const say = el('input', { type: 'text', placeholder: passed ? 'Say what happened…' : 'Say how it went wrong…', 'aria-label': 'Say what happened' });
     const post = () => { if (!say.value.trim()) return; appendFeed({ kind: 'note', text: say.value.trim(), characterName: narrateFor.identity.name || '' }); rerender(); };
     say.addEventListener('keydown', (e) => { if (e.key === 'Enter') post(); });
-    out.push(el('div', { class: 'narrate' }, say, el('button', { class: 'btn btn-sm', onclick: post }, 'Add')));
+    out.push(el('div', { class: 'narrate' }, withSpark(say, 'story', {}, 'Roll homebrew words'), el('button', { class: 'btn btn-sm', onclick: post }, 'Add')));
     if (r.complications) out.push(el('button', { class: 'chip narrate-comp', onclick: async () => {
-      const name = await promptModal('Name the complication — it becomes a trait on your character until it stops being true.', { placeholder: 'e.g. Twisted ankle', okLabel: 'Add trait' });
+      const name = await promptModal('Name the complication — it becomes a trait on your character until it stops being true.', { placeholder: 'e.g. Twisted ankle', okLabel: 'Add trait', wrap: (i) => withSpark(i, 'complication', { skill: r.skill }, 'Roll a complication from the book') });
       if (!name) return;
       const ch = getCharacter(narrateFor.id) || narrateFor;
       saveCharacter({ ...ch, traits: [...(ch.traits || []), { name, negative: true, source: 'complication' }] });
@@ -431,7 +433,7 @@ function noteSheet(c, rerender) {
     appendFeed({ kind, text: text.value.trim(), characterName: c.identity.name || '' });
     close(); rerender();
   };
-  const close = modal([el('h2', {}, 'Write the story'), text,
+  const close = modal([el('h2', {}, 'Write the story'), withSpark(text, 'story', {}, 'Roll homebrew words'),
     el('div', { class: 'modal-actions' },
       el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
       el('button', { class: 'btn', onclick: post('note') }, 'Add to the story'))], { sheet: true });

@@ -13,6 +13,7 @@ import { openRollDialog } from './roller.js';
 import { driveName } from './content.js';
 import { DATA } from '../data.js';
 import { Settings } from './settings.js';
+import { withSpark } from './spark.js';
 
 const SKILL_ICO = { battle: 'swords', communicate: 'group', discipline: 'shield', move: 'up', understand: 'compass' };
 
@@ -59,7 +60,7 @@ export function openRollRitual(c, onDone = null, opts = {}) {
       placeholder: `${opts.verb}… what exactly? (optional)`, 'aria-label': 'What do you try?' }) : null;
     if (actionBox) actionBox.addEventListener('input', () => { st.action = actionBox.value; });
     return [head('Why does it matter?', 1),
-      actionBox,
+      actionBox ? withSpark(actionBox, 'action', {}, 'Roll homebrew words') : null,
       el('div', { class: 'ritual-list' }, ...drives().map((id) => {
         const s = c.driveStatements && c.driveStatements[id];
         const tag = (DATA.drives.find((d) => d.id === id) || {}).tag || '';

@@ -2058,5 +2058,31 @@ console.log('\n— Scene screen: play and story joined (2026-10-13) —');
   check('Meaning Tables spark goes into the open scene', /if \(currentScene\(\)\) appendFeed/.test(readFileSync(join(root, 'src/oracle.js'), 'utf8')));
 }
 
+console.log('\n— Idea dice beside text fields (2026-10-13) —');
+{
+  const sp = await import(join(root, 'src/spark.js'));
+  const { DATA: D } = await import(join(root, 'data.js'));
+  const { ORACLE: O } = await import(join(root, 'data-oracle.js'));
+  const seq = (...xs) => { let i = 0; return () => xs[i++ % xs.length]; };
+  const first = sp.sparkStep('where', '', null, {}, seq(0));
+  check('empty field: first tap fills a book Story Hook location', first.fill === D.storyHooks.columns.location[0]);
+  const second = sp.sparkStep('where', first.fill, first.last, {}, seq(0));
+  check('second tap on the rolled text adds a homebrew Meaning Table word', second.fill.startsWith(first.fill + ' — ') && second.last.stage === 'more');
+  const third = sp.sparkStep('where', second.fill, second.last, {}, seq(0.5));
+  check('third tap rolls a fresh book entry', D.storyHooks.columns.location.includes(third.fill));
+  const own = sp.sparkStep('where', 'My own palace', first.last, {}, seq(0));
+  check('your own text is never overwritten — the roll is a suggestion', own.fill === undefined && typeof own.suggest === 'string');
+  check('stakes = book plot + goal', sp.SPARKS.stakes.roll(seq(0)) === 'Break in and steal or kidnap the Secret Data');
+  check('complication examples by skill, pooled where the source has none', sp.complicationExamples('battle').includes('Bruised') && sp.complicationExamples('move').length === 18);
+  check('ambition themes come from the book line for that drive', sp.ambitionThemes('duty').length >= 2 && sp.ambitionThemes('duty').every((t) => D.creationGuidance.ambitionByDrive.duty.includes(t)));
+  check('every spark kind rolls text', Object.keys(sp.SPARKS).every((k) => { const t = sp.SPARKS[k].roll(Math.random, { skill: 'battle', drive: 'power' }); return typeof t === 'string' && t.length > 0; }));
+  check('homebrew House tables present + labelled', O.house.names.length >= 20 && O.house.worlds.length >= 20 && /Homebrew/.test(O.house.note));
+  const files = ['src/feed.js', 'src/ritual.js', 'src/journal.js', 'src/wizard.js'].map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
+  check('dice wired to scene, story, complication, threads/people, character + House fields',
+    ['where', 'who', 'stakes', 'story', 'complication', 'action', 'thread', 'npc', 'place', 'charName', 'personality', 'ambition', 'appearance', 'houseName', 'world', 'crest', 'colours', 'reputation']
+      .every((k) => files.includes(`'${k}'`)));
+  check('spark.js in the app shell', readFileSync(join(root, 'service-worker.js'), 'utf8').includes('./src/spark.js'));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

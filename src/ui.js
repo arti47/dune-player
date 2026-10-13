@@ -154,7 +154,7 @@ export function confirmModal(message, { okLabel = 'Confirm', cancelLabel = 'Canc
 }
 
 /** Themed prompt → Promise<string|null>. */
-export function promptModal(message, { placeholder = '', value = '', okLabel = 'OK' } = {}) {
+export function promptModal(message, { placeholder = '', value = '', okLabel = 'OK', wrap = null } = {}) {
   return new Promise((resolve) => {
     let done = false;
     const msgId = `modal-msg-${++modalTitleSeq}`;
@@ -164,7 +164,7 @@ export function promptModal(message, { placeholder = '', value = '', okLabel = '
     const ok = el('button', { class: 'btn', onclick: submit }, okLabel);
     const cancel = el('button', { class: 'btn secondary', onclick: () => { done = true; close(); resolve(null); } }, 'Cancel');
     const close = modal(
-      [el('p', { id: msgId }, message), input, el('div', { class: 'modal-actions' }, cancel, ok)],
+      [el('p', { id: msgId }, message), wrap ? wrap(input) : input, el('div', { class: 'modal-actions' }, cancel, ok)],
       { labelledBy: msgId, onClose: () => { if (!done) resolve(null); } }
     );
     input.focus();

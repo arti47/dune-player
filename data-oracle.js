@@ -302,4 +302,22 @@ export const ORACLE = {
     personality: ['Loyal', 'Ruthless', 'Secretive', 'Proud', 'Patient', 'Reckless', 'Cunning', 'Devout',
       'Cautious', 'Charming', 'Stoic', 'Ambitious', 'Curious', 'Honourable', 'Wary', 'Generous'],
   },
+
+  // House-wizard sparks (homebrew, NOT from any rulebook). Original names only — no canon Houses or
+  // worlds. Crest phrases use words banner.js draws as an emblem; colours use words it can paint.
+  house: {
+    note: 'Homebrew name ideas, not rules — rename freely.',
+    names: ['Varrick', 'Ostrane', 'Calvane', 'Merrow', 'Tessaly', 'Draxen', 'Halvor', 'Iskander', 'Korvane', 'Lysander',
+      'Mordane', 'Nerith', 'Orsolo', 'Pravis', 'Quintar', 'Rhovan', 'Salvane', 'Tarsis', 'Ulmar', 'Vespera',
+      'Wexley', 'Yarrish', 'Zerran', 'Belcourt', 'Cendaro', 'Dorval', 'Fenmark', 'Gallant', 'Hestor', 'Ilvane'],
+    worlds: ['Corvanis', 'Delmara', 'Escaron', 'Ferrovia', 'Galene', 'Hespera', 'Ivoria', 'Jessar', 'Kallisto Minor', 'Lumen',
+      'Marrowind', 'Nereth', 'Orrin Prime', 'Pellucid', 'Quessa', 'Ravonne', 'Sarpedon', 'Tyrrel', 'Umbriel', 'Valdris',
+      'Wendmoor', 'Xantha', 'Yorrow', 'Zephyrine', 'Ashkara', 'Brennos', 'Cyrene', 'Dunmere', 'Elysa', 'Fallowmere'],
+    crests: ['A hawk rising', 'A sheaf of wheat', 'An ancient tree', 'An open fan', 'An open book', 'A scythe and moon',
+      'A charging bull', 'A mailed fist', 'A rearing horse', 'A desert rose', 'A cut gemstone', 'A burning lamp',
+      'A crysknife', 'Balanced scales', 'A hammer and anvil', 'A double helix', 'A crouching tiger', 'A griffin sigil',
+      'A crown of stars', 'Two crossed swords', 'A rising sun', 'A crescent moon', 'A single star', 'A coiled worm', 'A lone tower'],
+    colours: ['green', 'black', 'red', 'crimson', 'gold', 'blue', 'white', 'bone', 'purple', 'violet', 'brown', 'orange',
+      'teal', 'indigo', 'copper', 'bronze', 'silver', 'grey', 'scarlet', 'ochre', 'sea green', 'sky blue', 'deep blue', 'harvest yellow'],
+  },
 };

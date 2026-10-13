@@ -17,6 +17,7 @@ import {
 } from './store.js';
 import { promptModal, showToast, modal, undoToast } from './ui.js';
 import { ORACLE } from '../data-oracle.js';
+import { withSpark } from './spark.js';
 import { poolsHeader } from './sheet.js';
 import { openOracle } from './oracle.js';
 import { Settings } from './settings.js';
@@ -390,7 +391,7 @@ export function threadsCard(j, draw) {
     el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
-        const title = await promptModal('New thread', { placeholder: 'e.g. Who poisoned the Duke?', okLabel: 'Add' });
+        const title = await promptModal('New thread', { placeholder: 'e.g. Who poisoned the Duke?', okLabel: 'Add', wrap: (i) => withSpark(i, 'thread', {}, 'Roll a Story Hook plot') });
         if (!title) return;
         const cur = getJournal(); cur.threads.push({ id: uid(), title, status: 'open', note: '' }); saveJournal(cur); draw();
       } }, '+ Thread')),
@@ -417,7 +418,8 @@ export function contactsCard(j, draw) {
       } }, icon('trash', { size: 14 }))));
 
   const add = (type) => async () => {
-    const name = await promptModal(type === 'place' ? 'New place' : 'New NPC', { placeholder: 'Name', okLabel: 'Add' });
+    const name = await promptModal(type === 'place' ? 'New place' : 'New NPC', { placeholder: 'Name', okLabel: 'Add',
+      wrap: (i) => withSpark(i, type === 'place' ? 'place' : 'npc', {}, type === 'place' ? 'Roll a place' : 'Roll a name') });
     if (!name) return;
     const cur = getJournal(); cur.contacts.push({ id: uid(), name, type, note: '' }); saveJournal(cur); draw();
   };

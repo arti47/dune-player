@@ -1634,7 +1634,7 @@ body.simple .intro { display: none; }   /* text diet: explanatory lines step asi
 
 /* ---------- Scene screen (2026-10-13): play and story joined ---------- */
 .scene-new, .scene-head { position: relative; }
-.scene-new input, .scene-new .scene-title { margin-bottom: var(--sp-2); }
+.scene-new .spark-field, .scene-new .scene-title { margin-bottom: var(--sp-2); }
 .scene-new input { width: 100%; }
 .scene-title { margin: 0 0 var(--sp-2); font-size: var(--fs-xl); letter-spacing: .06em; }
 .scene-head-top { display: flex; justify-content: space-between; align-items: center; }
@@ -1684,3 +1684,19 @@ body:has(.choice-dock) .toast-region { bottom: auto; top: calc(var(--header-h) +
   .hub-body:has(> .choice-dock) { columns: auto; display: block; }
   .choice-dock { bottom: var(--sp-4); max-width: 620px; margin-left: auto; margin-right: auto; }
 }
+
+/* ---------- Idea dice beside text fields (spark.js) ---------- */
+.spark-field { display: block; min-width: 0; }
+.narrate .spark-field { flex: 1; }
+.spark-row { display: flex; gap: var(--sp-2); align-items: flex-start; }
+.spark-row > input, .spark-row > textarea { flex: 1; min-width: 0; margin: 0; }
+.spark-btn { flex: none; width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent; color: var(--accent); cursor: pointer; }
+.spark-btn:hover, .spark-btn:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.spark-btn:active svg { transform: rotate(60deg); transition: transform .15s; }
+.spark-slot:empty { display: none; }
+.spark-sugg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2); border-left: 2px solid var(--accent); font-size: var(--fs-sm); }
+.spark-text { flex: 1 1 100%; font-style: italic; }
+.spark-note { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .spark-btn:active svg { transform: none; } }

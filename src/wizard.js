@@ -14,6 +14,7 @@ import { allTalents, findTalent, allFactionTemplates, allArchetypes, focusExampl
 import { saveCharacter, setCurrentCharacterId, getHouse, saveHouse, listCharacters } from './store.js';
 import { factionCrest, archetypeCrest, domainCrest, roleCrest } from './crests.js';
 import { ORACLE } from '../data-oracle.js';
+import { withSpark } from './spark.js';
 
 const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const DRIVE_NAME = Object.fromEntries(DATA.drives.map((d) => [d.id, d.name]));
@@ -333,7 +334,7 @@ function stepConcept(state, body, rerender) {
   if (state.mode === 'inPlay') {
     const nameInput = el('input', { type: 'text', placeholder: 'Character name', value: state.identity.name || '' });
     nameInput.addEventListener('input', () => { state.identity.name = nameInput.value; });
-    body.append(el('label', { class: 'field' }, el('span', {}, 'Name'), nameInput),
+    body.append(el('label', { class: 'field' }, el('span', {}, 'Name'), withSpark(nameInput, 'charName', {}, 'Roll a homebrew name')),
       el('p', { class: 'small muted' },
         'Your skills will start at the archetype base (primary 6 · secondary 5 · rest 4) and drives at 4 — raise them via the define-options on your sheet.'));
   }
@@ -931,29 +932,30 @@ function stepFinishing(state, body) {
       ? el('textarea', { rows: '2', placeholder: opts.ph || '' }, state.identity[key] || '')
       : el('input', { type: 'text', placeholder: opts.ph || '', value: state.identity[key] || '' });
     input.addEventListener('input', () => { state.identity[key] = input.value; });
-    return el('label', { class: 'field' }, el('span', {}, label), input);
+    return el('label', { class: 'field' }, el('span', {}, label), opts.spark ? withSpark(input, opts.spark, opts.ctx || {}, opts.sparkLabel) : input);
   };
   const questionList = (summary, questions) => el('details', { class: 'tips' },
     el('summary', {}, summary),
     el('ul', {}, ...questions.map((q) => el('li', { class: 'small' }, q))));
 
   body.append(
-    field('Name', 'name', { ph: 'Character name' }),
+    field('Name', 'name', { ph: 'Character name', spark: 'charName', sparkLabel: 'Roll a homebrew name' }),
 
     (() => {
       const input = el('input', { type: 'text', placeholder: 'e.g. Honourable, Ruthless, Secretive', value: state.reputationTrait });
       input.addEventListener('input', () => { state.reputationTrait = input.value; });
-      return el('label', { class: 'field' }, el('span', {}, 'Reputation / personality trait'), input);
+      return el('label', { class: 'field' }, el('span', {}, 'Reputation / personality trait'), withSpark(input, 'personality', {}, 'Roll a homebrew trait'));
     })(),
 
-    field('Ambition', 'ambition', { ph: `A long-term goal tied to ${driveName(highest)} (${state.driveAssignment[highest]})` }),
+    field('Ambition', 'ambition', { ph: `A long-term goal tied to ${driveName(highest)} (${state.driveAssignment[highest]})`,
+      spark: 'ambition', ctx: { drive: highest }, sparkLabel: `Roll a ${driveName(highest)} ambition theme from the book` }),
     el('p', { class: 'small muted' }, G.ambitionRule),
     G.ambitionByDrive[highest]
       ? el('p', { class: 'small' }, el('strong', {}, `${driveName(highest)} ambitions: `), G.ambitionByDrive[highest])
       : null,
     el('p', { class: 'small muted' }, G.ambitionExample),
 
-    field('Appearance', 'appearance', { textarea: true, ph: 'Optional — see prompts below' }),
+    field('Appearance', 'appearance', { textarea: true, ph: 'Optional — see prompts below', spark: 'appearance', sparkLabel: 'Roll homebrew words' }),
     questionList('Appearance prompts', G.appearanceQuestions),
 
     field('Relationships', 'relationships', { textarea: true, ph: 'Optional — see prompts below' }),
@@ -1295,7 +1297,7 @@ function hStepType(state, body, rerender) {
   const gg = Settings.greatGame();
   const nameInput = el('input', { type: 'text', placeholder: 'House name (e.g. House Varrick)', value: state.name });
   nameInput.addEventListener('input', () => { state.name = nameInput.value; });
-  body.append(el('label', { class: 'field' }, el('span', {}, 'House name'), nameInput));
+  body.append(el('label', { class: 'field' }, el('span', {}, 'House name'), withSpark(nameInput, 'houseName', {}, 'Roll a homebrew House name')));
 
   for (const t of DATA.houseTypes) {
     const c = DATA.houseDomainCounts[t.id];
@@ -1420,7 +1422,7 @@ function hStepHomeworld(state, body) {
   body.append(el('p', { class: 'small muted' }, DATA.homeworld.note));
   const nameInp = el('input', { type: 'text', placeholder: 'Homeworld name (e.g. Kaitain)', value: state.homeworld.name || '' });
   nameInp.addEventListener('input', () => { state.homeworld.name = nameInp.value; });
-  body.append(el('label', { class: 'field' }, el('span', {}, 'Homeworld name'), nameInp));
+  body.append(el('label', { class: 'field' }, el('span', {}, 'Homeworld name'), withSpark(nameInp, 'world', {}, 'Roll a homebrew world name')));
   for (const key of Object.keys(HOMEWORLD_LABELS)) {
     const sel = el('select', { 'aria-label': HOMEWORLD_LABELS[key] },
       el('option', { value: '' }, '—'),
@@ -1438,8 +1440,8 @@ function hStepBanner(state, body) {
   const colors = el('input', { type: 'text', placeholder: '1–2 colours, e.g. crimson & bone', value: state.banner.colors });
   colors.addEventListener('input', () => { state.banner.colors = colors.value; });
   body.append(
-    el('label', { class: 'field' }, el('span', {}, 'Crest'), crest),
-    el('label', { class: 'field' }, el('span', {}, 'Colours'), colors));
+    el('label', { class: 'field' }, el('span', {}, 'Crest'), withSpark(crest, 'crest', {}, 'Roll a homebrew crest')),
+    el('label', { class: 'field' }, el('span', {}, 'Colours'), withSpark(colors, 'colours', {}, 'Roll two colours')));
 }
 
 // ---------- House step 5: Traits ----------
@@ -1459,7 +1461,7 @@ function hStepTraits(state, body) {
     el('option', { value: '' }, 'Insert an example…'),
     ...DATA.houseTraits.reputationExamples.map((r) => el('option', { value: r }, r)));
   pick.addEventListener('change', () => { if (pick.value) { state.traits.reputation = pick.value; rep.value = pick.value; pick.value = ''; } });
-  body.append(el('label', { class: 'field' }, el('span', {}, 'Reputation trait'), rep, pick),
+  body.append(el('label', { class: 'field' }, el('span', {}, 'Reputation trait'), withSpark(rep, 'reputation', {}, 'Roll a reputation from the book'), pick),
     el('p', { class: 'small muted' }, DATA.houseTraits.reputationNote));
 }
 
@@ -1539,7 +1541,7 @@ function hStepEnemies(state, body, rerender) {
   } }, 'Add enemy');
 
   body.append(
-    el('label', { class: 'field' }, el('span', {}, 'Name'), nameInp),
+    el('label', { class: 'field' }, el('span', {}, 'Name'), withSpark(nameInp, 'houseName', {}, 'Roll a homebrew House name')),
     el('label', { class: 'field' }, el('span', {}, 'Type'), typeSel),
     el('div', { class: 'focus-row' }, hSel, rSel),
     el('label', { class: 'field' }, el('span', {}, 'Notes'), notesInp),
