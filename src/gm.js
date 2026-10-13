@@ -110,14 +110,22 @@ function partyCard() {
 }
 
 // ---------- Story Hook Generator (§3.16) ----------
-export function hookCard() {
+/** Roll a d20 on each Story Hook column → { plot, goal, location, hazard, character, rolls }. */
+export function rollStoryHook(roll = d20) {
+  const out = { rolls: {} };
+  for (const [name, entries] of Object.entries(DATA.storyHooks.columns)) {
+    const r = roll(); out.rolls[name] = r; out[name] = entries[storyHookIndex(r)];
+  }
+  return out;
+}
+/** `actions(hook)` adds buttons under the result (the scene's Start a scene / Add as thread & people). */
+export function hookCard(actions = null) {
   const out = el('div', {});
   const roll = () => {
-    const cols = DATA.storyHooks.columns;
-    out.replaceChildren(el('ul', {}, ...Object.entries(cols).map(([name, entries]) => {
-      const r = d20();
-      return el('li', { class: 'small' }, el('strong', {}, capitalize(name) + ': '), entries[storyHookIndex(r)], el('span', { class: 'small muted' }, ` (d20=${r})`));
-    })));
+    const h = rollStoryHook();
+    out.replaceChildren(el('ul', {}, ...Object.keys(DATA.storyHooks.columns).map((name) =>
+      el('li', { class: 'small' }, el('strong', {}, capitalize(name) + ': '), h[name], el('span', { class: 'small muted' }, ` (d20=${h.rolls[name]})`)))),
+      actions ? el('div', { class: 'cta-row' }, ...[].concat(actions(h))) : null);
   };
   return el('section', { class: 'card' },
     el('h3', {}, 'Story hook generator'),
@@ -144,7 +152,8 @@ function enemyCard() {
 }
 
 // ---------- NPC compendium ----------
-function npcBlock(n, kind) {
+/** One compendium entry as a folding stat block. `actions(n)` adds buttons (the scene's Add to scene). */
+export function npcBlock(n, kind, actions = null) {
   return el('details', { class: 'tips' },
     el('summary', {}, `${n.name} — ${n.tier}${kind === 'iconic' ? ' · iconic' : ''}`),
     (n.traits || []).length ? el('p', { class: 'small muted' }, 'Traits: ' + n.traits.join(', ')) : null,
@@ -152,9 +161,10 @@ function npcBlock(n, kind) {
     el('p', { class: 'small' }, el('strong', {}, 'Drives: '), DRIVE.map((d) => `${d.name.slice(0, 3)} ${n.drives?.[d.id] ?? '—'}`).join(' · ')),
     (n.focuses || []).length ? el('p', { class: 'small muted' }, 'Focuses: ' + n.focuses.map((f) => f.name).join(', ')) : null,
     (n.talents || []).length ? el('p', { class: 'small muted' }, 'Talents: ' + n.talents.join(', ')) : null,
-    (n.assets || []).length ? el('p', { class: 'small muted' }, 'Assets: ' + n.assets.map((a) => a.name || a).join(', ')) : null);
+    (n.assets || []).length ? el('p', { class: 'small muted' }, 'Assets: ' + n.assets.map((a) => a.name || a).join(', ')) : null,
+    actions ? el('div', { class: 'cta-row' }, ...[].concat(actions(n))) : null);
 }
-export function npcCard() {
+export function npcCard(actions = null) {
   const search = el('input', { type: 'search', placeholder: 'Search NPCs…', 'aria-label': 'Search NPCs' });
   const list = el('div', {});
   const draw = () => {
@@ -163,11 +173,11 @@ export function npcCard() {
     const expansion = expansionNpcs();   // toggle-gated (enabled books only)
     list.replaceChildren(...[
       el('h4', {}, `Generic archetypes (${NPCS.archetypes.filter(hit).length})`),
-      ...NPCS.archetypes.filter(hit).map((n) => npcBlock(n, 'archetype')),
+      ...NPCS.archetypes.filter(hit).map((n) => npcBlock(n, 'archetype', actions)),
       el('h4', {}, `Iconic characters (${NPCS.iconics.filter(hit).length})`),
-      ...NPCS.iconics.filter(hit).map((n) => npcBlock(n, 'iconic')),
+      ...NPCS.iconics.filter(hit).map((n) => npcBlock(n, 'iconic', actions)),
       expansion.length ? el('h4', {}, `Expansion NPCs (${expansion.filter(hit).length})`) : null,
-      ...expansion.filter(hit).map((n) => npcBlock(n, 'archetype')),
+      ...expansion.filter(hit).map((n) => npcBlock(n, 'archetype', actions)),
     ].filter((x) => x != null));
   };
   search.addEventListener('input', draw);

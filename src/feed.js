@@ -14,9 +14,10 @@ import { medallion } from './crests.js';
 import { poolsHeader } from './sheet.js';
 import { openRollRitual } from './ritual.js';
 import { withSpark } from './spark.js';
+import { hookToScene, seedFromHook, threadChips, castChips, reviewThreads, applyThreadReview, addNpcToScene } from './cast.js';
 import { runLifecycle } from './combat.js';
 import { askOracle, answerText, yesChanceFor, sceneCheck, chaosAfterScene, rollEvent, eventLine, threadsCard, contactsCard } from './journal.js';
-import { hookCard, npcCard } from './gm.js';
+import { hookCard, npcCard, rollStoryHook } from './gm.js';
 import { openOracle } from './oracle.js';
 import { HELP } from '../data-help.js';
 import { modal, showToast, undoToast, promptModal } from './ui.js';
@@ -111,7 +112,7 @@ export function renderFeed(root, c, count, rerender) {
   root.append(...[
     head(c, count, { session: sessionInfo(feed).session, scene: scene ? scene.n : getStory().scenes.length + 1 }, rerender),
     table ? tableView(c, rerender) : null,
-    scene ? sceneHeader(scene, rerender) : newSceneCard(c, rerender),
+    scene ? sceneHeader(scene, c, rerender) : newSceneCard(c, rerender),
     scene && !table ? (lines.length ? list : el('p', { class: 'story-empty small muted' }, 'Nothing has happened yet. What do you do?')) : null,
     isNewSitting(all) && !welcomedBack ? beginCard(all, rerender) : null,
     nextUp(c, rerender, scene),
@@ -131,8 +132,22 @@ function newSceneCard(c, rerender) {
   const where = f('Where are you?', 'Where are you? (the Arrakeen palace, at night)');
   const who = f('Who is here?', 'Who is here? (Gurney, two guards)');
   const stakes = f('What is at stake?', 'What is at stake? (the Duke’s message)');
+  // Start from a Story Hook (Core book): fills the three fields, notes the Hazard, and on Begin
+  // seeds a thread (Plot + Goal), the Character as an NPC and the Location as a place.
+  let hook = null;
+  const hazardLine = el('p', { class: 'small scene-hazard' });
+  hazardLine.hidden = true;
+  const fromHook = () => {
+    hook = rollStoryHook();
+    const s = hookToScene(hook);
+    where.value = s.where; who.value = s.who; stakes.value = s.stakes;
+    hazardLine.replaceChildren(el('span', { class: 'muted' }, 'Hazard: '), s.hazard);
+    hazardLine.hidden = false;
+  };
   const begin = (check) => () => {
-    beginScene({ where: where.value.trim(), who: who.value.trim(), stakes: stakes.value.trim() });
+    const s = hook ? hookToScene(hook) : null;
+    const threadId = hook && stakes.value.trim() === s.stakes ? seedFromHook(hook) : null;
+    beginScene({ where: where.value.trim(), who: who.value.trim(), stakes: stakes.value.trim(), hazard: hook ? s.hazard : '', threadId });
     if (check) sceneCheckLine();
     rerender();
   };
@@ -140,7 +155,9 @@ function newSceneCard(c, rerender) {
     sceneBand('play'),
     el('p', { class: 'eyebrow' }, `Scene ${n}`),
     el('h2', { class: 'scene-title' }, 'Set the scene'),
+    el('div', { class: 'cta-row' }, el('button', { class: 'chip on', onclick: fromHook }, icon('d20', { size: 14 }), 'Start from a Story Hook')),
     withSpark(where, 'where', {}, 'Roll a place'), withSpark(who, 'who', {}, 'Roll who is here'), withSpark(stakes, 'stakes', {}, 'Roll what is at stake'),
+    hazardLine,
     el('p', { class: 'small muted spark-note' }, 'Die: a Story Hook entry from the book; tap again for homebrew Meaning Table words.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn', onclick: begin(false) }, icon('flag', { size: 18 }), ' Begin scene'),
@@ -157,7 +174,7 @@ function sceneCheckLine() {
   appendFeed({ kind: 'check', text: `Scene check: ${o.label} — ${o.desc}`, detail: `d10 ${roll} vs Chaos ${j.chaos}`, event: ev ? eventLine(ev) : null });
 }
 
-function sceneHeader(scene, rerender) {
+function sceneHeader(scene, c, rerender) {
   const j = getJournal();
   return el('section', { class: 'card scene-head' },
     el('div', { class: 'scene-head-top' },
@@ -165,8 +182,10 @@ function sceneHeader(scene, rerender) {
       Settings.journal() ? el('button', { class: 'chip', 'aria-label': `Chaos Factor ${j.chaos} — adjust`, onclick: () => chaosSheet(rerender) },
         icon('chaos', { size: 14 }), `Chaos ${j.chaos}`) : null),
     el('h2', { class: 'scene-title' }, scene.where || 'An unnamed place'),
-    scene.who ? el('p', { class: 'scene-meta' }, el('span', { class: 'muted' }, 'Here: '), scene.who) : null,
     scene.stakes ? el('p', { class: 'scene-meta' }, el('span', { class: 'muted' }, 'At stake: '), scene.stakes) : null,
+    scene.hazard ? el('p', { class: 'scene-meta' }, el('span', { class: 'muted' }, 'Hazard: '), scene.hazard) : null,
+    castChips(scene, c, rerender),
+    threadChips(scene, rerender),
     el('div', { class: 'scene-tools' },
       el('button', { class: 'chip', onclick: () => editScene(scene, rerender) }, icon('pencil', { size: 14 }), 'Edit'),
       el('button', { class: 'chip', onclick: () => chaptersSheet() }, icon('scroll', { size: 14 }), 'Story so far'),
@@ -197,7 +216,9 @@ function chaosSheet(rerender) {
 /** Threads and NPCs & places, folded in from the old Journal tab, plus opposition and sparks. */
 function notesDrawer(rerender) {
   const box = el('div', {});
-  const draw = () => { const j = getJournal(); box.replaceChildren(threadsCard(j, draw), contactsCard(j, draw), hookCard(), npcCard()); };
+  const draw = () => { const j = getJournal(); box.replaceChildren(threadsCard(j, draw), contactsCard(j, draw),
+    hookCard((h) => el('button', { class: 'btn btn-sm', onclick: () => { seedFromHook(h); showToast('Added a thread, an NPC and a place'); draw(); } }, 'Add as thread & people')),
+    npcCard((n) => el('button', { class: 'btn btn-sm', onclick: () => { addNpcToScene(n); showToast(`${n.name} is here`); } }, 'Add to scene'))); };
   draw();
   modal([el('h2', {}, 'Threads & people'), box], { sheet: true, onClose: rerender });
 }
@@ -343,10 +364,14 @@ async function endScene(rerender) {
   const before = getJournal().chaos;
   let inControl = null;
   if (solo) { inControl = await askInControl(); if (inControl == null) return; }
+  const review = await reviewThreads();
+  if (!review) return;
+  let undoReview = () => {};
   const scene = currentScene();
   await runLifecycle('scene', rerender, {
+    first: () => { undoReview = applyThreadReview(review); },
     before: () => { endCurrentScene(); if (solo) setChaos(chaosAfterScene(before, inControl)); },
-    undo: () => { if (scene) updateScene(scene.id, { ended: false, endTs: null }); if (solo) setChaos(before); },
+    undo: () => { if (scene) updateScene(scene.id, { ended: false, endTs: null }); if (solo) setChaos(before); undoReview(); },
   });
 }
 function askInControl() {

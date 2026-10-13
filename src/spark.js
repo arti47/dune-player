@@ -37,7 +37,7 @@ export function complicationExamples(skill) {
 /** Generators: { roll(rng, ctx) → text, more?(text, rng, ctx) → text }. */
 export const SPARKS = {
   where: { roll: (r) => hook('location', r), more: (t, r) => `${t} — ${low(pick(words('descriptor'), r))}` },
-  who: { roll: (r) => hook('character', r), more: (t, r) => `${t} — ${low(pick(words('descriptor'), r))}` },
+  who: { roll: (r) => { const [n, ...role] = hook('character', r).split(', '); return role.length ? `${n} (${role.join(', ')})` : n; }, more: (t, r) => `${t} — ${low(pick(words('descriptor'), r))}` },
   stakes: { roll: (r) => plotGoal(r), more: (t, r) => `${t} — ${pick(words('lore'), r)}` },
   action: { roll: (r) => `${low(pick(words('action'), r))} — ${low(pick(words('descriptor'), r))}` },
   story: { roll: (r) => `${pick(words('action'), r)}, ${low(pick(words('descriptor'), r))} — ${low(pick(words('event'), r))}` },

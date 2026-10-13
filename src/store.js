@@ -266,9 +266,9 @@ export function restoreRollLog(log) { writeJSON(K_ROLLLOG, Array.isArray(log) ? 
 export function getStory() { const s = readJSON(K_STORY, null); return s && Array.isArray(s.scenes) ? s : { scenes: [] }; }
 export function saveStory(s) { writeJSON(K_STORY, s); notify('story'); }
 export function currentScene() { const sc = getStory().scenes; const last = sc[sc.length - 1]; return last && !last.ended ? last : null; }
-export function beginScene({ where = '', who = '', stakes = '' } = {}) {
+export function beginScene({ where = '', who = '', stakes = '', hazard = '', threadId = null } = {}) {
   const s = getStory();
-  const scene = { id: uid(), n: s.scenes.length + 1, where, who, stakes, ts: Date.now(), ended: false, endTs: null };
+  const scene = { id: uid(), n: s.scenes.length + 1, where, who, stakes, hazard, threadId, ts: Date.now(), ended: false, endTs: null };
   saveStory({ ...s, scenes: [...s.scenes, scene] });
   return scene;
 }

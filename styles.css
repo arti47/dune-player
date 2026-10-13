@@ -1700,3 +1700,11 @@ body:has(.choice-dock) .toast-region { bottom: auto; top: calc(var(--header-h) +
 .spark-text { flex: 1 1 100%; font-style: italic; }
 .spark-note { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) { .spark-btn:active svg { transform: none; } }
+
+/* ---------- Scene links: cast + threads (cast.js) ---------- */
+.scene-links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-2); }
+.scene-links-label { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); min-width: 56px; }
+.scene-links .chip { max-width: 100%; white-space: normal; text-align: left; }
+.scene-hazard[hidden] { display: none; }
+.thread-review-list { list-style: none; padding: 0; margin: 0 0 var(--sp-3); display: grid; gap: var(--sp-3); }
+.thread-review > span { display: block; margin-bottom: var(--sp-1); }

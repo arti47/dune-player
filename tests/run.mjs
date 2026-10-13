@@ -2084,5 +2084,42 @@ console.log('\n— Idea dice beside text fields (2026-10-13) —');
   check('spark.js in the app shell', readFileSync(join(root, 'service-worker.js'), 'utf8').includes('./src/spark.js'));
 }
 
+console.log('\n— Scene links: hooks, threads, cast, fights (2026-10-13) —');
+{
+  const mem = new Map(); globalThis.localStorage = { getItem: (k) => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const cs = await import(join(root, 'src/cast.js'));
+  const gm = await import(join(root, 'src/gm.js'));
+  const st = await import(join(root, 'src/store.js'));
+  const cb = await import(join(root, 'src/combat.js'));
+  const h = gm.rollStoryHook(() => 1);
+  check('a Story Hook rolls every column on the book table', h.plot && h.goal && h.location && h.hazard && h.character && h.rolls.plot === 1);
+  const s = cs.hookToScene(h);
+  check('hook → Where = Location, Who = Character (role in brackets), At stake = Plot + Goal, Hazard kept',
+    s.where === h.location && s.who === 'Bashira (the head of a House Minor’s security)' && s.stakes === 'Break in and steal or kidnap the Secret Data' && s.hazard === h.hazard);
+  const tid = cs.seedFromHook(h);
+  const j = st.getJournal();
+  check('hook seeds a thread, an NPC and a place', j.threads.some((t) => t.id === tid && t.status === 'open') && j.contacts.some((c) => c.name === 'Bashira' && c.type === 'npc') && j.contacts.some((c) => c.type === 'place'));
+  const cast = cs.castOf('Bashira (the head of security), two guards and Kaunos', j.contacts);
+  check('the cast splits Who is here? and matches known NPCs', cast.length === 3 && cast[0].contact && cast[0].contact.name === 'Bashira' && !cast[1].contact);
+  const key = cs.allNpcs().find((n) => n.id === 'assassin').key;
+  st.beginScene({ where: 'Warehouse', who: 'Bashira' });
+  cs.addNpcToScene(cs.npcByKey(key));
+  check('compendium Add to scene → cast + your NPC list, linked to the stat block', /Assassin/.test(st.currentScene().who) && st.getJournal().contacts.some((c) => c.name === 'Assassin' && c.npcKey === key));
+  const me = { id: 'p1', identity: { name: 'Duncan' }, skills: { battle: 7, communicate: 5, discipline: 6, move: 6, understand: 5 }, state: {} };
+  const c1 = cb.fightNpc(null, cs.npcByKey(key), 'duel', me);
+  check('Fight from the scene: new conflict, you on Side A, them on Side B with their pool', c1.active && c1.type === 'duel' && c1.combatants[0].side === 'a' && c1.combatants[1].side === 'b' && c1.combatants[1].npc && c1.combatants[1].skills.battle >= 4);
+  const c2 = cb.fightNpc(c1, cs.npcByKey(key), 'skirmish', me);
+  check('a live conflict gains them on Side B instead', c2.type === 'duel' && c2.combatants.length === 3 && c2.combatants[2].side === 'b');
+  const undo = cs.applyThreadReview({ marks: { [tid]: 'resolved' }, newTitle: 'Who hired the assassin?' });
+  const j2 = st.getJournal();
+  check('End-scene review resolves a thread, adds a new one, writes story lines', j2.threads.find((t) => t.id === tid).status === 'resolved' && j2.threads.some((t) => t.title === 'Who hired the assassin?') && st.getFeed().some((e) => /Thread resolved/.test(e.text)));
+  undo();
+  check('Undo restores the threads and removes the lines', st.getJournal().threads.find((t) => t.id === tid).status === 'open' && !st.getFeed().some((e) => /Thread resolved|New thread/.test(e.text)));
+  const fd = readFileSync(join(root, 'src/feed.js'), 'utf8');
+  check('scene wiring: hook start, cast + thread chips, review at End, drawer actions',
+    /Start from a Story Hook/.test(fd) && /castChips\(scene, c, rerender\)/.test(fd) && /threadChips\(scene, rerender\)/.test(fd) && /reviewThreads\(\)/.test(fd) && /Add as thread & people/.test(fd) && /'Add to scene'/.test(fd));
+  check('cast.js in the app shell', readFileSync(join(root, 'service-worker.js'), 'utf8').includes('./src/cast.js'));
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);

@@ -138,6 +138,7 @@ export async function runLifecycle(kind, onChange, hooks = {}) {
   if (!await confirmModal(confirmMsg, { okLabel: label })) return false;
   const { summary, undo } = applyFn();
   // Story feed: the scene/adventure end posts a divider (inside the scene it closes); Undo takes it back out.
+  if (hooks.first) hooks.first();   // lines that belong inside the closing scene (e.g. thread changes)
   const ev = appendFeed({ kind, text: label, summary });
   if (hooks.before) hooks.before();
   onChange && onChange();
@@ -377,7 +378,7 @@ export function renderDefeat(character, onChange) {
 export function opposingSide(s) { return s === 'a' ? 'b' : 'a'; }
 
 /** Default defeat-track requirement for a dropped-in NPC by tier (minor = one hit). */
-function npcDefaultReq(tier) { return tier === 'minor' ? 1 : tier === 'major' ? 7 : 5; }
+export function npcDefaultReq(tier) { return tier === 'minor' ? 1 : tier === 'major' ? 7 : 5; }
 
 /** §3.7 defeat-track requirement ≈ the defender's relevant (defence) skill + defensive asset
  *  Quality. Defaults to the conflict type's first defence skill; assets are added by the GM. */
@@ -385,6 +386,24 @@ export function defeatRequirementFor(character, conflictTypeId) {
   const t = DATA.conflictTypes.find((x) => x.id === conflictTypeId);
   const defSkill = (t && t.defendSkills && t.defendSkills[0]) || 'discipline';
   return (character.skills && character.skills[defSkill]) || 0;
+}
+
+/** A compendium NPC as a combatant (its pool is stored so the attack flow can roll it). */
+export function npcCombatant(n, side, zoneId) {
+  return { id: uid(), name: n.name, side, zoneId, npc: true, tier: n.tier,
+    skills: { ...n.skills }, drives: { ...n.drives }, focuses: (n.focuses || []).map((f) => ({ ...f })),
+    actedThisRound: false, defeated: false, defeatTrack: { req: npcDefaultReq(n.tier), progress: 0 } };
+}
+/** Fight an NPC from the scene: join the live conflict on Side B, or start one of `typeId` with
+ *  `me` on Side A. Returns the conflict to save. */
+export function fightNpc(conflict, n, typeId, me) {
+  if (conflict && conflict.active) return { ...conflict, combatants: [...conflict.combatants, npcCombatant(n, 'b', conflict.zones[conflict.zones.length - 1].id)] };
+  const c = startConflict(typeId);
+  if (me) c.combatants.push({ id: uid(), charId: me.id, name: me.identity.name || 'Unnamed', side: 'a', zoneId: c.zones[0].id, npc: false,
+    actedThisRound: false, defeated: !!(me.state && me.state.defeated),
+    defeatTrack: { req: defeatRequirementFor(me, typeId), progress: (me.state && me.state.defeatTrack && me.state.defeatTrack.progress) || 0 } });
+  c.combatants.push(npcCombatant(n, 'b', c.zones[1].id));
+  return c;
 }
 
 export function startConflict(type) {
