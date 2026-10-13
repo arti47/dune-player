@@ -1631,3 +1631,56 @@ body.battle .app-header { border-bottom-color: var(--danger); }
 .tv-skill span { font-size: var(--fs-2xs); text-transform: uppercase; color: var(--muted); }
 .tv-skill .tv-tn { color: var(--text); }
 body.simple .intro { display: none; }   /* text diet: explanatory lines step aside in Simple mode (the ? keeps them) */
+
+/* ---------- Scene screen (2026-10-13): play and story joined ---------- */
+.scene-new, .scene-head { position: relative; }
+.scene-new input, .scene-new .scene-title { margin-bottom: var(--sp-2); }
+.scene-new input { width: 100%; }
+.scene-title { margin: 0 0 var(--sp-2); font-size: var(--fs-xl); letter-spacing: .06em; }
+.scene-head-top { display: flex; justify-content: space-between; align-items: center; }
+.scene-meta { margin: 0 0 var(--sp-1); }
+.scene-tools { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-3); }
+.story { list-style: none; margin: 0 0 var(--sp-3); padding: 0 var(--sp-1); display: flex; flex-direction: column; gap: var(--sp-3); }
+.story-line { margin: 0; scroll-margin-bottom: 190px; }
+/* The scene reads like a page: the head scrolls away with it, the choices stay pinned. */
+body:has(.choice-dock) .feed-head { position: static; }
+.story-empty { text-align: center; margin: var(--sp-4) 0; }
+.story-prose { margin: 0; font-size: var(--fs-base); line-height: 1.6; white-space: pre-wrap; position: relative; padding-right: var(--sp-6); }
+.story-prose.frame { font-style: italic; }
+.story-prose .fi-x { position: absolute; top: 0; right: 0; }
+.story-roll { display: flex; gap: var(--sp-2); align-items: baseline; margin: 0; line-height: 1.5; }
+.story-verdict { flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-weight: 700; font-size: var(--fs-sm); }
+.story-verdict.ok { background: var(--ok); }
+.story-verdict.bad { background: var(--danger); }
+.story-line .yes { color: var(--ok); }
+.story-line .no { color: var(--danger); }
+.story-sub { margin: var(--sp-1) 0 0 32px; }
+.story-sub.fi-dice-row { justify-content: flex-start; gap: var(--sp-2); flex-wrap: wrap; }
+.story-sys { margin: 0; color: var(--muted); font-size: var(--fs-md); line-height: 1.5; }
+.story-sys .icon { vertical-align: -2px; color: var(--accent); }
+.narrate { display: flex; gap: var(--sp-2); margin: var(--sp-2) 0 0 32px; }
+.narrate input { flex: 1; min-width: 0; }
+.narrate-comp { margin: var(--sp-2) 0 0 32px; }
+.story.reading { padding: 0; }
+.chapters .more-row { width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; }
+/* What do you do? — pinned above the nav. */
+.choice-dock { position: sticky; bottom: calc(var(--nav-h) + var(--sp-2)); z-index: 6; margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2); border-radius: 18px; border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 95%, transparent); backdrop-filter: blur(8px); box-shadow: 0 6px 20px rgba(0, 0, 0, .2); }
+.choice-q { margin: 0 0 var(--sp-1); text-align: center; font: 600 var(--fs-xs) var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.verbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-1); }
+.verb { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--sp-1) 0; min-width: 0; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; cursor: pointer; }
+.verb:hover, .verb:focus-visible { border-color: var(--accent); }
+.verb .icon { color: var(--accent); }
+.verb-name { font: 600 var(--fs-2xs) var(--display); letter-spacing: -.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verb-num { font-size: var(--fs-2xs); color: var(--muted); }
+.choice-more { display: flex; gap: var(--sp-1); margin-top: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.choice-more::-webkit-scrollbar { display: none; }
+.choice-more .chip { flex: none; white-space: nowrap; }
+body:has(.choice-dock) .toast-region { bottom: auto; top: calc(var(--header-h) + var(--sp-2)); }
+.ritual-action { width: 100%; }
+@media (min-width: 900px) {
+  .hub-body:has(> .choice-dock) { columns: auto; display: block; }
+  .choice-dock { bottom: var(--sp-4); max-width: 620px; margin-left: auto; margin-right: auto; }
+}

@@ -11,14 +11,17 @@ export const HELP = {
   // ---------- first run ----------
   firstRun: {
     steps: [
-      'This is the story feed: everything that happens in your session lands here, newest at the bottom.',
-      'Note — write what you do, or "Frame a scene" to say where you are and what is at stake.',
-      'Roll — pick what you are doing, why it matters, and how hard it is. The app rolls and does the maths.',
-      'End — close a scene or an adventure (the app applies the rules), or start a new session page.',
-      'Tap your picture to open your character sheet. Tap a pool to change it.',
+      'Set the scene: where you are, who is here, what is at stake.',
+      'Pick what you do: Fight, Persuade, Endure, Move or Figure out. Say what you try, pick why it matters, and how hard it is.',
+      'The app rolls and writes the result into the story. Add a line in your own words.',
+      'Write, Ask the oracle (solo), start a Long effort or a Fight whenever the story needs it.',
+      'End the scene to close the chapter. "Story so far" reads every chapter back.',
     ],
-    example: 'Frame a scene → "I slip past the guards" → Roll: Move → Truth → Challenging → Roll. The result posts into the feed.',
+    example: 'Scene: the palace at night, Gurney waits, the Duke’s message at stake → Move: “slip past the guards” → Truth → Challenging → Roll → “Paul tried to slip past the guards — success.”',
   },
+
+  // Scene screen choice verbs (2026-10-13): one plain verb per skill (UI wording, not rules).
+  verbs: { battle: 'Fight', communicate: 'Persuade', discipline: 'Endure', move: 'Move', understand: 'Figure out' },
 
   // ---------- Home (overhaul 2026-10-01) — first-run copy ----------
   home: {

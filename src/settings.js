@@ -68,5 +68,5 @@ export const TOGGLE_DEFS = [
   { flag: 'fallOfImperium', label: 'Fall of the Imperium', desc: 'Campaign sourcebook rules content (stretch).' },
   { flag: 'gmScreen',       label: 'GM screen',            desc: 'Gamemaster dashboard: Threat pool, NPCs, rollable tables.' },
   { flag: 'oracle',         label: 'Meaning Tables',       desc: 'Idea generator in the Journal (homebrew, not official rules) for solo/GM prep — rolls a 4-word spark.' },
-  { flag: 'journal',        label: 'Journal',              desc: 'Solo-play journal tab: dated entries, plot threads, NPCs/places, and a current-scene pad.' },
+  { flag: 'journal',        label: 'Solo play',            desc: 'Solo tools on the scene screen (homebrew, not official rules): Chaos Factor, scene check, yes/no oracle.' },
 ];

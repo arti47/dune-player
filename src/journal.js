@@ -126,7 +126,7 @@ const wordFrom = (id) => {
 };
 
 /** Roll a full random event: focus + whatever it pulls from the journal + two meaning words. */
-function rollEvent(j) {
+export function rollEvent(j) {
   const roll = dN(100);
   const focus = focusForRoll(roll);
   let subject = null;
@@ -135,7 +135,7 @@ function rollEvent(j) {
   return { roll, focus, subject, words: [wordFrom('action'), wordFrom('descriptor')] };
 }
 
-function eventLine(ev) {
+export function eventLine(ev) {
   const subj = ev.subject ? ` (${ev.subject})` : '';
   return `Event — ${ev.focus.label}${subj} · ${ev.words.join(' / ')}`;
 }
@@ -364,7 +364,7 @@ function entriesCard(j, draw) {
 }
 
 // ---------- 4. Threads ----------
-function threadsCard(j, draw) {
+export function threadsCard(j, draw) {
   const open = j.threads.filter((t) => t.status !== 'resolved');
   const done = j.threads.filter((t) => t.status === 'resolved');
   const row = (t) => el('li', { class: 'journal-row' + (t.status === 'resolved' ? ' resolved' : '') },
@@ -386,7 +386,7 @@ function threadsCard(j, draw) {
         undoToast('Thread deleted', () => { saveJournal(before); draw(); });
       } }, icon('trash', { size: 14 }))));
 
-  return collapseCard('threads', `4 · Threads (${open.length} open)`, helpBlock('threads'),
+  return collapseCard('threads', `Threads (${open.length} open)`, helpBlock('threads'),
     el('p', { class: 'small muted' }, 'Open questions and goals to chase. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: async () => {
@@ -400,7 +400,7 @@ function threadsCard(j, draw) {
 }
 
 // ---------- 5. NPCs & places ----------
-function contactsCard(j, draw) {
+export function contactsCard(j, draw) {
   const row = (c) => el('li', { class: 'journal-row' },
     el('div', {},
       el('div', { class: 'journal-title' }, c.name, el('span', { class: 'pill' }, c.type === 'place' ? 'place' : 'NPC')),
@@ -422,7 +422,7 @@ function contactsCard(j, draw) {
     const cur = getJournal(); cur.contacts.push({ id: uid(), name, type, note: '' }); saveJournal(cur); draw();
   };
 
-  return collapseCard('contacts', `5 · NPCs & places (${j.contacts.length})`, helpBlock('contacts'),
+  return collapseCard('contacts', `NPCs & places (${j.contacts.length})`, helpBlock('contacts'),
     el('p', { class: 'small muted' }, 'Who and what you’ve met. Random events draw on this list.'),
     el('div', { class: 'cta-row' },
       el('button', { class: 'btn secondary', onclick: add('npc') }, '+ NPC'),

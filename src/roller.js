@@ -663,7 +663,7 @@ export function openRollDialog(character, onDone = null, preset = {}) {
   function commitAuto() {
     saveCharacter({ ...character, determination: clampDetermination(character.determination - 1) });
     appendRoll({
-      by: character.owner || null, characterName: character.identity.name || 'Unnamed',
+      by: character.owner || null, characterName: character.identity.name || 'Unnamed', action: preset.action || '',
       skill: cfg.skill, drive: cfg.drive, tn: tn(), dice: [],
       successes: effDiff(), complications: 0, momentumDelta: 0, threatDelta: 0,
       note: `Automatic success · ${coolTalent()?.name || 'Cool Under Pressure'} · 1 Determination`,
@@ -720,7 +720,7 @@ export function openRollDialog(character, onDone = null, preset = {}) {
       cfg.appliedTraits.size ? `${cfg.appliedTraits.size} trait${cfg.appliedTraits.size === 1 ? '' : 's'}` : null,
     ].filter(Boolean);
     appendRoll({
-      by: character.owner || null, characterName: character.identity.name || 'Unnamed',
+      by: character.owner || null, characterName: character.identity.name || 'Unnamed', action: preset.action || '',
       skill: cfg.skill, drive: cfg.drive, tn: tn(), dice: result.values.slice(),
       successes, complications, momentumDelta, threatDelta,
       note: `${passed ? 'Success' : 'Failure'} vs Diff ${effDiff()}${extras.length ? ` · ${extras.join(' · ')}` : ''}`,

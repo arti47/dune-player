@@ -34,9 +34,9 @@ const ROUTES = [
   { id: 'home',     label: 'Now',       title: 'Play', hub: 'table', render: renderHome },
   // Scene stays routable (deep links) but its End scene/adventure now live on Now.
   { id: 'scene',    label: 'Scene',     title: 'Scene', hub: 'table', hidden: true, render: renderScene },
-  { id: 'tasks',    label: 'Tasks',     title: 'Extended tasks', hub: 'table', render: renderTaskSeg },
-  { id: 'conflict', label: 'Conflict',  hub: 'table', render: renderConflictSeg },
-  { id: 'journal',  label: 'Journal',   hub: 'table', render: renderJournal, gated: () => Settings.journal() },
+  { id: 'tasks',    label: 'Tasks',     title: 'Extended tasks', hub: 'table', hidden: true, render: renderTaskSeg },
+  { id: 'conflict', label: 'Conflict',  hub: 'table', hidden: true, render: renderConflictSeg },
+  { id: 'journal',  label: 'Journal',   hub: 'table', hidden: true, render: renderJournal, gated: () => Settings.journal() },
   { id: 'rules',    label: 'Rules',     title: 'Rules library', hub: 'library', render: renderRules },
   { id: 'play',     label: 'How to play', hub: 'library', render: renderPlay },
   // Onboarding tutorial (Phase 7, §13 #4): a Library segment, never its own tab.

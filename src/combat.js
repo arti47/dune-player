@@ -132,14 +132,17 @@ const LIFECYCLE_ACTIONS = {
 };
 
 /** Confirm → apply → summary with one-step Undo. Shared by the Scene card and Home's quick action. */
-export async function runLifecycle(kind, onChange) {
+// `hooks.before` runs once the rules have applied (the scene screen closes its scene there); `hooks.undo` runs with the Undo. Resolves true when the end was applied.
+export async function runLifecycle(kind, onChange, hooks = {}) {
   const [label, applyFn, confirmMsg] = LIFECYCLE_ACTIONS[kind];
-  if (!await confirmModal(confirmMsg, { okLabel: label })) return;
+  if (!await confirmModal(confirmMsg, { okLabel: label })) return false;
   const { summary, undo } = applyFn();
-  // Story feed: the scene/adventure end posts a divider; Undo takes it back out.
+  // Story feed: the scene/adventure end posts a divider (inside the scene it closes); Undo takes it back out.
   const ev = appendFeed({ kind, text: label, summary });
+  if (hooks.before) hooks.before();
   onChange && onChange();
-  showSummary(label, summary, () => { undo(); removeFeed(ev.id); }, onChange);
+  showSummary(label, summary, () => { undo(); removeFeed(ev.id); if (hooks.undo) hooks.undo(); }, onChange);
+  return true;
 }
 
 /** A card with the End scene / End adventure controls. `onChange` re-renders the caller. */
@@ -206,6 +209,7 @@ function recordSuccessDialog(task, onChange) {
     saveTasks(tasks);
     close(); onChange && onChange();
     const done = tasks.find((t) => t.id === task.id);
+    appendFeed({ kind: 'task', text: `${task.name}: +${pts} (${done.progress}/${done.requirement})${done.progress >= done.requirement ? ' — complete' : ''}.` });
     showToast(done.progress >= done.requirement ? 'Task complete!' : `+${pts} progress`);
   };
   const close = modal([
@@ -460,6 +464,7 @@ export function renderConflict(onChange) {
       if (me && meBox.checked) c.combatants.push({ id: uid(), charId: me.id, name: me.identity.name || 'Unnamed', side: 'a',
         zoneId: c.zones[0].id, npc: false, actedThisRound: false, defeated: !!(me.state && me.state.defeated),
         defeatTrack: { req: defeatRequirementFor(me, typeId), progress: (me.state && me.state.defeatTrack && me.state.defeatTrack.progress) || 0 } });
+      appendFeed({ kind: 'combat', text: `A ${(DATA.conflictTypes.find((t) => t.id === typeId) || {}).name || 'conflict'} begins.` });
       save(c);
     };
     return el('section', { class: 'card' },
@@ -707,6 +712,8 @@ export function renderConflict(onChange) {
             const defeated = track.req >= 1 && progress >= track.req;
             save({ ...conflict, combatants: conflict.combatants.map((x) => x.id === target.id ? { ...x, defeatTrack: { ...track, progress }, defeated } : x) });
             showToast(`${target.name} hit for ${score}${defeated ? ' — DEFEATED' : ` (${progress}/${track.req})`}`);
+            // Scene story line (2026-10-13): the fight writes itself into the current scene.
+            appendFeed({ kind: 'combat', text: `${attacker.name} hit ${target.name} for ${score}${defeated ? ' — defeated' : ` (${progress}/${track.req})`}.` });
             close();
           } }, `Apply hit (+${DATA.defeat.pointsPerHitBase + st.quality})`));
       } else {
@@ -716,6 +723,7 @@ export function renderConflict(onChange) {
             const pools = getPools();
             savePools({ ...pools, momentum: clampMomentum(pools.momentum + shortfall) });
             showToast(`Defender gains ${shortfall} Momentum`);
+            appendFeed({ kind: 'combat', text: `${attacker.name} attacked ${target.name} and missed — ${target.name}'s side banks ${shortfall} Momentum.` });
             close();
           } }, `Bank ${shortfall} Momentum`));
       }
@@ -828,7 +836,10 @@ export function renderConflict(onChange) {
       el('div', { class: 'sheet-actions' },
         el('button', { class: 'btn secondary danger-btn', onclick: async () => {
           close();
-          if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) save(null);
+          if (await confirmModal('End the conflict? The tracker is cleared.', { okLabel: 'End conflict' })) {
+            appendFeed({ kind: 'combat', text: 'The fight is over.' });
+            save(null);
+          }
         } }, 'End conflict')),
       el('div', { class: 'modal-actions' }, el('button', { class: 'btn', onclick: () => close() }, 'Done')),
     ], { sheet: true });

@@ -1693,10 +1693,10 @@ console.log('\n— UI overhaul · Stage 3: Home dashboard + progressive roll dia
   const sc = readFileSync(join(root, 'src/screens.js'), 'utf8');
   check('Now is the story feed: head with the character + pools when one exists', /renderFeed\(root, current, chars\.length, rerender\)/.test(sc) &&
     /poolsHeader\(c, rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /medallion\(c\.identity, 44\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
-  check('feed dock: Note · Ask (Journal-gated) · Roll (ritual) · End (shared lifecycle)',
-    /openRollRitual\(c, rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /Settings\.journal\(\) \? b\('oracle', 'Ask'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /runLifecycle\('scene', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /b\('pencil', 'Note'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
+  check('scene choices: five skill verbs (ritual) · Write · Ask (solo) · Long effort · Fight · End',
+    /openRollRitual\(c, rerender, \{ skill: s\.id, verb: HELP\.verbs\[s\.id\] \}\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /Settings\.journal\(\) \? chip\('oracle', 'Ask'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /chip\('hourglass', 'Long effort'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /chip\('swords', 'Fight'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
-  check('End scene / End adventure share one confirm → apply → Undo path', /export async function runLifecycle\(kind, onChange\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb));
+  check('End scene / End adventure share one confirm → apply → Undo path (with scene hooks)', /export async function runLifecycle\(kind, onChange, hooks = \{\}\)/.test(cb) && /runLifecycle\(kind, onChange\)/.test(cb) && /hooks\.undo/.test(cb));
   const rl = readFileSync(join(root, 'src/roller.js'), 'utf8');
   check('roll dialog: advanced options collapsed in one group with an "N on" count', /class: 'roll-adv'/.test(rl) && /`\$\{advOn\} on`/.test(rl) && /adv\.open = !!cfg\.advOpen/.test(rl));
   check('roll dialog: Roll/Cancel bar is sticky', /modal-actions sticky-actions/.test(rl) && /\.sticky-actions \{[^}]*position: sticky/.test(readFileSync(join(root, 'styles.css'), 'utf8')));
@@ -1962,7 +1962,7 @@ console.log('\n— Play/Prep split (2026-10-07) —');
   check('roll ritual: skill tiles → drives with statements + TN → Difficulty pips + focus', /export function openRollRitual\(/.test(R('src/ritual.js')) && /DATA\.skills\.map/.test(R('src/ritual.js')) && /sk \+ c\.drives\[id\]/.test(R('src/ritual.js')) && /DATA\.difficulty\.map/.test(R('src/ritual.js')));
   check('ritual hands off to the one engine (autoRoll / More options), FAB uses it', /autoRoll: auto/.test(R('src/ritual.js')) && /if \(preset\.autoRoll\) doRoll\(\)/.test(rl) && /openRollRitual\(cur, rerender\)/.test(hb));
   check('roll dialog accepts a skill preset, validated against DATA.skills', /openRollDialog\(character, onDone = null, preset = \{\}\)/.test(rl) && /SKILLS\.some\(\(s\) => s\.id === preset\.skill\)/.test(rl));
-  check('feed End sheet: End scene + End adventure + New session', /runLifecycle\('scene', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /runLifecycle\('adventure', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /kind: 'session'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
+  check('End sheet: End scene (closes the chapter) + End adventure + New session', /runLifecycle\('scene', rerender, \{/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /endCurrentScene\(\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /runLifecycle\('adventure', rerender\)/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')) && /kind: 'session'/.test(readFileSync(join(root, 'src/feed.js'), 'utf8')));
   check('Prep page: character, wizard, iconic, random, House, Settings', /export function renderPrep\(/.test(hb) && ['startCharacterWizard', 'openPregenPicker', 'startRandomCharacter', 'startHouseWizard', "go('settings')"].every((t) => hb.includes(t)));
 }
 
@@ -1997,7 +1997,7 @@ console.log('\n— Play redesign: story feed (2026-10-07) —');
   const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
   check('scene/adventure end posts a feed divider; Undo removes it', /appendFeed\(\{ kind, text: label, summary \}\)/.test(cb) && /removeFeed\(ev\.id\)/.test(cb));
   const fs = readFileSync(join(root, 'src/feed.js'), 'utf8');
-  check('oracle in the feed is labelled homebrew and only with the Journal on', /homebrew/.test(fs) && /Settings\.journal\(\) \? b\('oracle'/.test(fs));
+  check('oracle on the scene is labelled homebrew and only with solo play on', /homebrew/.test(fs) && /Settings\.journal\(\) \? chip\('oracle'/.test(fs));
   check('feed + ritual in the SW app shell', /'\.\/src\/feed\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')) && /'\.\/src\/ritual\.js'/.test(readFileSync(join(root, 'service-worker.js'), 'utf8')));
   check('feed copy has no hardcoded rules numbers (scene decay from DATA)', /DATA\.momentumRules\.sceneDecay/.test(fs) && !/Momentum −1/.test(fs));
 }
@@ -2010,7 +2010,7 @@ console.log('\n— The rest of the redesign (2026-10-07) —');
   check('theme defaults to dark; an explicit choice wins', Settings.theme() === 'dark' && (Settings.set('theme', 'system'), Settings.theme() === 'system'));
   check('experience levels: player default; veteran turns Simple off', Settings.level() === 'player' && Settings.simple() === true &&
     (Settings.set('level', 'veteran'), Settings.simple() === false) && (Settings.set('level', 'novice'), Settings.simple() === true));
-  check('veteran Roll skips the ritual; novice adds guide lines', /Settings\.level\(\) === 'veteran'\) \{ openRollDialog\(c, onDone\)/.test(R('src/ritual.js')) && /GUIDE\[n\]/.test(R('src/ritual.js')));
+  check('veteran Roll skips the ritual; novice adds guide lines', /Settings\.level\(\) === 'veteran'\) \{ openRollDialog\(c, onDone,/.test(R('src/ritual.js')) && /GUIDE\[n\]/.test(R('src/ritual.js')));
   check('roll sounds: synthesized, off by default, hooked into roll feedback', Settings.sound() === false && /export function rollSound/.test(R('src/ui.js')) && /rollSound\(outcome\);/.test(R('src/ui.js')));
   const rt = R('src/router.js');
   check('nav is two tabs (Library hidden, reached by search + Prep)', /id: 'library',[^}]*nav: false/.test(rt) && /TABS\.filter\(\(t\) => t\.nav !== false\)/.test(rt) && /'Rules library'/.test(R('src/hubs.js')));
@@ -2028,6 +2028,34 @@ console.log('\n— The rest of the redesign (2026-10-07) —');
   check('sheet is a deck: arrows + dot tablist + stacked card', /class: 'deck-dots', role: 'tablist'/.test(R('src/sheet.js')) && /deck-card/.test(R('src/sheet.js')) && /\.deck-card::before/.test(R('styles.css')));
   check('text diet: intro lines step aside in Simple mode', /body\.simple \.intro \{ display: none; \}/.test(R('styles.css')) && /intro' \}/.test(R('src/gm.js')));
   check('palette in the SW app shell', /'\.\/src\/palette\.js'/.test(R('service-worker.js')));
+}
+
+console.log('\n— Scene screen: play and story joined (2026-10-13) —');
+{
+  const mem = new Map(); globalThis.localStorage = { getItem: (k) => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const st = await import(join(root, 'src/store.js'));
+  check('no scene at first; beginScene opens scene 1', st.currentScene() === null && st.beginScene({ where: 'Palace', stakes: 'the message' }).n === 1 && st.currentScene().where === 'Palace');
+  const sid = st.currentScene().id;
+  st.appendRoll({ skill: 'move', drive: 'truth', tn: 13, dice: [3, 9], successes: 2, action: 'slip past the guards', note: 'Success vs Diff 1' });
+  const ev = st.appendFeed({ kind: 'note', text: 'They never saw me.' });
+  check('rolls and lines are stamped with the open scene', st.getRollLog()[0].sceneId === sid && ev.sceneId === sid && st.getRollLog()[0].action === 'slip past the guards');
+  st.endCurrentScene();
+  check('ending closes the scene; the next one is scene 2', st.currentScene() === null && st.getStory().scenes[0].ended && st.beginScene({}).n === 2);
+  st.updateScene(sid, { ended: false });
+  check('story in the backup + game wipe', !!st.exportAll().story && st.WIPE_CATEGORIES.game.keys.includes('imperium.story'));
+  const fd = readFileSync(join(root, 'src/feed.js'), 'utf8');
+  check('roll written as an outcome sentence from the real result', /tried to \$\{r\.action\}/.test(fd) && /passed \? 'success' : 'failure'/.test(fd));
+  check('under the newest roll: say-what-happened + name the complication as a trait (§3.6)', /Say what happened/.test(fd) && /source: 'complication'/.test(fd) && /if \(r\.complications\)/.test(fd));
+  check('new scene: where / who / at stake + solo scene check', /Where are you\?/.test(fd) && /Who is here\?/.test(fd) && /What is at stake\?/.test(fd) && /sceneCheckLine\(\)/.test(fd));
+  check('chapters + threads/people drawer folded in from the Journal', /function chaptersSheet\(/.test(fd) && /threadsCard\(j, draw\), contactsCard\(j, draw\)/.test(fd));
+  check('solo End scene moves Chaos and Undo restores it', /chaosAfterScene\(before, inControl\)/.test(fd) && /setChaos\(before\)/.test(fd));
+  const cb = readFileSync(join(root, 'src/combat.js'), 'utf8');
+  check('fights and long efforts write into the scene', (cb.match(/appendFeed\(\{ kind: 'combat'/g) || []).length >= 3 && /appendFeed\(\{ kind: 'task'/.test(cb));
+  const rt = readFileSync(join(root, 'src/router.js'), 'utf8');
+  check('Tasks, Conflict and Journal leave the section bar (still routable)', ['tasks', 'conflict', 'journal'].every((id) => new RegExp(`id: '${id}',[^}]*hidden: true`).test(rt)));
+  const { HELP } = await import(join(root, 'data-help.js'));
+  check('one verb per skill, no rules digits', Object.keys(HELP.verbs).length === 5 && Object.values(HELP.verbs).every((v) => !/\d/.test(v)));
+  check('Meaning Tables spark goes into the open scene', /if \(currentScene\(\)\) appendFeed/.test(readFileSync(join(root, 'src/oracle.js'), 'utf8')));
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed.');

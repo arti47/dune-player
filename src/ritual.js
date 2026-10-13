@@ -23,11 +23,14 @@ const GUIDE = [
   'The GM says how many successes you need. A focus makes more dice count double.',
 ];
 
-export function openRollRitual(c, onDone = null) {
+// `opts.skill` (the scene screen's verb buttons) starts on the drive step; `opts.verb` adds a
+// "What do you try?" line whose text rides into the roll log as the action (scene story line).
+export function openRollRitual(c, onDone = null, opts = {}) {
   if (!c) return;
+  const preSkill = DATA.skills.some((s) => s.id === opts.skill) ? opts.skill : null;
   // Veteran level: straight to the full roll dialog.
-  if (Settings.level() === 'veteran') { openRollDialog(c, onDone); return; }
-  const st = { step: 0, skill: null, drive: null, difficulty: 1, focus: false };
+  if (Settings.level() === 'veteran') { openRollDialog(c, onDone, { skill: preSkill, action: opts.action || '' }); return; }
+  const st = { step: preSkill ? 1 : 0, skill: preSkill, drive: null, difficulty: 1, focus: false, action: opts.action || '' };
   const body = el('div', { class: 'ritual' });
   let close = () => {};
   const drives = () => Object.keys(c.drives || {}).sort((a, b) => c.drives[b] - c.drives[a]);
@@ -52,7 +55,11 @@ export function openRollRitual(c, onDone = null) {
 
   function stepDrive() {
     const sk = c.skills[st.skill];
+    const actionBox = opts.verb ? el('input', { type: 'text', class: 'ritual-action', value: st.action,
+      placeholder: `${opts.verb}… what exactly? (optional)`, 'aria-label': 'What do you try?' }) : null;
+    if (actionBox) actionBox.addEventListener('input', () => { st.action = actionBox.value; });
     return [head('Why does it matter?', 1),
+      actionBox,
       el('div', { class: 'ritual-list' }, ...drives().map((id) => {
         const s = c.driveStatements && c.driveStatements[id];
         const tag = (DATA.drives.find((d) => d.id === id) || {}).tag || '';
@@ -74,7 +81,7 @@ export function openRollRitual(c, onDone = null) {
     const pool = DATA.dicePool.base;
     const roll = (auto) => () => {
       close();
-      openRollDialog(c, onDone, { skill: st.skill, drive: st.drive, difficulty: st.difficulty, focus: st.focus, autoRoll: auto });
+      openRollDialog(c, onDone, { skill: st.skill, drive: st.drive, difficulty: st.difficulty, focus: st.focus, autoRoll: auto, action: st.action.trim() });
     };
     return [head('How hard is it?', 2),
       el('div', { class: 'ritual-diff', role: 'radiogroup', 'aria-label': 'Difficulty' }, ...DATA.difficulty.map((x) =>
@@ -98,7 +105,7 @@ export function openRollRitual(c, onDone = null) {
   function draw() {
     const kids = [stepSkill, stepDrive, stepDifficulty][st.step]();
     body.replaceChildren(...kids.filter((k) => k != null));
-    const first = body.querySelector('button.ritual-tile, button.ritual-row, .ritual-go');
+    const first = body.querySelector('input.ritual-action') || body.querySelector('button.ritual-tile, button.ritual-row, .ritual-go');
     if (first) first.focus({ preventScroll: true });
   }
   draw();   // first step before the modal opens, so the dialog takes its name from the heading

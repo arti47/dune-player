@@ -50,8 +50,12 @@ function sceneIntro(rerender) {
     el('button', { class: 'chip', onclick: () => { Settings.set('sceneIntroDone', true); rerender(); } }, icon('check', { size: 14 }), 'Got it — hide this'));
 }
 
+// Tasks and Conflict are launched from the scene's choices (2026-10-13), so each leads back to it.
+const backToStory = () => el('div', { class: 'battle-top' },
+  el('button', { class: 'chip', onclick: () => { location.hash = '#/home'; } }, icon('undo', { size: 14 }), 'Back to the story'));
+
 export function renderTaskSeg(root, rerender) {
-  root.append(renderTasks(rerender));
+  root.append(backToStory(), renderTasks(rerender));
 }
 
 export function renderConflictSeg(root, rerender) {
@@ -64,9 +68,8 @@ export function renderConflictSeg(root, rerender) {
   if (live) {
     const t = document.querySelector('#app-screen'); if (t) t.textContent = 'Battle';
     setSwipe(null);   // the section bar is hidden, so swiping to other sections is off too
-    root.append(el('div', { class: 'battle-top' },
-      el('button', { class: 'chip', onclick: () => { location.hash = '#/home'; } }, icon('undo', { size: 14 }), 'Back to the story')));
   }
+  root.append(backToStory());
   root.append(poolsHeader(activeCharacter(), rerender), renderConflict(rerender));
 }
 

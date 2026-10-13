@@ -7,7 +7,7 @@
 import { el, dN } from './core.js';
 import { ORACLE } from '../data-oracle.js';
 import { modal, showToast } from './ui.js';
-import { appendToSceneNotes } from './store.js';
+import { appendToSceneNotes, appendFeed, currentScene } from './store.js';
 
 function rollTable(t) { return t.words[dN(100) - 1]; }
 function rollAll() { return ORACLE.tables.map((t) => ({ id: t.id, label: t.label, word: rollTable(t) })); }
@@ -22,7 +22,8 @@ export function openOracle() {
   const box = el('div', { class: 'oracle-modal' });
 
   function addToScene() {
-    appendToSceneNotes(labeledLine(rolls));
+    // With a scene open on the Play tab, the spark goes into its story; otherwise to the Journal pad.
+    if (currentScene()) appendFeed({ kind: 'note', text: labeledLine(rolls) }); else appendToSceneNotes(labeledLine(rolls));
     // Refresh the current screen so the Journal's scene pad shows the new line if it's open.
     window.dispatchEvent(new HashChangeEvent('hashchange'));
     showToast('Added to scene notes');

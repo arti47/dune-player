@@ -1,25 +1,30 @@
-// feed.js — the Play tab's story feed (Play redesign, 2026-10-07).
+// feed.js — the Play tab: the scene screen (2026-10-13; story feed since 2026-10-07).
 //
-// The session as one timeline, oldest at the top: rolls (from the roll log), notes, scene framing,
-// scene/adventure ends, session starts, oracle answers and Journal entries, merged by time. A
-// compact head shows who you are, the pools (drawn as objects) and anything live (a conflict,
-// open tasks, a defeat). A dock at the bottom holds the four things you do at the table: Roll ·
-// Note · Ask (only with the Journal on — the yes/no oracle is homebrew) · End. No rules live here:
-// rolls go through the ritual → roller.js, scene/adventure ends through combat.runLifecycle.
+// Play and journalling are one thing: the current scene (where · who · at stake), the story so far
+// (rolls written as outcome sentences, your lines as prose, oracle answers, fight and task lines),
+// and "What do you do?" choices — five skill verbs plus Write · Ask (solo) · Long effort · Fight ·
+// End. Ended scenes read back as chapters; threads and NPCs/places live in a drawer. A compact head
+// shows who you are, the pools and anything live. No rules live here: rolls go through the ritual →
+// roller.js, scene/adventure ends through combat.runLifecycle; Chaos/oracle/scene check are the
+// Journal's homebrew solo tools, shown only with solo play on.
 
-import { el } from './core.js';
-import { icon, emptyState, sceneBand } from './icons.js';
+import { el, dN } from './core.js';
+import { icon, sceneBand } from './icons.js';
 import { medallion } from './crests.js';
 import { poolsHeader } from './sheet.js';
 import { openRollRitual } from './ritual.js';
 import { runLifecycle } from './combat.js';
-import { askOracle, answerText, yesChanceFor } from './journal.js';
-import { modal, showToast, undoToast } from './ui.js';
+import { askOracle, answerText, yesChanceFor, sceneCheck, chaosAfterScene, rollEvent, eventLine, threadsCard, contactsCard } from './journal.js';
+import { hookCard, npcCard } from './gm.js';
+import { openOracle } from './oracle.js';
+import { HELP } from '../data-help.js';
+import { modal, showToast, undoToast, promptModal } from './ui.js';
 import { help, setAppHelp } from './help.js';
 import { startHouseWizard } from './wizard.js';
 import { Settings } from './settings.js';
 import {
   getFeed, appendFeed, removeFeed, restoreFeed, getRollLog, getConflict, getTasks, getJournal, getHouse,
+  getStory, currentScene, beginScene, updateScene, endCurrentScene, setChaos, getCharacter, saveCharacter,
 } from './store.js';
 import { driveName } from './content.js';
 import { DATA } from '../data.js';
@@ -29,12 +34,13 @@ const SKILL_NAME = Object.fromEntries(DATA.skills.map((s) => [s.id, s.name]));
 const FEED_SHOWN = 80;
 
 /** Merge rolls, feed events and (optionally) Journal entries into one time-ordered list. Pure. */
-export function feedItems({ rolls = [], feed = [], entries = [] } = {}) {
-  return [
+export function feedItems({ rolls = [], feed = [], entries = [], limit = FEED_SHOWN } = {}) {
+  const all = [
     ...rolls.map((r) => ({ kind: 'roll', ts: r.ts || 0, r })),
     ...feed,
     ...entries.map((e) => ({ kind: 'entry', ts: e.ts || 0, e })),
-  ].sort((a, b) => a.ts - b.ts).slice(-FEED_SHOWN);
+  ].sort((a, b) => a.ts - b.ts);
+  return limit ? all.slice(-limit) : all;
 }
 
 /** Session/scene counters for the head: scenes ended since the last session divider. Pure. */
@@ -81,31 +87,231 @@ export function nextUpFor(c, { house, rolls, dismissed = [] } = {}) {
   if (st.defeated) return { id: 'defeat', text: 'You are defeated — resist, stabilise or start recovery.', action: 'Open sheet', go: 'sheet' };
   const challenged = stmts.find(([, s]) => s && s.challenged);
   if (challenged) return { id: 'challenged', text: 'A drive statement is challenged — recover it when you get the chance.', action: 'Open sheet', go: 'sheet' };
-  if (!rolls) return { id: 'firstRoll', text: 'Say what you do. When it’s risky, tap Roll.', action: 'Roll', go: 'roll' };
+  if (!rolls) return { id: 'firstRoll', text: 'Pick what you do below — the app rolls and writes the result into the story.', action: 'Roll', go: 'roll' };
   if (!house && !dismissed.includes('house')) return { id: 'house', text: 'Your group has no House yet — it’s the shared home base for your characters.', action: 'Create a House', go: 'house', dismissible: true };
   return null;
 }
 
+// ===== Scene screen (2026-10-13) =====
+// Play is one scene at a time, read like a story. Top: the scene (where · who · at stake).
+// Middle: what has happened — rolls written as outcome sentences, your lines as prose, oracle
+// answers, fight and task progress. Bottom: "What do you do?" — five verbs, one per skill, plus
+// Write · Ask (solo) · Long effort · Fight · End. Every roll goes through the ritual → roller.js,
+// so the rules are unchanged; the scene only decides where the result is written.
 export function renderFeed(root, c, count, rerender) {
   setAppHelp(help('firstRun', 'What do I do here?'));
   const feed = getFeed();
-  const items = feedItems({ rolls: getRollLog(), feed, entries: Settings.journal() ? getJournal().entries : [] });
-  const list = el('ol', { class: 'feed', 'aria-label': 'Session feed', 'aria-live': 'polite' },
-    ...items.map((it) => el('li', { class: `feed-item kind-${it.kind}` }, ...itemBody(it, rerender))));
+  const scene = currentScene();
+  const all = feedItems({ rolls: getRollLog(), feed, entries: Settings.journal() ? getJournal().entries : [], limit: 0 });
   const table = Settings.get('playView') === 'table';
+  const lines = scene ? all.filter((it) => sceneOf(it) === scene.id) : [];
+  const list = el('ol', { class: 'story', 'aria-label': 'This scene so far', 'aria-live': 'polite' },
+    ...lines.map((it, i) => el('li', { class: `story-line kind-${it.kind}` }, ...lineBody(it, rerender, i === lines.length - 1 ? c : null))));
   root.append(...[
-    head(c, count, sessionInfo(feed), rerender),
+    head(c, count, { session: sessionInfo(feed).session, scene: scene ? scene.n : getStory().scenes.length + 1 }, rerender),
     table ? tableView(c, rerender) : null,
-    !table && !items.length ? el('div', { class: 'feed-empty' }, sceneBand('play'),
-      el('p', { class: 'feed-empty-title' }, 'Scene 1'),
-      el('p', { class: 'small muted' }, 'Where are you, who is there, and what is at stake? Frame it with Note, then play.')) : null,
-    table ? null : list,
-    !table && isNewSitting(items) && !welcomedBack ? beginCard(items, rerender) : null,
-    table ? null : nextUp(c, rerender),
-    dock(c, rerender),
+    scene ? sceneHeader(scene, rerender) : newSceneCard(c, rerender),
+    scene && !table ? (lines.length ? list : el('p', { class: 'story-empty small muted' }, 'Nothing has happened yet. What do you do?')) : null,
+    isNewSitting(all) && !welcomedBack ? beginCard(all, rerender) : null,
+    nextUp(c, rerender, scene),
+    scene ? choices(c, rerender) : null,
   ].filter(Boolean));
-  // Newest at the bottom, like a conversation: open on it.
+  // The newest line sits just above the choices, like the page of a book you are writing.
   requestAnimationFrame(() => { const last = list.lastElementChild; if (last) last.scrollIntoView({ block: 'end' }); });
+}
+
+/** Which scene a line belongs to (legacy lines have none). */
+function sceneOf(it) { return it.kind === 'roll' ? it.r.sceneId : it.kind === 'entry' ? it.e.sceneId : it.sceneId; }
+
+// ----- the scene: begin · header · read back -----
+function newSceneCard(c, rerender) {
+  const n = getStory().scenes.length + 1;
+  const f = (label, ph) => el('input', { type: 'text', placeholder: ph, 'aria-label': label });
+  const where = f('Where are you?', 'Where are you? (the Arrakeen palace, at night)');
+  const who = f('Who is here?', 'Who is here? (Gurney, two guards)');
+  const stakes = f('What is at stake?', 'What is at stake? (the Duke’s message)');
+  const begin = (check) => () => {
+    beginScene({ where: where.value.trim(), who: who.value.trim(), stakes: stakes.value.trim() });
+    if (check) sceneCheckLine();
+    rerender();
+  };
+  return el('section', { class: 'card scene-new' },
+    sceneBand('play'),
+    el('p', { class: 'eyebrow' }, `Scene ${n}`),
+    el('h2', { class: 'scene-title' }, 'Set the scene'),
+    where, who, stakes,
+    el('div', { class: 'cta-row' },
+      el('button', { class: 'btn', onclick: begin(false) }, icon('flag', { size: 18 }), ' Begin scene'),
+      Settings.journal() ? el('button', { class: 'btn secondary', onclick: begin(true) }, 'Begin + scene check') : null),
+    Settings.journal() ? el('p', { class: 'small muted' }, `Scene check rolls a d10 against Chaos ${getJournal().chaos} — homebrew solo tool.`) : null);
+}
+
+function sceneCheckLine() {
+  const j = getJournal();
+  const roll = dN(10);
+  const outcome = sceneCheck(j.chaos, roll);
+  const o = ORACLE.chaos.outcomes[outcome];
+  const ev = outcome === 'interrupted' ? rollEvent(j) : null;
+  appendFeed({ kind: 'check', text: `Scene check: ${o.label} — ${o.desc}`, detail: `d10 ${roll} vs Chaos ${j.chaos}`, event: ev ? eventLine(ev) : null });
+}
+
+function sceneHeader(scene, rerender) {
+  const j = getJournal();
+  return el('section', { class: 'card scene-head' },
+    el('div', { class: 'scene-head-top' },
+      el('p', { class: 'eyebrow' }, `Scene ${scene.n}`),
+      Settings.journal() ? el('button', { class: 'chip', 'aria-label': `Chaos Factor ${j.chaos} — adjust`, onclick: () => chaosSheet(rerender) },
+        icon('chaos', { size: 14 }), `Chaos ${j.chaos}`) : null),
+    el('h2', { class: 'scene-title' }, scene.where || 'An unnamed place'),
+    scene.who ? el('p', { class: 'scene-meta' }, el('span', { class: 'muted' }, 'Here: '), scene.who) : null,
+    scene.stakes ? el('p', { class: 'scene-meta' }, el('span', { class: 'muted' }, 'At stake: '), scene.stakes) : null,
+    el('div', { class: 'scene-tools' },
+      el('button', { class: 'chip', onclick: () => editScene(scene, rerender) }, icon('pencil', { size: 14 }), 'Edit'),
+      el('button', { class: 'chip', onclick: () => chaptersSheet() }, icon('scroll', { size: 14 }), 'Story so far'),
+      el('button', { class: 'chip', onclick: () => notesDrawer(rerender) }, icon('list', { size: 14 }), 'Threads & people')));
+}
+
+function editScene(scene, rerender) {
+  const f = (label, v) => { const i = el('input', { type: 'text', 'aria-label': label, placeholder: label }); i.value = v || ''; return i; };
+  const where = f('Where are you?', scene.where), who = f('Who is here?', scene.who), stakes = f('What is at stake?', scene.stakes);
+  const close = modal([el('h2', {}, `Scene ${scene.n}`), where, who, stakes,
+    el('div', { class: 'modal-actions' },
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: () => {
+        updateScene(scene.id, { where: where.value.trim(), who: who.value.trim(), stakes: stakes.value.trim() }); close(); rerender();
+      } }, 'Save'))], { sheet: true });
+}
+
+function chaosSheet(rerender) {
+  const val = el('span', { class: 'pool-sheet-val num' }, String(getJournal().chaos));
+  const bump = (d) => () => { setChaos(getJournal().chaos + d); val.textContent = String(getJournal().chaos); };
+  modal([el('h2', {}, 'Chaos Factor'), el('p', { class: 'small' }, ORACLE.chaos.note),
+    el('div', { class: 'pool-sheet-step' },
+      el('button', { class: 'step-btn big', 'aria-label': 'Lower Chaos', onclick: bump(-1) }, '−'), val,
+      el('button', { class: 'step-btn big', 'aria-label': 'Raise Chaos', onclick: bump(1) }, '+')),
+    el('p', { class: 'small muted' }, 'Homebrew solo tool, not official rules.')], { sheet: true, onClose: rerender });
+}
+
+/** Threads and NPCs & places, folded in from the old Journal tab, plus opposition and sparks. */
+function notesDrawer(rerender) {
+  const box = el('div', {});
+  const draw = () => { const j = getJournal(); box.replaceChildren(threadsCard(j, draw), contactsCard(j, draw), hookCard(), npcCard()); };
+  draw();
+  modal([el('h2', {}, 'Threads & people'), box], { sheet: true, onClose: rerender });
+}
+
+/** Read back the story chapter by chapter (each ended scene is a chapter). */
+function chaptersSheet() {
+  const scenes = getStory().scenes;
+  const all = feedItems({ rolls: getRollLog(), feed: getFeed(), entries: getJournal().entries, limit: 0 });
+  const legacy = all.filter((it) => !sceneOf(it));
+  const read = (title, items) => () => modal([el('h2', {}, title),
+    items.length ? el('ol', { class: 'story reading' }, ...items.map((it) => el('li', { class: `story-line kind-${it.kind}` }, ...lineBody(it, null, null))))
+      : el('p', { class: 'small muted' }, 'Nothing was recorded in this scene.')], { sheet: true });
+  const row = (title, sub, items) => el('li', {}, el('button', { class: 'more-row', onclick: read(title, items) },
+    el('span', { class: 'more-text' }, el('strong', {}, title), el('span', { class: 'small muted' }, sub)),
+    el('span', { class: 'more-chev', 'aria-hidden': 'true' }, '›')));
+  modal([el('h2', {}, 'The story so far'),
+    el('ul', { class: 'more-list chapters' }, ...[
+      legacy.length ? row('Before chapters', `${legacy.length} earlier lines`, legacy) : null,
+      ...scenes.map((sc) => {
+        const items = all.filter((it) => sceneOf(it) === sc.id);
+        return row(`Chapter ${sc.n} · ${sc.where || 'An unnamed place'}`,
+          [sc.stakes ? `At stake: ${sc.stakes}` : null, sc.ended ? `${items.length} lines` : 'Now playing'].filter(Boolean).join(' · '), items);
+      }),
+    ].filter(Boolean))], { sheet: true });
+}
+
+// ----- story lines -----
+/** One line of the story. `narrateFor` (the character) adds the "say what happened" box under the
+ *  newest roll; read-back passes null. */
+function lineBody(it, rerender, narrateFor) {
+  if (it.kind === 'roll') return rollLine(it.r, rerender, narrateFor);
+  if (it.kind === 'note' || it.kind === 'frame') {
+    const del = rerender ? el('button', { class: 'fi-x', 'aria-label': 'Remove line', onclick: () => {
+      const all = getFeed(); removeFeed(it.id); rerender();
+      undoToast('Line removed', () => { restoreFeed(all); rerender(); });
+    } }, icon('close', { size: 14 })) : null;
+    return [el('p', { class: 'story-prose' + (it.kind === 'frame' ? ' frame' : '') }, it.text, del)];
+  }
+  if (it.kind === 'oracle') {
+    return [el('p', { class: 'story-sys' }, icon('oracle', { size: 14 }), ` ${it.question ? `“${it.question}” — ` : 'Oracle — '}`,
+      el('strong', { class: it.yes ? 'yes' : 'no' }, it.answer)),
+    el('p', { class: 'small muted story-sub' }, `${it.tierLabel} ${it.chance}% · rolled ${it.roll} · homebrew oracle`)];
+  }
+  if (it.kind === 'check') {
+    return [el('p', { class: 'story-sys' }, icon('chaos', { size: 14 }), ` ${it.text}`),
+      it.event ? el('p', { class: 'small story-sub' }, it.event) : null,
+      el('p', { class: 'small muted story-sub' }, `${it.detail} · homebrew solo tool`)];
+  }
+  if (it.kind === 'combat' || it.kind === 'task') {
+    return [el('p', { class: 'story-sys' }, icon(it.kind === 'combat' ? 'swords' : 'hourglass', { size: 14 }), ` ${it.text}`)];
+  }
+  if (it.kind === 'entry') {
+    return [it.e.title ? el('p', { class: 'story-sys' }, icon('scroll', { size: 14 }), ` ${it.e.title}`) : null, el('p', { class: 'story-prose' }, it.e.body)];
+  }
+  // scene / adventure end, session start
+  const label = it.kind === 'session' ? `Session · ${new Date(it.ts).toLocaleDateString()}` : it.text;
+  return [el('div', { class: 'fi-divider' }, el('span', {}, label)),
+    it.summary && it.summary.length ? el('details', { class: 'fi-summary' }, el('summary', { class: 'small muted' }, 'What changed'),
+      el('ul', { class: 'small' }, ...it.summary.map((s) => el('li', {}, s)))) : null];
+}
+
+/** A roll as an outcome sentence (from the real result), the dice, and — under the newest roll —
+ *  a box to say what happened, plus a prompt to name a complication as a trait (§3.6). */
+function rollLine(r, rerender, narrateFor) {
+  const passed = /^Success|Automatic success/.test(r.note || '');
+  const who = r.characterName || 'You';
+  const verb = (HELP.verbs || {})[r.skill];
+  const did = r.action ? `tried to ${r.action}` : `${verb ? verb.toLowerCase() : 'tested'} (${SKILL_NAME[r.skill] || r.skill} + ${driveName(r.drive)})`;
+  const facts = [`${r.successes} success${r.successes === 1 ? '' : 'es'}`, `TN ${r.tn}`,
+    r.momentumDelta ? `${r.momentumDelta > 0 ? '+' : ''}${r.momentumDelta} Momentum` : null,
+    r.threatDelta ? `${r.threatDelta > 0 ? '+' : ''}${r.threatDelta} Threat` : null,
+    r.complications ? `${r.complications} complication${r.complications === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ');
+  const out = [
+    el('p', { class: 'story-roll' },
+      el('span', { class: 'story-verdict ' + (passed ? 'ok' : 'bad') }, passed ? '✓' : '✗'),
+      el('span', {}, el('strong', {}, who), ` ${did} — `, el('strong', { class: passed ? 'yes' : 'no' }, passed ? 'success' : 'failure'), '.')),
+    el('div', { class: 'story-sub fi-dice-row' },
+      el('span', { class: 'fi-dice' }, ...(r.dice || []).map((v) => el('span', { class: 'fi-die' + (v === 1 ? ' crit' : v >= 20 ? ' comp' : v <= r.tn ? ' hit' : '') }, String(v)))),
+      el('span', { class: 'small muted' }, facts)),
+  ];
+  if (narrateFor && rerender) {
+    const say = el('input', { type: 'text', placeholder: passed ? 'Say what happened…' : 'Say how it went wrong…', 'aria-label': 'Say what happened' });
+    const post = () => { if (!say.value.trim()) return; appendFeed({ kind: 'note', text: say.value.trim(), characterName: narrateFor.identity.name || '' }); rerender(); };
+    say.addEventListener('keydown', (e) => { if (e.key === 'Enter') post(); });
+    out.push(el('div', { class: 'narrate' }, say, el('button', { class: 'btn btn-sm', onclick: post }, 'Add')));
+    if (r.complications) out.push(el('button', { class: 'chip narrate-comp', onclick: async () => {
+      const name = await promptModal('Name the complication — it becomes a trait on your character until it stops being true.', { placeholder: 'e.g. Twisted ankle', okLabel: 'Add trait' });
+      if (!name) return;
+      const ch = getCharacter(narrateFor.id) || narrateFor;
+      saveCharacter({ ...ch, traits: [...(ch.traits || []), { name, negative: true, source: 'complication' }] });
+      appendFeed({ kind: 'note', text: `Complication: ${name}.`, characterName: ch.identity.name || '' });
+      rerender();
+    } }, icon('plus', { size: 14 }), 'Name the complication'));
+  }
+  return out;
+}
+
+// ----- choices: what do you do? -----
+const SKILL_ICO = { battle: 'swords', communicate: 'group', discipline: 'shield', move: 'up', understand: 'compass' };
+function choices(c, rerender) {
+  const verb = (s) => el('button', { class: 'verb', 'aria-label': `${HELP.verbs[s.id]} — ${s.name} ${c.skills[s.id]}`,
+    onclick: () => openRollRitual(c, rerender, { skill: s.id, verb: HELP.verbs[s.id] }) },
+    icon(SKILL_ICO[s.id] || 'd20', { size: 20 }), el('span', { class: 'verb-name' }, HELP.verbs[s.id]),
+    el('span', { class: 'verb-num num' }, String(c.skills[s.id])));
+  const chip = (ico, label, fn) => el('button', { class: 'chip', onclick: fn }, icon(ico, { size: 14 }), label);
+  const go = (id) => () => { location.hash = `#/${id}`; };
+  return el('nav', { class: 'choice-dock', 'aria-label': 'What do you do?' },
+    el('p', { class: 'choice-q' }, 'What do you do?'),
+    el('div', { class: 'verbs' }, ...DATA.skills.map(verb)),
+    el('div', { class: 'choice-more' },
+      chip('pencil', 'Write', () => noteSheet(c, rerender)),
+      Settings.journal() ? chip('oracle', 'Ask', () => askSheet(rerender)) : null,
+      Settings.oracle() ? chip('star', 'Spark', () => { openOracle(); }) : null,
+      chip('hourglass', 'Long effort', go('tasks')),
+      chip('swords', 'Fight', go('conflict')),
+      chip('flag', 'End', () => endSheet(rerender))));
 }
 
 // ----- session ritual: welcome back → recap → begin -----
@@ -128,6 +334,33 @@ function beginCard(items, rerender) {
       el('button', { class: 'btn', onclick: () => { appendFeed({ kind: 'session' }); rerender(); } }, icon('star', { size: 18 }), ' Begin session'),
       el('button', { class: 'chip', onclick: () => { welcomedBack = true; rerender(); } }, 'Not now')));
 }
+/** End scene: (solo) were you in control? → Chaos ±1; then the §3.17 rules bundle, and the scene
+ *  closes as a chapter. One Undo takes back all of it. */
+async function endScene(rerender) {
+  const solo = Settings.journal();
+  const before = getJournal().chaos;
+  let inControl = null;
+  if (solo) { inControl = await askInControl(); if (inControl == null) return; }
+  const scene = currentScene();
+  await runLifecycle('scene', rerender, {
+    before: () => { endCurrentScene(); if (solo) setChaos(chaosAfterScene(before, inControl)); },
+    undo: () => { if (scene) updateScene(scene.id, { ended: false, endTs: null }); if (solo) setChaos(before); },
+  });
+}
+function askInControl() {
+  return new Promise((resolve) => {
+    let done = false;
+    const answer = (v) => () => { done = true; close(); resolve(v); };
+    const close = modal([el('h2', {}, 'End of scene'),
+      el('p', {}, 'Were you in control as the scene ended? In control lowers Chaos; out of control raises it (homebrew).'),
+      el('div', { class: 'modal-actions' },
+        el('button', { class: 'btn secondary', onclick: answer(null) }, 'Cancel'),
+        el('button', { class: 'btn secondary', onclick: answer(false) }, 'Not in control (+1)'),
+        el('button', { class: 'btn', onclick: answer(true) }, 'In control (−1)'))],
+    { onClose: () => { if (!done) resolve(null); } });
+  });
+}
+
 /** End → New session: show the recap of the session that's closing, then post the divider. */
 function newSession(rerender) {
   const items = feedItems({ rolls: getRollLog(), feed: getFeed(), entries: Settings.journal() ? getJournal().entries : [] });
@@ -179,56 +412,10 @@ function head(c, count, info, rerender) {
     live.length ? el('div', { class: 'live-row' }, ...live) : null);
 }
 
-// ----- feed items -----
-function itemBody(it, rerender) {
-  const time = el('time', { class: 'fi-time small muted' }, new Date(it.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  if (it.kind === 'roll') {
-    const r = it.r;
-    const passed = /^Success|Automatic success/.test(r.note || '');
-    const dice = (r.dice || []).map((v) => el('span', { class: 'fi-die' + (v === 1 ? ' crit' : v >= 20 ? ' comp' : v <= r.tn ? ' hit' : '') }, String(v)));
-    const deltas = [r.momentumDelta ? `${r.momentumDelta > 0 ? '+' : ''}${r.momentumDelta} Momentum` : null,
-      r.threatDelta ? `${r.threatDelta > 0 ? '+' : ''}${r.threatDelta} Threat` : null,
-      r.complications ? `${r.complications} complication${r.complications === 1 ? '' : 's'}` : null].filter(Boolean);
-    return [
-      el('div', { class: 'fi-line' }, icon('d20', { size: 16 }),
-        el('strong', {}, `${SKILL_NAME[r.skill] || r.skill} + ${driveName(r.drive)}`),
-        el('span', { class: 'small muted' }, `TN ${r.tn}`), time),
-      el('div', { class: 'fi-dice-row' }, el('span', { class: 'fi-dice' }, ...dice),
-        el('span', { class: 'fi-verdict ' + (passed ? 'ok' : 'bad') }, passed ? `✓ ${r.successes}` : `✗ ${r.successes}`)),
-      deltas.length ? el('p', { class: 'small muted fi-sub' }, deltas.join(' · ')) : null,
-      r.characterName ? el('p', { class: 'small muted fi-sub' }, r.characterName) : null,
-    ];
-  }
-  if (it.kind === 'scene' || it.kind === 'adventure' || it.kind === 'session') {
-    const label = it.kind === 'session' ? `Session · ${new Date(it.ts).toLocaleDateString()}` : it.text;
-    return [el('div', { class: 'fi-divider' }, el('span', {}, label)),
-      it.summary && it.summary.length ? el('details', { class: 'fi-summary' }, el('summary', { class: 'small muted' }, 'What changed'),
-        el('ul', { class: 'small' }, ...it.summary.map((s) => el('li', {}, s)))) : null];
-  }
-  if (it.kind === 'oracle') {
-    return [el('div', { class: 'fi-line' }, icon('oracle', { size: 16 }), el('strong', {}, it.question || 'Oracle'), time),
-      el('p', { class: 'fi-answer ' + (it.yes ? 'yes' : 'no') }, it.answer),
-      el('p', { class: 'small muted fi-sub' }, `${it.tierLabel} ${it.chance}% · rolled ${it.roll} · homebrew oracle`)];
-  }
-  if (it.kind === 'entry') {
-    return [el('div', { class: 'fi-line' }, icon('scroll', { size: 16 }), el('strong', {}, it.e.title || 'Journal'), time),
-      el('p', { class: 'fi-text' }, it.e.body)];
-  }
-  // note / frame (posted from the dock)
-  const del = el('button', { class: 'fi-x', 'aria-label': 'Remove note', onclick: () => {
-    const all = getFeed();
-    removeFeed(it.id); rerender();
-    undoToast('Note removed', () => { restoreFeed(all); rerender(); });
-  } }, icon('close', { size: 14 }));
-  return [it.kind === 'frame'
-    ? el('div', { class: 'fi-frame' }, el('span', { class: 'eyebrow' }, 'Scene'), el('p', {}, it.text), del)
-    : el('div', { class: 'fi-note' }, el('p', {}, it.text), el('span', { class: 'fi-note-meta' }, it.characterName ? el('span', { class: 'small muted' }, it.characterName) : null, time, del))];
-}
-
-function nextUp(c, rerender) {
+function nextUp(c, rerender, scene) {
   const dismissed = Settings.get('homeDismissed') || [];
   const n = nextUpFor(c, { house: getHouse(), rolls: getRollLog().length, dismissed });
-  if (!n) return null;
+  if (!n || (n.id === 'firstRoll' && !scene)) return null;   // set the scene first; then the choices appear
   const go = () => n.go === 'roll' ? openRollRitual(c, rerender) : n.go === 'house' ? startHouseWizard() : (location.hash = `#/${n.go}`);
   return el('div', { class: 'feed-next' },
     icon('flag', { size: 16 }),
@@ -237,28 +424,17 @@ function nextUp(c, rerender) {
     n.dismissible ? el('button', { class: 'chip', onclick: () => { Settings.set('homeDismissed', [...dismissed, n.id]); rerender(); } }, 'Not now') : null);
 }
 
-// ----- dock: Roll · Note · Ask · End -----
-function dock(c, rerender) {
-  const b = (ico, label, onclick, cls = '') => el('button', { class: 'dock-btn ' + cls, onclick, 'aria-label': label },
-    icon(ico, { size: cls.includes('dock-roll') ? 26 : 20 }), el('span', {}, label));
-  return el('nav', { class: 'feed-dock', 'aria-label': 'Play actions' },
-    b('pencil', 'Note', () => noteSheet(c, rerender)),
-    Settings.journal() ? b('oracle', 'Ask', () => askSheet(rerender)) : null,
-    b('d20', 'Roll', () => openRollRitual(c, rerender), 'dock-roll'),
-    b('flag', 'End', () => endSheet(rerender)));
-}
-
 function noteSheet(c, rerender) {
-  const text = el('textarea', { rows: '3', placeholder: 'What happens? What do you do?', 'aria-label': 'Note' });
+  const text = el('textarea', { rows: '3', placeholder: 'What happens? Write it in your own words.', 'aria-label': 'Story line' });
   const post = (kind) => () => {
     if (!text.value.trim()) { showToast('Write something first'); return; }
     appendFeed({ kind, text: text.value.trim(), characterName: c.identity.name || '' });
     close(); rerender();
   };
-  const close = modal([el('h2', {}, 'Add to the story'), text,
+  const close = modal([el('h2', {}, 'Write the story'), text,
     el('div', { class: 'modal-actions' },
-      el('button', { class: 'btn secondary', onclick: post('frame') }, 'Frame a scene'),
-      el('button', { class: 'btn', onclick: post('note') }, 'Post note'))], { sheet: true });
+      el('button', { class: 'btn secondary', onclick: () => close() }, 'Cancel'),
+      el('button', { class: 'btn', onclick: post('note') }, 'Add to the story'))], { sheet: true });
   setTimeout(() => text.focus(), 50);
 }
 
@@ -283,7 +459,7 @@ function endSheet(rerender) {
     el('span', { class: 'intent-text' }, el('strong', {}, title), el('span', { class: 'small muted' }, sub)));
   const close = modal([el('h2', {}, 'End or begin'),
     el('div', { class: 'intent' },
-      row('hourglass', 'End scene', `Momentum −${DATA.momentumRules.sceneDecay}, temporary assets expire.`, () => runLifecycle('scene', rerender)),
+      row('hourglass', 'End scene', `Close this chapter. Momentum −${DATA.momentumRules.sceneDecay}, temporary assets expire.`, () => endScene(rerender)),
       row('flag', 'End adventure', 'Determination resets, challenged statements recover.', () => runLifecycle('adventure', rerender)),
       row('star', 'New session', 'See a recap, then start a fresh page. No rules change.', () => newSession(rerender)))],
   { sheet: true });
